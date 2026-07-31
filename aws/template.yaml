@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: HOYA BIT crypto market research Agent MVP
+
+Parameters:
+  CodeBucket:
+    Type: String
+  CodeKey:
+    Type: String
+  LLMSecretArn:
+    Type: String
+    Default: ''
+  LLMProvider:
+    Type: String
+    Default: gemini
+    AllowedValues: [gemini, openai]
+  GeminiModel:
+    Type: String
+    Default: gemini-3.6-flash
+  OpenAIModel:
+    Type: String
+    Default: gpt-4o-mini
+
+Conditions:
+  HasLLMSecret: !Not [!Equals [!Ref LLMSecretArn, '']]
+
+Resources:
+  AgentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - !If
+          - HasLLMSecret
+          - PolicyName: ReadLLMSecret
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref LLMSecretArn
+          - !Ref AWS::NoValue
+
+  AgentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: hoyabit-market-research-agent
+      Runtime: python3.12
+      Handler: lambda_handler.handler
+      Role: !GetAtt AgentRole.Arn
+      # 900s is the Lambda maximum and must exceed the orchestrator's 720s (7+3+2 min) ceiling --
+      # at the previous 300s the function was killed mid-run whenever the crawl phase ran long.
+      Timeout: 900
+      MemorySize: 1024
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Environment:
+        Variables:
+          LLM_SECRET_ARN: !Ref LLMSecretArn
+          LLM_PROVIDER: !Ref LLMProvider
+          GEMINI_MODEL: !Ref GeminiModel
+          OPENAI_MODEL: !Ref OpenAIModel
+
+  AgentFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt AgentFunction.Arn
+      AuthType: NONE
+      Cors:
+        AllowOrigins: ['*']
+        AllowMethods: [GET, POST]
+        AllowHeaders: ['content-type']
+
+  AgentFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AgentFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: '*'
+      FunctionUrlAuthType: NONE
+
+  AgentFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AgentFunction
+      Action: lambda:InvokeFunction
+      Principal: '*'
+      InvokedViaFunctionUrl: true
+
+Outputs:
+  PublicUrl:
+    Description: Public HOYA BIT Agent Demo URL
+    Value: !GetAtt AgentFunctionUrl.FunctionUrl

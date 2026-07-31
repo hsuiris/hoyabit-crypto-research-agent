@@ -1,0 +1,4 @@
+interface:
+  display_name: "Crypto Research Solution Architect"
+  short_description: "Design high-level end-to-end architectures for the crypto market-research agent"
+  default_prompt: "Act as a senior Solution Architect. Design a high-level end-to-end reference architecture for this crypto market-research agent, with logical zones, component responsibilities, explicit market-data/evidence-signal/control/report flows, protocols, resilience/fallback strategy, Mermaid output, and a formal enterprise architecture image."

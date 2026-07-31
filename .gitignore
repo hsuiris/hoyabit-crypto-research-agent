@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Secrets
+.env
+
+# Build artifacts
+aws/.build/
+dist/
+server.*.log
+
+# Generated analysis output. `outputs-*/` does not cover the bare `outputs/` directory, so it is
+# listed separately -- that gap is how outputs/ ended up tracked in the first place.
+outputs/
+outputs-*/
+
+# demo-fixtures/ is deliberately NOT ignored: the offline demo tier depends on those files being
+# committed. Regenerate them with scripts, never delete them as "generated output".

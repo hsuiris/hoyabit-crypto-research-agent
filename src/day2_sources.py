@@ -1,0 +1,913 @@
+"""Day 2 data adapters with safe offline fallbacks."""
+
+from __future__ import annotations
+
+import json
+import re
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from datetime import datetime, timezone
+from html import unescape
+from urllib.parse import quote, urlparse
+from urllib.robotparser import RobotFileParser
+from urllib.request import Request, urlopen
+from xml.etree import ElementTree
+
+from .day1_mvp import Evidence, mock_evidence
+from .vegas_strategy import analyze_vegas_channel, check_timeframe_alignment
+
+
+COIN_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin", "XRP": "ripple"}
+FUTURES_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT", "BNB": "BNBUSDT", "XRP": "XRPUSDT"}
+
+# Curated, source-verified large exchange wallets (Etherscan/BscScan public tags, cross-checked
+# 2026-07-28 against live balances). Not a live whale-discovery feed: SOL/XRP have no free, no-key
+# balance API for a verified address list yet, so they intentionally raise NotImplementedError.
+KNOWN_WHALE_ADDRESSES = {
+    "BTC": [
+        {"label": "Binance Cold Wallet 1", "address": "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo"},
+        {"label": "Binance Cold Wallet 2", "address": "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6"},
+    ],
+    "ETH": [
+        {"label": "Binance 7", "address": "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8"},
+        {"label": "Binance Hot Wallet 20", "address": "0xf977814e90da44bfa03b6295a0616a897441acec"},
+    ],
+    "BNB": [
+        {"label": "Binance 7 (BSC)", "address": "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8"},
+        {"label": "Binance Hot Wallet 20 (BSC)", "address": "0xf977814e90da44bfa03b6295a0616a897441acec"},
+    ],
+}
+
+WHALE_EXPLORER_URL = {
+    "BTC": "https://www.blockchain.com/explorer/addresses/btc/{address}",
+    "ETH": "https://etherscan.io/address/{address}",
+    "BNB": "https://bscscan.com/address/{address}",
+}
+
+# Official project feeds, probed 2026-07-31. ETH/BTC/SOL publish a real first-party feed.
+# Ripple and BNB Chain do not expose a working public RSS/Atom endpoint (ripple.com/insights/feed
+# is 404; bnbchain.org/en/blog/feed serves HTML; binance.com announcement feeds answer 202 with an
+# empty body behind bot protection), so those two fall back to a Google News feed *restricted to the
+# official domains*. That is second-hand syndication, not a first-party feed -- it is labelled and
+# scored differently below so the distinction stays visible in the evidence table.
+OFFICIAL_FEEDS = {
+    "ETH": [("Ethereum Foundation Blog", "https://blog.ethereum.org/en/feed.xml", True)],
+    "BTC": [("Bitcoin Optech Newsletter", "https://bitcoinops.org/feed.xml", True)],
+    "SOL": [("Solana Official News", "https://solana.com/news/rss.xml", True)],
+    "XRP": [("Google News (restricted to ripple.com / xrpl.org)",
+             "https://news.google.com/rss/search?q=" + quote("site:ripple.com OR site:xrpl.org"), False)],
+    "BNB": [("Google News (restricted to bnbchain.org / binance.com announcements)",
+             "https://news.google.com/rss/search?q=" + quote("site:bnbchain.org OR site:binance.com/en/support/announcement"), False)],
+}
+
+ATOM_NS = "{http://www.w3.org/2005/Atom}"
+
+
+def _get_json(url: str, timeout: int = 8) -> dict:
+    request = Request(url, headers={"User-Agent": "agent-team-mvp/0.1"})
+    with urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _get_text(url: str, timeout: int = 8) -> str:
+    request = Request(url, headers={"User-Agent": "agent-team-mvp/0.1"})
+    with urlopen(request, timeout=timeout) as response:
+        return response.read().decode("utf-8").strip()
+
+
+def _post_json(url: str, payload: dict, timeout: int = 8) -> dict:
+    request = Request(url, data=json.dumps(payload).encode(), headers={"User-Agent": "agent-team-mvp/0.1", "Content-Type": "application/json"}, method="POST")
+    with urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def fetch_coingecko(coin: str = "ETH", days: int = 14) -> Evidence:
+    """Fetch market data; raise on network failure so caller can fallback."""
+    coin = coin.upper()
+    coin_id = COIN_IDS[coin]
+    url = f"https://api.coingecko.com/api/v3/coins/{quote(coin_id)}/market_chart?vs_currency=usd&days={days}"
+    payload = _get_json(url)
+    prices = payload.get("prices", [])
+    if not prices:
+        raise ValueError("CoinGecko returned no prices")
+    first, last = prices[0][1], prices[-1][1]
+    volumes = [point[1] for point in payload.get("total_volumes", [])]
+    content = {
+        "start_price": first, "end_price": last, "return_pct": round((last / first - 1) * 100, 2),
+        "prices": [point[1] for point in prices],
+        "dates": [datetime.fromtimestamp(point[0] / 1000, tz=timezone.utc).strftime("%Y-%m-%d") for point in prices],
+    }
+    if len(volumes) == len(prices):
+        content["volumes"] = volumes
+    return Evidence(
+        "EV-MARKET-001", "CoinGecko", url, datetime.now(timezone.utc).isoformat(),
+        "market", coin, f"{days}d", content, 0.90,
+        {"endpoint": url, "query": {"vs_currency": "usd", "days": days}, "points": len(prices)}, f"{coin} {days}-day market return"
+    )
+
+
+def fetch_funding_rate(coin: str = "ETH") -> Evidence:
+    """Fetch the current perpetual-futures funding rate from Binance's public (no-key) endpoint.
+
+    A positive rate means longs pay shorts (long side is crowded / paying a premium to stay open);
+    a negative rate means shorts pay longs (short side is crowded). Magnitude, not just sign, matters:
+    most of the time funding sits within roughly +/-0.01% per 8h window.
+    """
+    coin = coin.upper()
+    symbol = FUTURES_SYMBOLS[coin]
+    url = f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={quote(symbol)}"
+    payload = _get_json(url)
+    rate = payload.get("lastFundingRate")
+    if rate is None:
+        raise ValueError("Binance returned no funding rate")
+    funding_rate_pct = round(float(rate) * 100, 4)
+    if funding_rate_pct > 0.01:
+        bias = "long_crowded"
+    elif funding_rate_pct < -0.01:
+        bias = "short_crowded"
+    else:
+        bias = "balanced"
+    return Evidence(
+        f"EV-DERIV-{coin}-001", "Binance Futures", url, datetime.now(timezone.utc).isoformat(),
+        "derivatives", coin, "current", {
+            "symbol": symbol, "funding_rate_pct": funding_rate_pct, "bias": bias,
+            "mark_price": payload.get("markPrice"), "next_funding_time": payload.get("nextFundingTime"),
+        }, 0.75,
+        {"endpoint": url, "symbol": symbol, "raw_funding_rate": rate}, f"{coin} perpetual-futures funding rate and long/short crowding bias"
+    )
+
+
+def fetch_whale_wallets(coin: str = "ETH") -> Evidence:
+    """Re-check balances for a small curated list of publicly known large exchange wallets.
+
+    This is a free/no-key proxy for whale tracking, not a live whale-discovery feed: it does not
+    find new large holders, it re-queries a fixed, source-cited address list against free public
+    balance endpoints (blockchain.info for BTC, public JSON-RPC for ETH/BNB).
+    """
+    coin = coin.upper()
+    addresses = KNOWN_WHALE_ADDRESSES.get(coin)
+    if not addresses:
+        raise NotImplementedError(f"Whale wallet tracking is not yet supported for {coin}")
+
+    wallets = []
+    if coin == "BTC":
+        source_url = "https://blockchain.info/balance?active=" + "|".join(item["address"] for item in addresses)
+        payload = _get_json(source_url)
+        for item in addresses:
+            balance = payload.get(item["address"], {}).get("final_balance")
+            if balance is None:
+                raise ValueError(f"blockchain.info returned no balance for {item['address']}")
+            wallets.append({**item, "balance": round(balance / 1e8, 4), "explorer_url": WHALE_EXPLORER_URL["BTC"].format(address=item["address"])})
+    else:
+        source_url = "https://ethereum.publicnode.com" if coin == "ETH" else "https://bsc-dataseed.binance.org/"
+        for item in addresses:
+            result = _post_json(source_url, {"jsonrpc": "2.0", "id": 1, "method": "eth_getBalance", "params": [item["address"], "latest"]})
+            hex_balance = result.get("result")
+            if not hex_balance:
+                raise ValueError(f"{source_url} returned no balance for {item['address']}")
+            wallets.append({**item, "balance": round(int(hex_balance, 16) / 1e18, 4), "explorer_url": WHALE_EXPLORER_URL[coin].format(address=item["address"])})
+
+    return Evidence(
+        f"EV-WHALE-{coin}-001", "Public balance check (curated known addresses)", source_url, datetime.now(timezone.utc).isoformat(),
+        "whale", coin, "current", {"wallets": wallets, "note": "僅追蹤已知大型交易所/機構地址的即時餘額，非全網即時巨鯨偵測"}, 0.65,
+        {"addresses": [item["address"] for item in addresses]}, f"Known large-wallet balance snapshot for {coin}"
+    )
+
+
+def fetch_klines(symbol: str, interval: str, limit: int = 1000) -> list[dict]:
+    """Fetch OHLCV candles from Binance's public spot klines endpoint (free, no key required)."""
+    url = f"https://api.binance.com/api/v3/klines?symbol={quote(symbol)}&interval={interval}&limit={limit}"
+    raw = _get_json(url)
+    if not raw:
+        raise ValueError(f"Binance klines returned no data for {symbol} {interval}")
+    return [{"close": float(row[4]), "high": float(row[2]), "low": float(row[3]), "volume": float(row[5])} for row in raw]
+
+
+def fetch_vegas_signal(coin: str = "ETH") -> Evidence:
+    """Vegas Channel (EMA144-987) + RSI(6) + volume-confirmed entry/exit, per the user-supplied
+    Pine Script. Runs on two timeframes: 4h for trend context, 1h for the execution trigger --
+    this needs ~1000 bars per timeframe to seed EMA987, which is why it fetches Binance klines
+    directly instead of reusing the project's usual 14-day evidence window.
+    """
+    coin = coin.upper()
+    symbol = FUTURES_SYMBOLS[coin]
+    timeframes = {}
+    for timeframe in ("4h", "1h"):
+        candles = fetch_klines(symbol, timeframe, limit=1000)
+        timeframes[timeframe] = analyze_vegas_channel(candles)
+    alignment = check_timeframe_alignment("4h", timeframes["4h"]["trend"], "1h", timeframes["1h"]["trend"])
+
+    return Evidence(
+        f"EV-VEGAS-{coin}-001", "Binance Klines (Vegas Channel + RSI strategy)",
+        f"https://api.binance.com/api/v3/klines?symbol={symbol}", datetime.now(timezone.utc).isoformat(),
+        "vegas_channel", coin, "4h trend / 1h execution", {
+            "symbol": symbol, "trend_timeframe": "4h", "execution_timeframe": "1h",
+            "4h": timeframes["4h"], "1h": timeframes["1h"], "alignment": alignment,
+        }, 0.70,
+        {"symbol": symbol, "bars_per_timeframe": 1000}, f"{coin} Vegas Channel + RSI(6) entry/exit state on 4h trend and 1h execution timeframes"
+    )
+
+
+def fetch_long_short_ratio(coin: str = "ETH", period: str = "1h", limit: int = 24) -> Evidence:
+    """Top-trader long/short POSITION ratio (position size, not account headcount) from Binance's
+    free public futures-data endpoint. Includes recent history for charting, plus a "feasibility"
+    percentage: how much of the recent window agrees with the current long/short bias.
+    """
+    coin = coin.upper()
+    symbol = FUTURES_SYMBOLS[coin]
+    url = f"https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol={quote(symbol)}&period={period}&limit={limit}"
+    rows = _get_json(url)
+    if not rows:
+        raise ValueError(f"Binance returned no long/short ratio data for {symbol}")
+
+    history = [{
+        "time": datetime.fromtimestamp(int(row["timestamp"]) / 1000, tz=timezone.utc).isoformat(),
+        "long_pct": round(float(row["longAccount"]) * 100, 2),
+        "short_pct": round(float(row["shortAccount"]) * 100, 2),
+        "ratio": round(float(row["longShortRatio"]), 4),
+    } for row in rows]
+
+    current = history[-1]
+    bias = "long_dominant" if current["ratio"] > 1.02 else "short_dominant" if current["ratio"] < 0.98 else "balanced"
+    current_is_long = current["ratio"] > 1.0
+    same_side = sum(1 for point in history if (point["ratio"] > 1.0) == current_is_long)
+    consistency_pct = round(same_side / len(history) * 100, 1)
+
+    return Evidence(
+        f"EV-LSRATIO-{coin}-001", "Binance Futures Data (top-trader position ratio)", url, datetime.now(timezone.utc).isoformat(),
+        "long_short_ratio", coin, f"last {limit}x{period}", {
+            "symbol": symbol, "period": period, "history": history, "current": current,
+            "bias": bias, "consistency_pct": consistency_pct,
+        }, 0.70,
+        {"endpoint": url, "points": len(history)}, f"{coin} top-trader long/short position ratio and bias consistency"
+    )
+
+
+# DefiLlama addresses chains by their own slug rather than by ticker.
+DEFILLAMA_CHAINS = {"BTC": "Bitcoin", "ETH": "Ethereum", "BNB": "BSC", "SOL": "Solana", "XRP": "XRPL"}
+
+
+def fetch_defillama_tvl(coin: str = "ETH", days: int = 90) -> Evidence:
+    """Total value locked on the coin's own chain, from DefiLlama's free no-key API.
+
+    TVL is the closest free proxy for on-chain economic activity that is comparable across chains:
+    unlike price it is not a market expectation, so a price move that TVL does not confirm is a
+    genuine divergence worth flagging. The daily history also gives the report a fundamentals
+    series to chart next to price.
+    """
+    coin = coin.upper()
+    chain = DEFILLAMA_CHAINS.get(coin)
+    if chain is None:
+        raise NotImplementedError(f"DefiLlama chain mapping not available for {coin}")
+    url = f"https://api.llama.fi/v2/historicalChainTvl/{quote(chain)}"
+    rows = _get_json(url)
+    if not isinstance(rows, list) or len(rows) < 2:
+        raise ValueError(f"DefiLlama returned no TVL history for {chain}")
+
+    history = [{
+        "time": datetime.fromtimestamp(int(row["date"]), tz=timezone.utc).date().isoformat(),
+        "tvl_usd": round(float(row["tvl"]), 2),
+    } for row in rows if row.get("tvl") is not None][-days:]
+    if len(history) < 2:
+        raise ValueError(f"DefiLlama TVL history for {chain} is too short to trend")
+
+    current, earliest = history[-1]["tvl_usd"], history[0]["tvl_usd"]
+    change_pct = round((current - earliest) / earliest * 100, 2) if earliest else None
+    # 30-day slope is what separates "high TVL" from "TVL currently growing"; both matter and they
+    # frequently disagree, so the report carries the shorter window as well as the full one.
+    month = history[-31:] if len(history) >= 31 else history
+    change_30d_pct = round((current - month[0]["tvl_usd"]) / month[0]["tvl_usd"] * 100, 2) if month[0]["tvl_usd"] else None
+    direction = (
+        "expanding" if change_30d_pct is not None and change_30d_pct > 3
+        else "contracting" if change_30d_pct is not None and change_30d_pct < -3
+        else "flat" if change_30d_pct is not None else "unknown"
+    )
+
+    return Evidence(
+        f"EV-TVL-{coin}-001", f"DefiLlama chain TVL ({chain})", url, datetime.now(timezone.utc).isoformat(),
+        "tvl", coin, f"last {len(history)}d", {
+            "chain": chain, "history": history, "tvl_usd": current,
+            "change_pct": change_pct, "change_30d_pct": change_30d_pct, "direction": direction,
+        }, 0.75,
+        {"endpoint": url, "points": len(history)}, f"{coin} chain TVL level and trend as an on-chain fundamentals signal"
+    )
+
+
+# Google News search gives per-coin coverage but its <description> is only a repeat of the headline
+# as a link, so it can never yield more than title-level information. These publisher feeds carry a
+# real 1-3 sentence lede in <description>, which is what lifts the summary above headline level.
+NEWS_LEDE_FEEDS = (
+    ("Cointelegraph", "https://cointelegraph.com/rss"),
+    ("Decrypt", "https://decrypt.co/feed"),
+)
+_NEWS_LEDE_MAX_CHARS = 420
+
+
+def _coin_aliases(coin: str) -> tuple[str, ...]:
+    names = {"BTC": ("bitcoin",), "ETH": ("ethereum", "ether"), "SOL": ("solana",),
+             "BNB": ("binance coin", "bnb chain"), "XRP": ("ripple",)}
+    return (coin.lower(),) + names.get(coin.upper(), ())
+
+
+def _mentions_coin(text: str, coin: str) -> bool:
+    lowered = text.lower()
+    return any(alias in lowered for alias in _coin_aliases(coin))
+
+
+# Publishers whose article pages are fetchable without JS and whose robots.txt permits it (verified
+# 2026-07-31). Google News links are deliberately absent: they are JS redirect pages that yield no
+# text, and news.google.com/robots.txt disallows everything for *.
+FULLTEXT_DOMAINS = {"cointelegraph.com", "decrypt.co"}
+_FULLTEXT_MAX_CHARS = 4000
+_ROBOTS_CACHE: dict[str, RobotFileParser | None] = {}
+
+
+def _robots_allows(url: str, user_agent: str = "hoyabit-research-agent") -> bool:
+    """Check robots.txt before fetching an article. Cached per host; unreadable means do not crawl.
+
+    robots.txt is fetched with our own User-Agent rather than via `RobotFileParser.read()`: that
+    helper uses the bare `Python-urllib` agent, which these publishers reject with 403, and the
+    parser then interprets the 403 as `disallow_all` -- refusing pages the site actually permits.
+    """
+    host = urlparse(url).netloc
+    if host not in _ROBOTS_CACHE:
+        parser = RobotFileParser()
+        try:
+            body = _get_bytes(f"https://{host}/robots.txt", timeout=8).decode("utf-8", errors="replace")
+            parser.parse(body.splitlines())
+        except Exception:
+            parser = None  # unreadable robots.txt is treated as "do not crawl"
+        _ROBOTS_CACHE[host] = parser
+    parser = _ROBOTS_CACHE[host]
+    return bool(parser and parser.can_fetch(user_agent, url))
+
+
+def _extract_article_text(html: str) -> str:
+    """Pull the article body out of a page with regex only (no third-party parser available).
+
+    Paragraphs are filtered by a price-token density test because crypto publishers wrap articles in
+    live ticker widgets; those render as <p> blocks full of symbols and percentages and would
+    otherwise dominate the extracted text.
+    """
+    body = re.sub(r"(?is)<(script|style|nav|header|footer|aside|form)[^>]*>.*?</\1>", " ", html)
+    kept = []
+    for raw in re.findall(r"(?is)<p[^>]*>(.*?)</p>", body):
+        text = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", raw))).strip()
+        if len(text) < 80:
+            continue
+        tokens = text.split()
+        ticker_like = sum(1 for token in tokens if token.startswith("$") or token.endswith("%"))
+        if tokens and ticker_like / len(tokens) > 0.2:
+            continue
+        kept.append(text)
+    return "\n".join(kept)[:_FULLTEXT_MAX_CHARS]
+
+
+def enrich_with_fulltext(items: list[dict], deadline: float | None = None, timeout: int = 8,
+                         max_articles: int = 8) -> list[dict]:
+    """Fetch article bodies for whitelisted domains, stopping at the deadline.
+
+    Every article is independent: a timeout, a 403 or a robots.txt refusal downgrades that one item
+    back to lede level and never affects the rest. `deadline` is an absolute time.monotonic() value
+    so the crawl phase can be capped without the caller tracking elapsed time.
+    """
+    fetched = 0
+    for item in items:
+        if fetched >= max_articles:
+            break
+        if deadline is not None and time.monotonic() >= deadline:
+            item["fulltext_status"] = "skipped:deadline"
+            continue
+        url = item.get("url") or ""
+        if urlparse(url).netloc.removeprefix("www.") not in FULLTEXT_DOMAINS:
+            item["fulltext_status"] = "skipped:not_whitelisted"
+            continue
+        if not _robots_allows(url):
+            item["fulltext_status"] = "skipped:robots"
+            continue
+        try:
+            html = _get_bytes(url, timeout=timeout).decode("utf-8", errors="replace")
+            text = _extract_article_text(html)
+        except Exception as error:
+            item["fulltext_status"] = f"failed:{type(error).__name__}"
+            continue
+        fetched += 1
+        if text:
+            item["fulltext"] = text
+            item["fulltext_chars"] = len(text)
+            item["fulltext_status"] = "ok"
+        else:
+            item["fulltext_status"] = "empty"
+    return items
+
+
+def fetch_news_rss(coin: str = "ETH", feed_url: str | None = None, limit: int = 5,
+                   fulltext: bool = False, deadline: float | None = None) -> Evidence:
+    """Recent news, preferring articles that ship a lede over headline-only search results.
+
+    Publisher feeds are best-effort enrichment: each one is tried independently and a failure just
+    means fewer summarised articles, never a failed news fetch, because Google News still provides
+    the coin-specific coverage that the general publisher feeds cannot guarantee.
+    """
+    coin = coin.upper()
+    feed_url = feed_url or f"https://news.google.com/rss/search?q={quote(coin)}%20crypto"
+
+    items: list[dict] = []
+    seen_titles: set[str] = set()
+    for publisher, url in NEWS_LEDE_FEEDS:
+        try:
+            for entry in _parse_feed_entries(_get_bytes(url, timeout=6), limit=25):
+                text = f"{entry['title']} {entry.get('summary', '')}"
+                if not entry["title"] or not _mentions_coin(text, coin):
+                    continue
+                if entry["title"].lower() in seen_titles:
+                    continue
+                seen_titles.add(entry["title"].lower())
+                items.append({**entry, "publisher": publisher, "has_summary": bool(entry.get("summary"))})
+        except Exception:
+            continue
+
+    request = Request(feed_url, headers={"User-Agent": "agent-team-mvp/0.1"})
+    with urlopen(request, timeout=8) as response:
+        root = ElementTree.fromstring(response.read())
+    search_items = []
+    for item in root.findall(".//item")[:limit]:
+        title = item.findtext("title", "")
+        if title.lower() in seen_titles:
+            continue
+        search_items.append({
+            "title": title, "url": item.findtext("link", ""), "published": item.findtext("pubDate", ""),
+            "summary": "", "publisher": item.findtext("source", "") or "Google News", "has_summary": False,
+        })
+    # Lede-carrying articles lead; the search feed tops the list up to `limit` for coverage.
+    items = (items[:limit] + search_items)[:limit]
+    if not items:
+        raise ValueError("RSS returned no articles")
+
+    if fulltext:
+        enrich_with_fulltext(items, deadline=deadline)
+
+    with_summary = sum(1 for item in items if item["has_summary"])
+    with_fulltext = sum(1 for item in items if item.get("fulltext"))
+    return Evidence(
+        "EV-NEWS-001", "Google News RSS + publisher feeds", feed_url, datetime.now(timezone.utc).isoformat(),
+        "news", coin, "14d",
+        {"items": items, "summarised_count": with_summary, "fulltext_count": with_fulltext}, 0.60,
+        {"feed_url": feed_url, "article_count": len(items), "with_lede": with_summary,
+         "with_fulltext": with_fulltext, "items": items},
+        f"Recent news context for {coin}"
+    )
+
+
+def _get_bytes(url: str, timeout: int = 8) -> bytes:
+    request = Request(url, headers={"User-Agent": "agent-team-mvp/0.1"})
+    with urlopen(request, timeout=timeout) as response:
+        return response.read()
+
+
+def _strip_html(raw: str, max_chars: int = 420) -> str:
+    """Reduce a feed summary to plain text: feeds wrap ledes in markup and entity escapes."""
+    text = re.sub(r"<[^>]+>", " ", raw or "")
+    text = unescape(text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= max_chars:
+        return text
+    # Prefer cutting at a sentence end so the lede does not stop mid-clause.
+    cut = text[:max_chars]
+    boundary = max(cut.rfind("。"), cut.rfind("! "), cut.rfind("? "), cut.rfind(". "))
+    return (cut[: boundary + 1] if boundary > max_chars * 0.5 else cut).strip() + "…"
+
+
+def _parse_feed_entries(raw: bytes, limit: int = 5) -> list[dict]:
+    """Parse either RSS 2.0 (<item>) or Atom (<entry>) into a common shape.
+
+    Both are needed: Ethereum/Solana publish RSS while Bitcoin Optech publishes Atom. `summary` is
+    the article lede when the feed provides one and an empty string when it does not, so callers
+    can tell headline-only sources from ones carrying real content.
+    """
+    root = ElementTree.fromstring(raw)
+    entries = [{
+        "title": (item.findtext("title") or "").strip(),
+        "url": (item.findtext("link") or "").strip(),
+        "published": (item.findtext("pubDate") or "").strip(),
+        "summary": _strip_html(item.findtext("description") or ""),
+    } for item in root.findall(".//item")[:limit]]
+    if entries:
+        return entries
+    for entry in root.findall(f".//{ATOM_NS}entry")[:limit]:
+        link = entry.find(f"{ATOM_NS}link")
+        entries.append({
+            "title": (entry.findtext(f"{ATOM_NS}title") or "").strip(),
+            "url": (link.get("href") if link is not None else "") or "",
+            "published": (entry.findtext(f"{ATOM_NS}updated") or entry.findtext(f"{ATOM_NS}published") or "").strip(),
+            "summary": _strip_html(
+                entry.findtext(f"{ATOM_NS}summary") or entry.findtext(f"{ATOM_NS}content") or ""
+            ),
+        })
+    return entries
+
+
+def fetch_macro(coin: str = "ETH") -> Evidence:
+    """Market-wide macro backdrop: the Crypto Fear & Greed Index plus the latest Federal Reserve
+    monetary-policy press releases. Both are free and key-less.
+
+    This is deliberately *not* coin-specific -- it is the risk-appetite and rates backdrop that all
+    five supported assets share, which is exactly what a single-coin technical read cannot supply.
+    The Fed feed is best-effort: Fear & Greed is the required part, so a Fed outage degrades the
+    evidence rather than dropping the whole macro signal.
+    """
+    coin = coin.upper()
+    fng_url = "https://api.alternative.me/fng/?limit=14"
+    payload = _get_json(fng_url)
+    points = payload.get("data") or []
+    if not points:
+        raise ValueError("alternative.me returned no Fear & Greed data")
+
+    # alternative.me returns newest-first; flip to chronological so charts read left-to-right.
+    history = [{
+        "time": datetime.fromtimestamp(int(point["timestamp"]), tz=timezone.utc).strftime("%Y-%m-%d"),
+        "value": int(point["value"]),
+        "classification": point.get("value_classification", ""),
+    } for point in reversed(points)]
+    current = history[-1]
+    previous = history[0]
+    delta = current["value"] - previous["value"]
+    direction = "risk_appetite_improving" if delta > 5 else "risk_appetite_deteriorating" if delta < -5 else "risk_appetite_stable"
+
+    content = {
+        "fear_greed_value": current["value"],
+        "fear_greed_classification": current["classification"],
+        "fear_greed_history": history,
+        "fear_greed_change_14d": delta,
+        "risk_appetite_direction": direction,
+        "scope": "crypto market-wide (not coin-specific)",
+    }
+
+    fed_url = "https://www.federalreserve.gov/feeds/press_monetary.xml"
+    try:
+        releases = _parse_feed_entries(_get_bytes(fed_url), limit=5)
+        content["fed_releases"] = releases
+        fomc = next((entry for entry in releases if "FOMC" in entry["title"].upper()), None)
+        content["latest_fomc_release"] = fomc
+        content["fed_status"] = "available"
+    except Exception as error:
+        content["fed_releases"] = []
+        content["latest_fomc_release"] = None
+        content["fed_status"] = f"unavailable:{type(error).__name__}"
+
+    return Evidence(
+        f"EV-MACRO-{coin}-001", "Alternative.me Fear & Greed + Federal Reserve press releases", fng_url,
+        datetime.now(timezone.utc).isoformat(), "macro", coin, "14d", content, 0.80,
+        {"fear_greed_endpoint": fng_url, "fed_feed": fed_url, "points": len(history), "fed_status": content["fed_status"]},
+        f"Market-wide risk appetite and monetary-policy backdrop applied to {coin}"
+    )
+
+
+def fetch_official_announcements(coin: str = "ETH") -> Evidence:
+    """Fetch the coin's official project announcements (see OFFICIAL_FEEDS for the first-party
+    vs domain-restricted-syndication distinction, which is reflected in the reliability score)."""
+    coin = coin.upper()
+    feeds = OFFICIAL_FEEDS.get(coin)
+    if not feeds:
+        raise NotImplementedError(f"No official announcement feed configured for {coin}")
+    last_error: Exception = ValueError(f"No official feed produced entries for {coin}")
+    for source_name, feed_url, first_party in feeds:
+        try:
+            entries = _parse_feed_entries(_get_bytes(feed_url), limit=5)
+            if not entries:
+                raise ValueError(f"{source_name} returned no entries")
+            return Evidence(
+                f"EV-ANNOUNCE-{coin}-001", source_name, feed_url, datetime.now(timezone.utc).isoformat(),
+                "announcement", coin, "recent", {
+                    "items": entries,
+                    "first_party": first_party,
+                    "note": "第一方官方發布" if first_party else "官方網域限定的新聞聚合（非第一方 feed）",
+                }, 0.85 if first_party else 0.55,
+                {"feed_url": feed_url, "entry_count": len(entries), "first_party": first_party},
+                f"Official project announcements for {coin}"
+            )
+        except Exception as error:
+            last_error = error
+    raise last_error
+
+
+def fetch_onchain(coin: str = "ETH") -> Evidence:
+    """Fetch a public chain-health observation for the requested asset."""
+    coin = coin.upper()
+    chain_config = {
+        "ETH": "Ethereum",
+        "BNB": "BNB Smart Chain",
+        "SOL": "Solana",
+        "XRP": "XRP Ledger",
+        "BTC": "Bitcoin",
+    }
+    endpoints = {
+        "ETH": "https://ethereum.publicnode.com",
+        "BNB": "https://bsc-dataseed.binance.org/",
+        "SOL": "https://api.mainnet-beta.solana.com",
+        "XRP": "https://xrplcluster.com/",
+        "BTC": "https://blockchain.info/q/getblockcount",
+    }
+    chain_name, endpoint = chain_config[coin], endpoints[coin]
+    if coin in {"ETH", "BNB"}:
+        url = endpoint
+        payload = _post_json(url, {"jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": []})
+        value = payload.get("result")
+        if not value or "error" in payload:
+            raise ValueError(f"{chain_name} RPC returned no block number")
+        content = {"chain": chain_name, "latest_block_hex": value}
+    elif coin == "BTC":
+        url = endpoint
+        content = {"chain": chain_name, "latest_block_height": _get_text(url)}
+    elif coin == "SOL":
+        url = endpoint
+        payload = _post_json(url, {"jsonrpc": "2.0", "id": 1, "method": "getEpochInfo"})
+        value = payload.get("result")
+        if not value:
+            raise ValueError("Solana RPC returned no epoch info")
+        content = {"chain": chain_name, "epoch_info": value}
+    elif coin == "XRP":
+        url = endpoint
+        payload = _post_json(url, {"method": "ledger_current", "params": [{}]})
+        value = payload.get("result", {}).get("ledger_current_index")
+        if not value:
+            raise ValueError("XRPL RPC returned no current ledger")
+        content = {"chain": chain_name, "ledger_current_index": value}
+    return Evidence(
+        f"EV-ONCHAIN-{coin}-001", chain_name, url, datetime.now(timezone.utc).isoformat(),
+        "onchain", coin, "current", content, 0.70,
+        {"endpoint": url, "chain": chain_name}, f"Current {chain_name} chain health observation for {coin}"
+    )
+
+
+def fetch_social_reddit(coin: str = "ETH") -> Evidence:
+    """Fetch recent public Reddit discussions and derive a transparent title-based signal."""
+    coin = coin.upper()
+    url = f"https://www.reddit.com/search.json?q={quote(coin + ' crypto')}&sort=new&t=week&limit=25"
+    payload = _get_json(url)
+    posts = []
+    positive_words = {"bull", "bullish", "gain", "gains", "surge", "breakout", "adoption", "upgrade"}
+    negative_words = {"bear", "bearish", "loss", "losses", "drop", "crash", "hack", "exploit"}
+    positive = negative = 0
+    for child in payload.get("data", {}).get("children", []):
+        data = child.get("data", {})
+        title = data.get("title", "")
+        words = {word.strip(".,!?():[]\"").lower() for word in title.split()}
+        matched_positive, matched_negative = sorted(words & positive_words), sorted(words & negative_words)
+        positive += len(matched_positive)
+        negative += len(matched_negative)
+        posts.append({
+            "title": title,
+            "url": "https://www.reddit.com" + data.get("permalink", ""),
+            "created_utc": data.get("created_utc"),
+            "score": data.get("score", 0),
+            "comments": data.get("num_comments", 0),
+            "matched_positive": matched_positive,
+            "matched_negative": matched_negative,
+        })
+    if not posts:
+        raise ValueError("Reddit returned no public posts")
+    sentiment = "positive" if positive > negative else "negative" if negative > positive else "mixed"
+    return Evidence(
+        f"EV-SOCIAL-{coin}-001", "Reddit public search", url, datetime.now(timezone.utc).isoformat(),
+        "social", coin, "7d", {"sentiment": sentiment, "positive_terms": positive, "negative_terms": negative, "posts": posts}, 0.45,
+        {"endpoint": url, "query": f"{coin} crypto", "post_count": len(posts), "posts": posts}, f"Public discussion tone and attention for {coin}"
+    )
+
+
+def fetch_social_bluesky(coin: str = "ETH") -> Evidence:
+    """Fetch public Bluesky posts without an API key."""
+    coin = coin.upper()
+    url = f"https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q={quote(coin + ' crypto')}&sort=latest&limit=25"
+    payload = _get_json(url)
+    posts = []
+    positive_words = {"bull", "bullish", "gain", "gains", "surge", "breakout", "adoption", "upgrade"}
+    negative_words = {"bear", "bearish", "loss", "losses", "drop", "crash", "hack", "exploit"}
+    positive = negative = 0
+    for item in payload.get("posts", []):
+        text = item.get("record", {}).get("text", "")
+        words = {word.strip(".,!?():[]\"").lower() for word in text.split()}
+        matched_positive, matched_negative = sorted(words & positive_words), sorted(words & negative_words)
+        positive += len(matched_positive)
+        negative += len(matched_negative)
+        handle = item.get("author", {}).get("handle", "")
+        rkey = item.get("uri", "").rsplit("/", 1)[-1]
+        posts.append({
+            "text": text[:500],
+            "url": f"https://bsky.app/profile/{handle}/post/{rkey}" if handle and rkey else "",
+            "indexed_at": item.get("indexedAt"),
+            "likes": item.get("likeCount", 0),
+            "replies": item.get("replyCount", 0),
+            "reposts": item.get("repostCount", 0),
+            "matched_positive": matched_positive,
+            "matched_negative": matched_negative,
+        })
+    if not posts:
+        raise ValueError("Bluesky returned no public posts")
+    sentiment = "positive" if positive > negative else "negative" if negative > positive else "mixed"
+    return Evidence(
+        f"EV-SOCIAL-{coin}-BSKY-001", "Bluesky public search", url, datetime.now(timezone.utc).isoformat(),
+        "social", coin, "recent", {"sentiment": sentiment, "positive_terms": positive, "negative_terms": negative, "posts": posts}, 0.45,
+        {"endpoint": url, "query": f"{coin} crypto", "post_count": len(posts), "posts": posts}, f"Public discussion tone and attention for {coin}"
+    )
+
+
+def fetch_social_hackernews(coin: str = "ETH") -> Evidence:
+    """Fetch recent Hacker News stories/comments as a public discussion signal."""
+    coin = coin.upper()
+    url = f"https://hn.algolia.com/api/v1/search_by_date?query={quote(coin + ' crypto')}&tags=(story,comment)&hitsPerPage=25"
+    payload = _get_json(url)
+    posts = []
+    positive_words = {"bull", "bullish", "gain", "gains", "surge", "breakout", "adoption", "upgrade"}
+    negative_words = {"bear", "bearish", "loss", "losses", "drop", "crash", "hack", "exploit"}
+    positive = negative = 0
+    for hit in payload.get("hits", []):
+        text = hit.get("title") or hit.get("story_title") or hit.get("comment_text") or ""
+        words = {word.strip(".,!?():[]\"").lower() for word in text.split()}
+        matched_positive, matched_negative = sorted(words & positive_words), sorted(words & negative_words)
+        positive += len(matched_positive)
+        negative += len(matched_negative)
+        object_id = hit.get("objectID", "")
+        posts.append({
+            "text": text[:500],
+            "url": hit.get("url") or f"https://news.ycombinator.com/item?id={object_id}",
+            "created_at": hit.get("created_at"),
+            "points": hit.get("points") or 0,
+            "comments": hit.get("num_comments") or 0,
+            "matched_positive": matched_positive,
+            "matched_negative": matched_negative,
+        })
+    if not posts:
+        raise ValueError("Hacker News returned no public discussions")
+    sentiment = "positive" if positive > negative else "negative" if negative > positive else "mixed"
+    return Evidence(
+        f"EV-SOCIAL-{coin}-HN-001", "Hacker News Algolia search", url, datetime.now(timezone.utc).isoformat(),
+        "social", coin, "recent", {"sentiment": sentiment, "positive_terms": positive, "negative_terms": negative, "posts": posts}, 0.50,
+        {"endpoint": url, "query": f"{coin} crypto", "post_count": len(posts), "posts": posts}, f"Public technical-community discussion tone for {coin}"
+    )
+
+
+def fetch_social(coin: str = "ETH") -> Evidence:
+    """Try independent public social providers before allowing the orchestrator to fallback."""
+    try:
+        return fetch_social_reddit(coin)
+    except Exception:
+        try:
+            return fetch_social_bluesky(coin)
+        except Exception:
+            return fetch_social_hackernews(coin)
+
+
+# Explicit degraded-evidence fixtures, keyed by label: (id_prefix, source, url, time_range, extra_content).
+# These carry reliability 0.20 and a "do not treat as live evidence" claim so a failed fetch can never
+# be mistaken for a real observation. Where a label has an entry here it takes precedence over the
+# Day-1 mock fixture, which is presentation-grade and would otherwise overstate reliability.
+_FALLBACK_SPECS = {
+    "onchain": ("EV-ONCHAIN", "Offline chain fixture", "https://example.com/onchain", "current", {}),
+    "derivatives": ("EV-DERIV", "Offline funding-rate fixture", "https://example.com/derivatives", "current", {"bias": "unknown"}),
+    "whale": ("EV-WHALE", "Offline whale-wallet fixture", "https://example.com/whale", "current", {"wallets": []}),
+    "vegas_channel": ("EV-VEGAS", "Offline Vegas Channel fixture", "https://example.com/vegas", "4h trend / 1h execution", {"4h": None, "1h": None, "alignment": None}),
+    "long_short_ratio": ("EV-LSRATIO", "Offline long/short ratio fixture", "https://example.com/long_short_ratio", "current", {"history": [], "current": None, "bias": "unknown", "consistency_pct": None}),
+    "macro": ("EV-MACRO", "Offline macro fixture", "https://example.com/macro", "14d", {"fear_greed_value": None, "fear_greed_history": [], "risk_appetite_direction": "unknown", "fed_releases": []}),
+    "announcement": ("EV-ANNOUNCE", "Offline announcement fixture", "https://example.com/announcement", "recent", {"items": [], "first_party": False}),
+    "tvl": ("EV-TVL", "Offline chain TVL fixture", "https://example.com/tvl", "90d", {"history": [], "tvl_usd": None, "change_pct": None, "change_30d_pct": None, "direction": "unknown"}),
+}
+
+_SOURCE_LOADERS = (
+    ("market", fetch_coingecko),
+    ("news", fetch_news_rss),
+    ("macro", fetch_macro),
+    ("announcement", fetch_official_announcements),
+    ("onchain", fetch_onchain),
+    ("social", fetch_social),
+    ("derivatives", fetch_funding_rate),
+    ("whale", fetch_whale_wallets),
+    ("vegas_channel", fetch_vegas_signal),
+    ("long_short_ratio", fetch_long_short_ratio),
+    ("tvl", fetch_defillama_tvl),
+)
+
+
+def _fallback_evidence(label: str, coin: str, error: Exception) -> Evidence | None:
+    spec = _FALLBACK_SPECS.get(label)
+    if spec is None:
+        # market/news/social keep the Day-1 fixture's shape so the UI still renders a complete
+        # report offline, but the record is re-stamped: fixture reliability (0.80 for market) must
+        # never survive onto evidence that stands in for a failed live fetch.
+        mock = next((item for item in mock_evidence(coin) if item.data_type == label), None)
+        if mock is None:
+            return None
+        status = "unsupported" if isinstance(error, NotImplementedError) else "unavailable"
+        return replace(
+            mock,
+            evidence_id=f"{mock.evidence_id}-{coin}-FALLBACK",
+            fetched_at=datetime.now(timezone.utc).isoformat(),
+            content={**mock.content, "status": status, "reason": type(error).__name__},
+            reliability_score=0.20,
+            content_reference={"fallback": True, "error_type": type(error).__name__, "fixture": mock.source},
+            related_claim=f"{label} signal unavailable for {coin}; do not treat fallback as live evidence",
+        )
+    id_prefix, source, url, time_range, extra = spec
+    status = "unsupported" if isinstance(error, NotImplementedError) else "unavailable"
+    return Evidence(
+        f"{id_prefix}-{coin}-FALLBACK", source, url, datetime.now(timezone.utc).isoformat(),
+        label, coin, time_range, {"status": status, "reason": type(error).__name__, **extra}, 0.20,
+        {"fallback": True, "error_type": type(error).__name__},
+        f"{label} signal unavailable for {coin}; do not treat fallback as live evidence"
+    )
+
+
+# Sources grouped into domain agents. Each agent owns one research aspect and runs independently,
+# so wall-clock becomes the slowest agent instead of the sum of all sources. Grouping (rather than
+# one thread per source) keeps related calls to the same host sequential -- hammering Binance with
+# three simultaneous requests is how free endpoints start rate-limiting.
+COLLECTION_AGENTS = (
+    ("news_agent", "新聞面", ("news",)),
+    ("social_agent", "社群面", ("social",)),
+    ("market_agent", "市場價格", ("market",)),
+    ("technical_agent", "技術與衍生品", ("vegas_channel", "long_short_ratio", "derivatives")),
+    ("onchain_agent", "鏈上面", ("onchain", "whale", "tvl")),
+    ("macro_agent", "總經與官方", ("macro", "announcement")),
+)
+
+
+def _run_source(label: str, loader, coin: str, deadline: float | None,
+                loader_kwargs: dict | None = None) -> tuple[Evidence | None, str]:
+    """Run one source with the deadline check and fallback policy, returning (evidence, log entry).
+
+    `deadline` is the watchdog for this call; `loader_kwargs` is what the adapter itself needs --
+    kept separate because the news adapter takes its own `deadline` for the crawl phase.
+    """
+    if deadline is not None and time.monotonic() >= deadline:
+        skipped = _fallback_evidence(label, coin, TimeoutError("collection deadline exceeded"))
+        return skipped, f"{label}:skipped:deadline"
+    try:
+        return loader(coin, **(loader_kwargs or {})), f"{label}:success"
+    except Exception as error:
+        fallback = _fallback_evidence(label, coin, error)
+        if fallback is None:
+            raise
+        return fallback, f"{label}:fallback:{type(error).__name__}"
+
+
+def collect_evidence_detailed(coin: str = "ETH", live: bool = False, deadline: float | None = None,
+                              fulltext: bool = False, parallel: bool = True
+                              ) -> tuple[list[Evidence], list[str], list[dict]]:
+    """Collect evidence with domain agents running concurrently.
+
+    Returns (evidence, log, agent_report). Evidence is re-sorted into the canonical source order
+    afterwards so that concurrency never changes the report: evidence numbering drives the
+    footnotes, and footnotes that move between runs would be worse than a slower pipeline.
+    """
+    if not live:
+        return mock_evidence(coin), ["mock_mode"], []
+
+    loaders = dict(_SOURCE_LOADERS)
+    canonical_order = [label for label, _ in _SOURCE_LOADERS]
+
+    def run_agent(name: str, zh_label: str, labels: tuple[str, ...]) -> dict:
+        started = time.monotonic()
+        collected: list[tuple[str, Evidence]] = []
+        entries: list[str] = []
+        for label in labels:
+            kwargs = {"fulltext": fulltext, "deadline": deadline} if label == "news" else None
+            evidence, entry = _run_source(label, loaders[label], coin, deadline, kwargs)
+            entries.append(entry)
+            if evidence is not None:
+                collected.append((label, evidence))
+        return {
+            "agent": name, "label": zh_label, "sources": list(labels), "collected": collected,
+            "log": entries, "duration_ms": round((time.monotonic() - started) * 1000, 1),
+        }
+
+    if parallel:
+        with ThreadPoolExecutor(max_workers=len(COLLECTION_AGENTS), thread_name_prefix="agent") as pool:
+            futures = [pool.submit(run_agent, *agent) for agent in COLLECTION_AGENTS]
+            reports = [future.result() for future in futures]
+    else:
+        reports = [run_agent(*agent) for agent in COLLECTION_AGENTS]
+
+    by_label = {label: evidence for report in reports for label, evidence in report["collected"]}
+    evidence = [by_label[label] for label in canonical_order if label in by_label]
+    log = [entry for label in canonical_order for report in reports
+           for entry in report["log"] if entry.startswith(f"{label}:")]
+    agent_report = [
+        {key: value for key, value in report.items() if key != "collected"} for report in reports
+    ]
+    return evidence, log, agent_report
+
+
+def collect_evidence(coin: str = "ETH", live: bool = False, deadline: float | None = None,
+                     fulltext: bool = False) -> tuple[list[Evidence], list[str]]:
+    """Collect live data when requested, otherwise use deterministic fallback.
+
+    Thin wrapper over `collect_evidence_detailed` for callers that do not need the per-agent report.
+
+    `deadline` is an absolute time.monotonic() value acting as a collection watchdog: it is checked
+    before each source, so the worst-case overshoot is one source timeout rather than the full
+    remaining source list. Sources skipped this way are logged as `<label>:skipped:deadline`, which
+    is deliberately distinct from `:fallback:` so a demo run can tell a slow network from a dead API.
+    """
+    evidence, log, _ = collect_evidence_detailed(coin, live=live, deadline=deadline, fulltext=fulltext)
+    return evidence, log

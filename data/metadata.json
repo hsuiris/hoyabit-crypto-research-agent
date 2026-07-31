@@ -1,0 +1,58 @@
+{
+  "dataset_type": "public_fallback_not_organizer_package",
+  "provider": "Binance public market-data klines",
+  "quote_asset": "USDT",
+  "fetched_at": "2026-07-25T02:10:21.874760+00:00",
+  "assets": {
+    "BTC": {
+      "rows": 1826,
+      "date_start": "2021-07-26",
+      "date_end": "2026-07-25",
+      "source_urls": [
+        "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=1000&endTime=1784945421874",
+        "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=1000&endTime=1698623999999"
+      ],
+      "file": "BTC.csv"
+    },
+    "ETH": {
+      "rows": 1826,
+      "date_start": "2021-07-26",
+      "date_end": "2026-07-25",
+      "source_urls": [
+        "https://data-api.binance.vision/api/v3/klines?symbol=ETHUSDT&interval=1d&limit=1000&endTime=1784945422763",
+        "https://data-api.binance.vision/api/v3/klines?symbol=ETHUSDT&interval=1d&limit=1000&endTime=1698623999999"
+      ],
+      "file": "ETH.csv"
+    },
+    "SOL": {
+      "rows": 1826,
+      "date_start": "2021-07-26",
+      "date_end": "2026-07-25",
+      "source_urls": [
+        "https://data-api.binance.vision/api/v3/klines?symbol=SOLUSDT&interval=1d&limit=1000&endTime=1784945423544",
+        "https://data-api.binance.vision/api/v3/klines?symbol=SOLUSDT&interval=1d&limit=1000&endTime=1698623999999"
+      ],
+      "file": "SOL.csv"
+    },
+    "BNB": {
+      "rows": 1826,
+      "date_start": "2021-07-26",
+      "date_end": "2026-07-25",
+      "source_urls": [
+        "https://data-api.binance.vision/api/v3/klines?symbol=BNBUSDT&interval=1d&limit=1000&endTime=1784945424320",
+        "https://data-api.binance.vision/api/v3/klines?symbol=BNBUSDT&interval=1d&limit=1000&endTime=1698623999999"
+      ],
+      "file": "BNB.csv"
+    },
+    "XRP": {
+      "rows": 1826,
+      "date_start": "2021-07-26",
+      "date_end": "2026-07-25",
+      "source_urls": [
+        "https://data-api.binance.vision/api/v3/klines?symbol=XRPUSDT&interval=1d&limit=1000&endTime=1784945425105",
+        "https://data-api.binance.vision/api/v3/klines?symbol=XRPUSDT&interval=1d&limit=1000&endTime=1698623999999"
+      ],
+      "file": "XRP.csv"
+    }
+  }
+}

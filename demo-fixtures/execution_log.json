@@ -1,0 +1,64 @@
+{
+  "status": "success",
+  "collection": [
+    "market:success",
+    "news:success",
+    "macro:success",
+    "announcement:success",
+    "onchain:success",
+    "social:success",
+    "derivatives:success",
+    "whale:success",
+    "vegas_channel:success",
+    "long_short_ratio:success",
+    "tvl:success"
+  ],
+  "time_budget": {
+    "budget_seconds": 300.0,
+    "llm_seconds_remaining_at_decision": 293.2,
+    "sources_skipped_by_watchdog": []
+  },
+  "steps": [
+    {
+      "name": "parse_input",
+      "status": "success"
+    },
+    {
+      "name": "collect_evidence",
+      "status": "success",
+      "details": [
+        "market:success",
+        "news:success",
+        "macro:success",
+        "announcement:success",
+        "onchain:success",
+        "social:success",
+        "derivatives:success",
+        "whale:success",
+        "vegas_channel:success",
+        "long_short_ratio:success",
+        "tvl:success"
+      ]
+    },
+    {
+      "name": "calculate_indicators",
+      "status": "success"
+    },
+    {
+      "name": "validate_evidence",
+      "status": "success",
+      "error_count": 0
+    },
+    {
+      "name": "llm_reasoning",
+      "status": "offline_fallback",
+      "provider": "none",
+      "model": null
+    },
+    {
+      "name": "generate_report",
+      "status": "success"
+    }
+  ],
+  "duration_ms": 6819.18
+}
