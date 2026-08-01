@@ -33,6 +33,11 @@ SECRET_ARN=""
 DRY_RUN=0
 BUNDLE_SDK=0
 
+# D7 護欄。AuthType NONE 是 Demo 的刻意取捨；併發上限受帳號 unreserved 額度限制（見 template）。
+AUTH_TYPE="NONE"
+CONCURRENCY="5"
+LOG_RETENTION="7"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BUILD_ROOT="$SCRIPT_DIR/.build"
@@ -52,6 +57,11 @@ usage() {
   --profile PROFILE      AWS CLI profile（等同 export AWS_PROFILE）
   --bundle-sdk           把 boto3／botocore 打包進部署包（僅在 Lambda 內建版本
                          不支援 bedrock-runtime Converse 時才需要，見 D4）
+  --auth-type TYPE       Function URL 認證：NONE | AWS_IAM（預設 NONE）
+                         NONE 讓評審不需憑證即可開啟，但任何取得 URL 的人都能觸發執行
+  --concurrency N        Lambda reserved concurrency 上限（預設 5，最大 10）
+                         本帳號 unreserved 只有 110，AWS 要求保留至少 100，故上限為 10
+  --log-retention DAYS   CloudWatch log 保留天數（預設 7）
   --dry-run              只打包，不呼叫任何 AWS API；無憑證也能執行
   -h, --help             顯示本說明
 
@@ -80,11 +90,19 @@ while [ $# -gt 0 ]; do
     --secret-arn)  SECRET_ARN="${2:?--secret-arn 需要值}"; shift 2 ;;
     --profile)     export AWS_PROFILE="${2:?--profile 需要值}"; shift 2 ;;
     --bundle-sdk)  BUNDLE_SDK=1; shift ;;
+    --auth-type)   AUTH_TYPE="${2:?--auth-type 需要值}"; shift 2 ;;
+    --concurrency) CONCURRENCY="${2:?--concurrency 需要值}"; shift 2 ;;
+    --log-retention) LOG_RETENTION="${2:?--log-retention 需要值}"; shift 2 ;;
     --dry-run)     DRY_RUN=1; shift ;;
     -h|--help)     usage; exit 0 ;;
     *)             printf '未知選項：%s\n\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
 done
+
+case "$AUTH_TYPE" in
+  NONE|AWS_IAM) ;;
+  *) printf '%s\n' "錯誤：--auth-type 必須是 NONE 或 AWS_IAM，收到：$AUTH_TYPE" >&2; exit 2 ;;
+esac
 
 case "$PROVIDER" in
   bedrock|gemini|openai|none) ;;
@@ -240,6 +258,7 @@ step 5/6 "部署 CloudFormation stack"
 log "  stack：   $STACK_NAME"
 log "  provider：$PROVIDER"
 [ "$PROVIDER" = "bedrock" ] && log "  model：   $MODEL_ID"
+log "  護欄：    auth=$AUTH_TYPE  concurrency=$CONCURRENCY  log 保留=${LOG_RETENTION} 天"
 
 DEPLOY_OUTPUT=$(aws cloudformation deploy \
   --template-file "$SCRIPT_DIR/template.yaml" \
@@ -252,7 +271,10 @@ DEPLOY_OUTPUT=$(aws cloudformation deploy \
     "CodeKey=$CODE_KEY" \
     "LLMSecretArn=$SECRET_ARN" \
     "LLMProvider=$PROVIDER" \
-    "BedrockModelId=$MODEL_ID" 2>&1)
+    "BedrockModelId=$MODEL_ID" \
+    "FunctionUrlAuthType=$AUTH_TYPE" \
+    "ReservedConcurrency=$CONCURRENCY" \
+    "LogRetentionDays=$LOG_RETENTION" 2>&1)
 DEPLOY_STATUS=$?
 
 if [ "$DEPLOY_STATUS" -ne 0 ]; then

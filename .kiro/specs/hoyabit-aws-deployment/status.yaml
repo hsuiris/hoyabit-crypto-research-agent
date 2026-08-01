@@ -2,8 +2,8 @@ project: hoyabit-aws-deployment
 spec_path: .kiro/specs/hoyabit-aws-deployment
 branch: okByYaya0801            # 與 hackathon/competition-ready 同一 commit
 baseline_commit: 5f369ce        # test(T8): freeze competition-ready demo
-current_task: D6
-last_updated_at: 2026-08-01T17:45:00+08:00
+current_task: D8
+last_updated_at: 2026-08-01T17:55:00+08:00
 
 # 本機驗證環境（實測，非推定）
 environment:
@@ -15,7 +15,7 @@ environment:
   aws_region_configured: false
 
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_baseline: 570 tests, 570 passed, 0 failed, 0 errors   # D4 +14, D5 +15
+full_suite_baseline: 581 tests, 581 passed, 0 failed, 0 errors   # D4 +14, D5 +15, D7 +11
 
 allowed_statuses:
   - TODO
@@ -437,34 +437,70 @@ tasks:
 
   D7:
     title: Add security and cost guardrails
-    status: TODO
+    status: PARTIAL          # KIRO 部分全部完成並驗證生效；僅剩 HUMAN 的 Budgets 告警
     executor: KIRO + HUMAN
     depends_on: [D5]
     target_minutes: 45
+    completed_at: 2026-08-01T17:55:00+08:00
     requirements: [7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3]
     design_decision: D-4
     guide_section: aws-permissions-guide.md §8
     commit: 'feat(D7): add concurrency, log retention and auth guardrails'
     in_scope:
-      - aws/template.yaml（ReservedConcurrentExecutions、LogGroup RetentionInDays、可選 AuthType 參數）
-      - aws/README.md（公開端點風險說明）
-      - tests/（template 字串檢查）
+      - aws/template.yaml（ReservedConcurrentExecutions、顯式 LogGroup + RetentionInDays、可選 AuthType）
+      - aws/deploy.sh（--auth-type／--concurrency／--log-retention）
+      - aws/README.md（公開端點風險與 Binance 地理限制說明）
+      - tests/test_d7_deployment_guardrails.py（新增）
     out_of_scope:
       - WAF、CloudFront、Cognito、自訂網域
       - 預設啟用 IAM 認證
     acceptance:
-      - validate-template 通過
-      - get-function-concurrency 回報已設定的上限
-      - log group 的 retentionInDays 非空
-      - Budgets 告警已建立（HUMAN 回報）
-      - aws/README.md 含公開端點風險說明與三種收斂手段
-      - 部署更新後 D5 的驗收項目重測全部通過
-      - 完整測試套件通過
+      - 'PASS: validate-template 通過，10 個參數（原 7 + 新 3）'
+      - 'PASS: get-function-concurrency = 5，帳號 unreserved 由 110 降為 105（符合 AWS 須保留 ≥100）'
+      - 'PASS: log group retentionInDays = 7'
+      - 'PASS: Function URL AuthType = NONE（可用 --auth-type AWS_IAM 切換，公開權限受 IsPublicUrl 條件控制）'
+      - 'PASS: aws/README.md 含公開端點風險與三種收斂手段，另補 us-west-2 的 Binance 限制'
+      - 'PASS: 護欄部署後 D5 驗收重測 —— GET 200、POST XRP test 200 / 101 KB / 42.8 秒'
+      - 'PASS: 完整測試套件 581 tests OK（D7 新增 11 個）'
+      - 'TODO(HUMAN): AWS Budgets 告警尚未建立'
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_d7_deployment_guardrails → 11 tests OK；
+      完整套件：python3 -m unittest discover -s tests → 581 tests, 581 passed, 0 failed, 0 errors；
+      部署：deploy.sh --auth-type NONE --concurrency 5 --log-retention 7 → UPDATE_COMPLETE，
+      stack 資源由 5 個增為 6 個（新增 AgentLogGroup）；
+      CLI 生效驗證：get-function-concurrency=5、get-account-settings unreserved=105、
+      describe-log-groups retentionInDays=7、get-function-url-config AuthType=NONE；
+      功能未破壞：GET 200、POST XRP test 200。
+    environment_constraints_applied:
+      concurrency_ceiling: >-
+        帳號 UnreservedConcurrentExecutions 只有 110（總額 1000，其餘已被環境保留），
+        而 AWS 要求設定 reserved concurrency 後仍須保留至少 100 unreserved，
+        因此模板的 ReservedConcurrency 上限刻意設為 10，預設 5。設定後實測剩餘 105。
+      log_group_takeover: >-
+        Lambda 首次叫用時會自建一個沒有保留期的 /aws/lambda/<function> log group，
+        CloudFormation 之後無法接管（資源已存在）。因此部署前先刪除既有 log group，
+        並讓 AgentFunction DependsOn AgentLogGroup 確保建立順序。既有 log 只含
+        [sdk]／[run] 與 Lambda 的 START/END/REPORT，已確認無憑證後才刪除。
+    outstanding:
+      - id: D7-BUDGETS
+        executor: HUMAN
+        what: 在 AWS Console 的 Billing and Cost Management → Budgets 建立成本告警。
+        why_not_kiro: >-
+          deployer policy 刻意不含 budgets:* 與 ce:*（見 aws-permissions-guide.md §3.2
+          「刻意沒給的權限」）。建議用主要登入身分在 Console 設定，而非為此擴權。
+        residual_risk: 低。>-
+          Budgets 是「發現異常」機制，不是「防止」機制；防止已由 reserved concurrency 5
+          的硬上限達成，Bedrock 權限也只授權單一 foundation model。此外本帳號是 Workshop
+          臨時環境，活動結束即回收。
     blockers: []
+    next_task_note: >-
+      D8 在 D7 為 PARTIAL 的情況下仍可進行：live smoke 的正確性不依賴 Budgets 告警，
+      且成本上限已由 reserved concurrency 達成。若使用者要求嚴格 gate，應先完成 D7-BUDGETS。
     notes: >-
       AuthType NONE 意味著任何取得 URL 的人都能觸發完整執行並消耗模型配額。
-      不在 Demo 前改認證機制（現場改認證的風險高於它降低的風險），
+      依 design.md 決策 D-4，不在 Demo 前改認證機制（現場改認證的風險高於它降低的風險），
       改用 reserved concurrency、log 保留期、Budgets 告警與 Demo 後拆除四層護欄。
+      AWS_IAM 選項已實作並有測試守住「切換後公開叫用權限必須一併消失」。
 
   D8:
     title: Live Bedrock smoke, B2 resolution and doc sync

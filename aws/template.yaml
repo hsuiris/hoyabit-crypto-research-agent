@@ -19,6 +19,26 @@ Parameters:
   OpenAIModel:
     Type: String
     Default: gpt-4o-mini
+  FunctionUrlAuthType:
+    Type: String
+    Default: NONE
+    AllowedValues: [NONE, AWS_IAM]
+    # NONE 讓評審不需要憑證就能開啟 Demo，這是刻意的取捨；代價是任何取得 URL 的人都能
+    # 觸發完整執行並消耗 Bedrock 配額。要收斂暴露面時改成 AWS_IAM，公開叫用權限會一併移除。
+  ReservedConcurrency:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 10
+    # 公開端點的成本天花板。上限刻意設為 10：本帳號的 UnreservedConcurrentExecutions 只有
+    # 110，而 AWS 要求設定 reserved concurrency 後帳號仍須保留至少 100 unreserved，
+    # 因此可保留的額度最多就是 10。環境中另有 WSConcurrencyCurtailer 機制在管併發，
+    # 不要假設可以自由取用帳號額度。
+  LogRetentionDays:
+    Type: Number
+    Default: 7
+    AllowedValues: [1, 3, 5, 7, 14, 30]
+    # 不使用永久保留：Demo 用的 log 沒有長期價值，卻會持續產生儲存費用。
   BedrockModelId:
     Type: String
     # A same-region foundation model ID: keep this in sync with the Lambda deployment region.
@@ -30,6 +50,8 @@ Parameters:
     Default: amazon.nova-lite-v1:0
 
 Conditions:
+  # AuthType NONE 才需要建立公開叫用權限；切成 AWS_IAM 時這兩個 Permission 一併消失。
+  IsPublicUrl: !Equals [!Ref FunctionUrlAuthType, NONE]
   HasLLMSecret: !Not [!Equals [!Ref LLMSecretArn, '']]
   UsesBedrock: !Equals [!Ref LLMProvider, bedrock]
   HasNonBedrockSecret: !And
@@ -72,10 +94,21 @@ Resources:
                   Resource: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}
           - !Ref AWS::NoValue
 
+  # 顯式管理 log group 才能控制保留期。必須先於函式建立並由 AgentFunction DependsOn，
+  # 否則 Lambda 會在首次叫用時自己建一個沒有保留期的同名 group，CloudFormation 之後
+  # 就會因為「資源已存在」而無法接管。
+  AgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/hoyabit-market-research-agent
+      RetentionInDays: !Ref LogRetentionDays
+
   AgentFunction:
     Type: AWS::Lambda::Function
+    DependsOn: AgentLogGroup
     Properties:
       FunctionName: hoyabit-market-research-agent
+      ReservedConcurrentExecutions: !Ref ReservedConcurrency
       Runtime: python3.12
       Handler: lambda_handler.handler
       Role: !GetAtt AgentRole.Arn
@@ -101,7 +134,7 @@ Resources:
     Type: AWS::Lambda::Url
     Properties:
       TargetFunctionArn: !GetAtt AgentFunction.Arn
-      AuthType: NONE
+      AuthType: !Ref FunctionUrlAuthType
       Cors:
         AllowOrigins: ['*']
         AllowMethods: [GET, POST]
@@ -109,6 +142,7 @@ Resources:
 
   AgentFunctionUrlPermission:
     Type: AWS::Lambda::Permission
+    Condition: IsPublicUrl
     Properties:
       FunctionName: !Ref AgentFunction
       Action: lambda:InvokeFunctionUrl
@@ -117,6 +151,7 @@ Resources:
 
   AgentFunctionInvokePermission:
     Type: AWS::Lambda::Permission
+    Condition: IsPublicUrl
     Properties:
       FunctionName: !Ref AgentFunction
       Action: lambda:InvokeFunction
