@@ -25,8 +25,10 @@ from src.claim_graph import (
     LIMITER_FALLBACK_ONLY,
     LIMITER_HIGH_QUALITY_CONFLICT,
     LIMITER_LOW_DOMAIN_COVERAGE,
+    LIMITER_PLAN_SCOPE_FLOOR,
     LIMITER_SINGLE_DOMAIN,
     LIMITER_SINGLE_SECONDARY_NEWS,
+    MIN_REQUIRED_DOMAIN_COUNT,
     EvidencePool,
     apply_related_claim_ids,
     build_claim,
@@ -704,6 +706,74 @@ class DeterminismAndSerialisationTests(unittest.TestCase):
         self.assertEqual(next(item for item in evidence if item.evidence_id == "EV-M1").related_claim_ids,
                          ["CL-001"])
         self.assertEqual(graph["related_claim_ids"]["EV-S1"], ["CL-001"])
+
+
+class PlanScopeFloorTests(unittest.TestCase):
+    """plan 不得靠縮小 required_domains 間接抬高 confidence。
+
+    `required_domains` 來自 research plan，而 plan 可能由模型產生。它是 domain coverage 的
+    分母，所以「少要求幾個領域」原本可以直接推高 confidence —— 那等於讓 LLM 決定分數。
+    這組測試把分母下限釘住。
+    """
+
+    def _two_domain_case(self, required_domains):
+        """同一批證據（market 支持、news 反對），只改 plan 要求的領域。"""
+        pool = EvidencePool([
+            make_evidence("EV-M1", "market", lineage="market-api"),
+            make_evidence("EV-N1", "news", lineage="major-media"),
+        ])
+        return evaluate_claim(
+            pool,
+            supporting_ids=["EV-M1"],
+            contradicting_ids=["EV-N1"],
+            required_domains=required_domains,
+        )
+
+    def test_narrowing_the_plan_cannot_raise_confidence(self):
+        wide = self._two_domain_case(["market", "news", "social", "onchain"])
+        narrow = self._two_domain_case(["market"])
+
+        self.assertLessEqual(
+            narrow["confidence"]["score"], wide["confidence"]["score"],
+            "縮小 required_domains 不得提高 confidence：這會讓 plan（可能來自 LLM）間接決定分數",
+        )
+
+    def test_single_domain_plan_is_padded_to_the_floor(self):
+        result = self._two_domain_case(["market"])
+
+        self.assertEqual(len(result["required_domains"]), MIN_REQUIRED_DOMAIN_COUNT)
+        self.assertEqual(result["plan_requested_domains"], ["market"])
+        self.assertIn(LIMITER_PLAN_SCOPE_FLOOR, result["confidence"]["limiters"])
+        # 兩個領域對照補足後的三領域分母：不再是 1.0。
+        self.assertLess(result["confidence"]["components"]["domain_coverage"], 1.0)
+
+    def test_one_covered_domain_can_never_clear_the_coverage_floor(self):
+        """MIN_REQUIRED_DOMAIN_COUNT 的選值理由：1 / 3 必定低於 MIN_DOMAIN_COVERAGE。"""
+        pool = EvidencePool([make_evidence("EV-M1", "market", lineage="market-api")])
+        result = evaluate_claim(pool, supporting_ids=["EV-M1"], required_domains=["market"])
+
+        self.assertLess(result["confidence"]["components"]["domain_coverage"], MIN_DOMAIN_COVERAGE)
+        self.assertIn(LIMITER_LOW_DOMAIN_COVERAGE, result["confidence"]["limiters"])
+        self.assertEqual(result["verdict"], VERDICT_INSUFFICIENT_EVIDENCE)
+
+    def test_plan_at_or_above_the_floor_is_left_untouched(self):
+        """既有意圖不變：題目不相關的領域本來就不該扣分。"""
+        result = self._two_domain_case(["market", "news", "social"])
+
+        self.assertEqual(result["required_domains"], ["market", "news", "social"])
+        self.assertEqual(result["plan_requested_domains"], ["market", "news", "social"])
+        self.assertNotIn(LIMITER_PLAN_SCOPE_FLOOR, result["confidence"]["limiters"])
+        self.assertEqual(result["confidence"]["components"]["domain_coverage"], 0.6667)
+
+    def test_padding_is_deterministic(self):
+        first = self._two_domain_case(["derivatives"])
+        second = self._two_domain_case(["derivatives"])
+
+        self.assertEqual(first["required_domains"], second["required_domains"])
+        self.assertEqual(first["confidence"]["score"], second["confidence"]["score"])
+
+    def test_floor_limiter_is_a_known_limiter(self):
+        self.assertIn(LIMITER_PLAN_SCOPE_FLOOR, KNOWN_LIMITERS)
 
 
 if __name__ == "__main__":

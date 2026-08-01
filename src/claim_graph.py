@@ -78,6 +78,11 @@ DEFAULT_DOMAIN = "other"
 # 沒有 research plan 時的必要領域；domain_coverage 一律以「必要領域」為分母，
 # 這樣缺少 on-chain 或社群面時覆蓋度會誠實地掉下來。
 DEFAULT_REQUIRED_DOMAINS = ("market", "news", "social", "onchain")
+# domain coverage 分母的下限。plan 可以縮減研究範圍，但分母低於這個值時 coverage 會被
+# 少數領域輕易填滿，等於讓 plan（可能來自模型）間接抬高 confidence。取 3 是因為
+# 1 / 3 = 0.333 已低於 MIN_DOMAIN_COVERAGE (0.4)：任何單一領域的 Claim 都無法
+# 靠改寫 plan 通過覆蓋率門檻。
+MIN_REQUIRED_DOMAIN_COUNT = 3
 
 # 缺欄位時的保守預設：品質不明就當偏低，相關性不明就當一半，獨立性不明才給 1.0
 # （獨立性由 lineage 收斂另外處理，這裡不重複懲罰）。
@@ -112,6 +117,8 @@ LIMITER_NO_SUPPORT = "no_supporting_evidence"
 LIMITER_LOW_DOMAIN_COVERAGE = "domain_coverage_below_minimum"
 LIMITER_CRITIC_REDUCTION = "critic_confidence_reduction"
 LIMITER_CRITIC_POSITIVE_REJECTED = "critic_positive_adjustment_rejected"
+# plan 要求的領域數低於 MIN_REQUIRED_DOMAIN_COUNT，coverage 分母已被補到下限。
+LIMITER_PLAN_SCOPE_FLOOR = "plan_scope_denominator_floor"
 
 KNOWN_LIMITERS = (
     LIMITER_SINGLE_DOMAIN,
@@ -122,6 +129,7 @@ KNOWN_LIMITERS = (
     LIMITER_LOW_DOMAIN_COVERAGE,
     LIMITER_CRITIC_REDUCTION,
     LIMITER_CRITIC_POSITIVE_REJECTED,
+    LIMITER_PLAN_SCOPE_FLOOR,
 )
 
 CLAIM_TIMEOUT_SECONDS = 60.0
@@ -434,9 +442,23 @@ def evaluate_claim(
     if overlap:
         raise ValueError("evidence cannot support and contradict the same claim: " + ", ".join(overlap))
 
-    required = tuple(str(name) for name in (required_domains or ()) if str(name).strip())
-    if not required:
-        required = DEFAULT_REQUIRED_DOMAINS
+    # `required_domains` 來自 research plan，而 plan 可能由模型產生。直接把它當成 coverage 的
+    # 分母，等於讓 plan 只要少要求幾個領域就能推高 confidence —— 那是 LLM 間接決定分數，
+    # 違反「confidence 一律由 deterministic 程式計算」這條邊界。
+    #
+    # 修法刻意不是忽略 plan：題目不相關的領域本來就不該扣分（見
+    # `test_plan_hypotheses_produce_separate_hypothesis_claims`）。改成給分母一個下限——
+    # plan 可以縮減研究範圍，但不能把分母縮到讓單一領域就構成「全覆蓋」。
+    # 下限取 MIN_REQUIRED_DOMAIN_COUNT 而非預設的四領域，是為了讓
+    # `len(covered) == 1` 的 coverage 必定低於 MIN_DOMAIN_COVERAGE，也就是任何
+    # 單一領域的 Claim 都無法靠改寫 plan 通過覆蓋率門檻。
+    requested = tuple(dict.fromkeys(
+        str(name) for name in (required_domains or ()) if str(name).strip()))
+    required = requested or DEFAULT_REQUIRED_DOMAINS
+    scope_floor_applied = len(required) < MIN_REQUIRED_DOMAIN_COUNT
+    if scope_floor_applied:
+        padded = tuple(dict.fromkeys(required + DEFAULT_REQUIRED_DOMAINS))
+        required = padded[:MIN_REQUIRED_DOMAIN_COUNT]
 
     support_strength, support_reps = pool.collapsed_strength(supporting)
     contradiction_strength, _ = pool.collapsed_strength(contradicting)
@@ -466,6 +488,11 @@ def evaluate_claim(
 
     limiters = []
     supporting_domains = sorted({pool.domain(item) for item in supporting})
+
+    if scope_floor_applied:
+        # 不影響分數（分母已經在上面補到下限），只留痕跡：讀者要能看出這個 coverage
+        # 是對照補足後的分母算出來的，而不是 plan 原本要求的範圍。
+        limiters.append(LIMITER_PLAN_SCOPE_FLOOR)
 
     if supporting and len(supporting_domains) == 1:
         limiters.append(LIMITER_SINGLE_DOMAIN)
@@ -529,7 +556,10 @@ def evaluate_claim(
         "contradiction_strength": round(contradiction_strength, 4),
         "supporting_domains": supporting_domains,
         "covered_domains": covered,
+        # `required_domains` 是實際用來算 coverage 的分母；`plan_requested_domains` 是 plan
+        # 原本要求的範圍。兩者不同時代表分母下限生效，讀者可據此還原計算過程。
         "required_domains": list(required),
+        "plan_requested_domains": list(requested),
         "independent_support_chains": len(support_groups),
         "scoring_version": CLAIM_SCORING_VERSION,
     }

@@ -1,6 +1,6 @@
 # 評估：把 Research Plan 回饋到採集層
 
-**狀態**：評估，未實作
+**狀態**：P0 已實作（第 2 節）；P1 plan→collection 接線仍為評估，未實作
 **日期**：2026-08-01
 **評估分支**：`GoToAWS0801`（測試時 HEAD 為 T8 凍結後狀態，541 tests 全過）
 **動機**：目前題目幾乎不影響報告內容。實測顯示不同題目產生的立場、權重、證據集完全相同。
@@ -14,10 +14,13 @@
 adapter 已可參數化，`content_reference` 已記錄可重現的 query 參數。缺的只有一個呼叫參數。
 
 但評估過程中發現一個**與本提案無關、已經存在的漏洞**：LLM 可以藉由縮小
-`required_domains` 間接抬高 claim confidence。這違反「LLM 不可以決定最終 claim confidence」，
-建議獨立優先修復（本文第 2 節，標記 P0）。
+`required_domains` 間接抬高 claim confidence。這違反「LLM 不可以決定最終 claim confidence」。
+該漏洞已獨立修復（本文第 2 節，P0），未觸碰採集層與 planner。
 
-建議順序：先修 P0，等 AWS 部署收束後再接 P1。
+實作 P0 時發現本評估初版建議的修法（union）會破壞既有的合理設計意圖，已改採分母下限並
+記錄於第 2.4 節。**這是本評估的一個教訓：修法建議在實作前未對照既有測試。**
+
+剩餘工作：P1 plan→collection 接線，建議等 AWS 部署收束後再動。
 
 ---
 
@@ -138,16 +141,78 @@ required_domains = 2 個 → domain_coverage = 0.5
 違反 `.kiro/steering/evidence-confidence-standards.md`：「LLM 不可以決定最終 claim confidence」。
 Planner 目前已經在產出 `required_domains`，所以這個路徑**現在就是通的**，不需要等本提案實作。
 
-### 2.4 建議修法
+### 2.4 修法（已實作）
 
-分母改為單向：`required = union(required_domains, DEFAULT_REQUIRED_DOMAINS)`，其中
-`DEFAULT_REQUIRED_DOMAINS = ('market', 'news', 'social', 'onchain')`。
+**狀態**：已實作，commit 見本節末。
 
-plan 可以要求「額外」涵蓋某領域（提高分母、壓低分數），但不能靠少要求來抬高分數。
-單向、不可被 gaming、改動最小。
+#### 初版建議被否決
 
-替代方案（未採用）：同時記錄兩個分數取較低值——資訊更完整但欄位語意變複雜，且
-`score_breakdown` 已凍結於 `src/schemas.py`。
+本評估初版建議把分母改成
+`union(required_domains, DEFAULT_REQUIRED_DOMAINS)`。**這個建議是錯的**，實作時才發現。
+
+`tests/test_claim_graph.py` 的 `test_plan_hypotheses_produce_separate_hypothesis_claims`
+（第 627 行）明確鎖定了現行行為：
+
+```python
+# required_domains 來自 plan：三個領域全覆蓋，不應被預設的四領域判成資料不足。
+self.assertEqual(graph["claims"][0]["confidence"]["components"]["domain_coverage"], 1.0)
+```
+
+也就是「題目不相關的領域本來就不該扣分」是刻意設計，不是疏漏。union 會讓一個只問新聞面的
+題目因為缺少衍生品資料而被扣分，破壞這個合理意圖。
+
+#### 實際採用：分母下限
+
+保留 plan 縮減範圍的能力，但給分母一個下限：
+
+```python
+requested = tuple(dict.fromkeys(...required_domains...))
+required = requested or DEFAULT_REQUIRED_DOMAINS
+scope_floor_applied = len(required) < MIN_REQUIRED_DOMAIN_COUNT
+if scope_floor_applied:
+    padded = tuple(dict.fromkeys(required + DEFAULT_REQUIRED_DOMAINS))
+    required = padded[:MIN_REQUIRED_DOMAIN_COUNT]
+```
+
+`MIN_REQUIRED_DOMAIN_COUNT = 3`。這個值不是任意選的：`MIN_DOMAIN_COVERAGE = 0.4`，
+而 `1 / 3 = 0.333 < 0.4`，所以**任何單一領域的 Claim 都無法靠改寫 plan 通過覆蓋率門檻**。
+
+同時保留下限剛好是 3 這件事讓既有測試成為邊界案例（plan 要求 3 個 → 分母不變 → coverage 1.0），
+原設計意圖完整保留。
+
+#### 可溯源性
+
+分母被補足時留下三處痕跡，讀者可跨提交物還原計算過程：
+
+| 位置 | 內容 |
+|---|---|
+| `research_plan.json` | plan 原本要求的 `required_domains` |
+| `claims.json` → `confidence.limiters` | 新 limiter `plan_scope_denominator_floor` |
+| `report.md` →「生效上限」 | 同一個 limiter 名稱，人類可讀 |
+| `evaluate_claim()` 回傳值 | `required_domains`（生效分母）與 `plan_requested_domains`（plan 原始要求） |
+
+註：`plan_requested_domains` 目前只存在於 `evaluate_claim()` 的回傳值，未進入 `claims.json`——
+`Claim` dataclass 的欄位集合已凍結，為此擴充風險不成比例。跨 `research_plan.json` 與
+limiter 兩處已足以還原，不需要改動凍結契約。
+
+#### 驗證
+
+```text
+targeted：python3 -m unittest tests.test_claim_graph → 46 tests OK（含 6 個新增）
+完整套件：python3 -m unittest discover -s tests   → 587 tests OK
+```
+
+離線端到端（題目 `如果聯準會九月降息，ETH 會受益嗎？`，其 deterministic plan 只要求
+`['market']`，正是漏洞觸發條件）：
+
+```text
+修正前  domain_coverage = 1.0
+修正後  domain_coverage = 0.3333
+        limiters 新增 plan_scope_denominator_floor
+        domain_coverage_below_minimum 隨之觸發
+        verdict = insufficient_evidence
+        六項提交物完整
+```
 
 ---
 
@@ -266,8 +331,8 @@ LLM 路徑下**無法保證**，只有 fallback 路徑能保證。這一點必�
 
 ## 7. 建議時機
 
-**P0（`domain_coverage` 分母）**：建議獨立優先做。它是既有漏洞，與本提案無關，改動小，
-且直接關係到「LLM 不得決定 confidence」這條紅線。
+**P0（`domain_coverage` 分母）**：**已完成**，見第 2.4 節。獨立於本提案實作，
+未觸碰採集層與 planner。
 
 **P1（plan → collection 接線）**：建議等 AWS 部署收束後再動。理由：
 `GoToAWS0801` 上有並行的部署工作，且競賽規則規定「最後 90 分鐘不得加入新功能」。
