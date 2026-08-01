@@ -256,7 +256,7 @@ tasks:
 
   T5:
     title: Enforce Citation Gate and competition outputs
-    status: REVIEW
+    status: PASS
     depends_on: [T4]
     target_minutes: 75
     milestone: minimum_competition_ready_core
