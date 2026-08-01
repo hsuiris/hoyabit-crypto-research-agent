@@ -89,7 +89,7 @@ tasks:
     target_minutes: 45
     started_at: 2026-08-01T10:12:00+08:00
     completed_at: 2026-08-01T10:31:40+08:00
-    commit: PENDING
+    commit: c398c0a
     test_summary: 26 targeted tests OK（tests/test_schema_contract.py）；完整套件 175 tests OK
     note: >-
       原始 T0-T8 計畫沒有這個 Task，由使用者臨時插入。目的是在 T2-T5 平行開發前先凍結三條線
