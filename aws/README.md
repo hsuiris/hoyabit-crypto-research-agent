@@ -9,8 +9,9 @@
 |---|---|---|
 | `template.yaml` | CloudFormation：IAM 執行角色 + Lambda + Function URL | 部署時需要 |
 | `verify-permissions.sh` | 部署前的權限預檢；只做唯讀呼叫，不建立任何資源 | 需要 |
+| `deploy.sh` | POSIX 部署腳本（macOS／Linux） | 除 `--dry-run` 外需要 |
+| `deploy.ps1` | PowerShell 部署腳本（Windows），與 `deploy.sh` 行為對等 | 部署時需要 |
 | `iam/deployer-policy.json` | 部署身分的最小權限參考 policy | 不需要 |
-| `deploy.ps1` | PowerShell 部署腳本（Windows） | 部署時需要 |
 
 ## 執行順序
 
@@ -21,8 +22,21 @@ export AWS_PROFILE=hoyabit
 # 2. 權限預檢（不建立資源）
 AWS_REGION=us-west-2 bash aws/verify-permissions.sh
 
-# 3. 部署（腳本尚未建立，見下方「待補」）
+# 3. 先確認打包正確（不呼叫任何 AWS API，無憑證也能跑）
+bash aws/deploy.sh --dry-run
+
+# 4. 部署
+bash aws/deploy.sh --region us-west-2 --provider bedrock --model-id amazon.nova-lite-v1:0
+
+# 5. Demo 結束後拆除
+aws cloudformation delete-stack --region us-west-2 --stack-name hoyabit-agent-mvp
 ```
+
+`--dry-run` 是刻意設計的：它讓打包邏輯與 AWS 憑證解耦，因此可以在還沒拿到權限時
+就先驗證部署套件的內容是否正確。
+
+部署套件只含 `lambda_handler.py`、`src/`、`data/`。`tests/`、`docs/`、`demo-fixtures/`、
+`outputs-*/`、`.kiro/` 與 `.env` 一律排除——前面幾項是體積，最後一項是憑證外洩風險。
 
 ## 憑證來源
 
@@ -112,9 +126,19 @@ offline fallback，執行仍然成功、報告仍然產出，只是模型路徑�
 
 ## 待補
 
-| 項目 | 對應任務 |
-|---|---|
-| `deploy.sh`（POSIX 部署腳本，本機無 pwsh 因此必要） | D3 |
-| Lambda 執行環境的 boto3／botocore 版本控制 | D4 |
-| S3 產物持久化（`S3ArtifactStore`） | D6 |
-| reserved concurrency、log 保留期、Budgets 告警 | D7 |
+| 項目 | 對應任務 | 狀態 |
+|---|---|---|
+| `deploy.sh`（POSIX 部署腳本，本機無 pwsh 因此必要） | D3 | 已完成 |
+| Lambda 執行環境的 boto3／botocore 版本控制 | D4 | 進行中 |
+| S3 產物持久化（`S3ArtifactStore`） | D6 | 未開始 |
+| reserved concurrency、log 保留期、Budgets 告警 | D7 | 未開始 |
+
+### D4 為什麼重要
+
+Lambda 受管 runtime 內建的 boto3 版本常落後於 runtime 發布時點。若內建版本不支援
+`bedrock-runtime` 的 `Converse`，`src/llm.py` 會拋出例外、被 orchestrator 攔下、
+降級成 deterministic offline fallback——**執行仍然成功、六項提交物仍然產出，只是模型
+路徑沒跑**。這正是 `docs/COMPETITION_BLOCKERS.md` 的 B2 在雲端的翻版，而且更難發現。
+
+因此 `deploy.sh` 提供 `--bundle-sdk`，會把 pin 版 boto3／botocore 打包進部署包。
+它預設關閉：先用內建版本部署並檢查 log，確認不支援才開啟，避免不必要的套件體積。
