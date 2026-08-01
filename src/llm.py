@@ -35,11 +35,42 @@ ANALYSIS_SCHEMA = {
 }
 
 
+# T4：分析回應允許額外帶 `claims` 提案。`ANALYSIS_SCHEMA` 本身不變（既有欄位與 required 清單
+# 一字未改，`additionalProperties: False` 也保留），所以現有 provider 的行為完全相同；只有當上游
+# 模型或注入的 client 主動回傳 `claims` 時，`normalise_analysis_claims()` 會把它挪到
+# `claim_proposals`，明確標示這是「提案」而不是最終 Claim。
+#
+# 這樣做的理由是邊界：模型提出的 Claim 文字必須先經 `src/claim_graph.py` 驗證 Evidence ID、
+# 檢查 Fact 是否混寫推論，最終 verdict 與 confidence 一律由 deterministic Python 計算。若直接把
+# 模型的 `claims` 當成結果，模型就等於自己給了自己信心分數。
+CLAIM_PROPOSAL_FIELD = "claims"
+CLAIM_PROPOSAL_RESULT_FIELD = "claim_proposals"
+
+
 def build_prompt(coin: str, question: str, evidence: list[dict]) -> str:
     return ("You are a crypto market research analyst. Use only the supplied evidence. "
             "Separate facts from inferences and conclusion. Do not provide buy/sell advice. "
             "Cite evidence IDs for every material claim and lower confidence when signals conflict.\n\n"
+            "分層規則（T4）：facts 只寫資料直接顯示的觀察並附 evidence ID，不得出現「因此」「預期」"
+            "「將會」等推論或預測用語；解釋寫在 inferences，對研究問題的回答寫在 conclusion。\n"
+            "存在高品質反方證據時必須寫進 counter_evidence，不得隱藏。\n"
+            "confidence 只是你的參考值：每個 Claim 的最終信心分數由程式依證據品質、領域覆蓋度、"
+            "來源多元性、訊號一致性與反方覆蓋度計算，你的數字不會成為最終分數。\n\n"
             + json.dumps({"coin": coin, "question": question, "evidence": evidence}, ensure_ascii=False))
+
+
+def normalise_analysis_claims(result: dict) -> dict:
+    """把分析回應裡的 `claims` 改名成 `claim_proposals`，其餘欄位原樣保留。
+
+    回傳的 dict 一定含有既有的 `market_judgment`／`facts`／`inferences`／`conclusion` 等欄位，
+    因此對報告渲染與既有測試完全相容；差別只在模型的 Claim 文字被降級為待驗證的提案。
+    """
+    if CLAIM_PROPOSAL_FIELD not in result:
+        return result
+    normalised = dict(result)
+    proposals = normalised.pop(CLAIM_PROPOSAL_FIELD)
+    normalised[CLAIM_PROPOSAL_RESULT_FIELD] = proposals if isinstance(proposals, list) else []
+    return normalised
 
 
 CRITIC_SCHEMA = {
@@ -411,4 +442,5 @@ def analyze_with_llm(coin: str, question: str, evidence: list[dict], client: obj
         schema_name="market_analysis",
         timeout_seconds=60,
     )
-    return _validate_analysis_result(_validate_required_fields(raw, ANALYSIS_SCHEMA, "LLM"))
+    validated = _validate_analysis_result(_validate_required_fields(raw, ANALYSIS_SCHEMA, "LLM"))
+    return normalise_analysis_claims(validated)

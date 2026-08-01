@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T3
-last_updated_at: 2026-08-01T12:34:00+08:00
+current_task: T4
+last_updated_at: 2026-08-01T13:05:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 375 tests, 375 passed, 0 failed, 0 errors
+full_suite_latest: 425 tests, 425 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -198,15 +198,61 @@ tasks:
 
   T4:
     title: Add Claim-Evidence Graph and confidence engine
-    status: READY
+    status: PASS
     depends_on: [T3]
     target_minutes: 90
-    started_at: null
-    completed_at: null
-    commit: null
-    test_summary: null
+    started_at: 2026-08-01T13:05:00+08:00
+    completed_at: 2026-08-01T13:58:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "feat(T4)"`。
+    commit: 'feat(T4): add claim evidence graph and confidence engine'
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_t4_claim_graph_wiring → 50 tests OK
+      （模型呼叫全部走注入 mock client，不觸網路）；python3 -m unittest tests.test_claim_graph →
+      40 tests OK（引擎規則本身）。
+      完整套件：python3 -m unittest discover -s tests → 425 tests, 425 passed, 0 failed, 0 errors。
+      Offline smoke：run('ETH', ..., live=False, use_llm=False) 產出 report.md／evidence.json／
+      execution_log.json／research_plan.json／claims.json 五檔；claims.json 有 market_judgment
+      Claim 與 hypothesis_test Claim，verdict 皆為 insufficient_evidence（支持證據全為離線
+      fixture），evidence.json 被引用的證據 related_claim_ids 寫回 CL-001／CL-002，未被引用者仍為空。
+      五幣 smoke：BTC／ETH／SOL／BNB／XRP 各產出 1 個 Claim 且皆 insufficient_evidence。
+      降級 smoke：run(live=True, deadline 已過) 仍產出 claims.json 且不中斷。
+      比較 smoke：run_comparison('BTC','ETH') 頂層 claims.json 含 claims_by_coin 兩腳與共用
+      time window，兩腳各自保留自己的 claims.json。Web 首頁 HTTP 200 且含 HOYA BIT。
+    owner_note: >-
+      Track A 只做接線與 validator。src/claim_graph.py 由 Track B 於 a262378 提供，本 Task 未修改
+      該引擎的計分邏輯（cap、verdict、同源收斂、Critic 不得加分皆沿用）。
+    artifacts:
+      - src/orchestrator.py
+      - src/validation.py
+      - src/llm.py
+      - tests/test_t4_claim_graph_wiring.py
+      - claims.json（每次 run 的輸出目錄；比較執行另在頂層產生 claims_by_coin 版本）
+    integration_points:
+      - run() 在 critic_review 之後呼叫 _build_claims()，因為 Critic 只能下調 Claim 信心，必須先講完
+      - _claim_client() 決定提案者：注入 client → 分析回應的 claim_proposals → 新的模型呼叫 → 無
+      - _PreparedClaimsClient 讓分析回應裡的 claims 走同一道 claim_graph 驗證，不必多打一次模型
+      - validate_claims() 失敗時整批作廢並改用 deterministic 圖；deterministic 圖也失敗才中止 run
+      - apply_related_claim_ids() 在寫 evidence.json 前把 Claim ID 寫回 Evidence.related_claim_ids
+      - report.md 新增 ## Claims 段（三層分離、正反證據、信心分量、生效上限）
+      - execution_log.json 新增 build_claims step（critic_review 之後、generate_report 之前）
+      - result["claims"]／result["claim_graph"] 供 T5／T6 取用
     blockers: []
-    known_limitations: []
+    known_limitations:
+      - 離線模式所有證據皆為 fallback fixture，因此 Claim 一律 insufficient_evidence；這是刻意的
+        誠實降級，不是 bug（要看到 supported 需要 live 資料或注入高品質證據，見 targeted tests）
+      - claims_ms 未加入 execution_log 的 phase_actual_ms：三階段 ceiling 是既有契約，Claim 與
+        Planner 一樣共用總 deadline，耗時記在 build_claims step 的 duration_ms
+      - ANALYSIS_SCHEMA 未新增 claims 欄位（additionalProperties=False 且 OpenAI strict 要求所有
+        property 皆 required，加上去會讓未回傳 claims 的模型整份分析失效）；claims 走
+        claim_graph 的 CLAIM_PROPOSAL_SCHEMA，模型若自行回傳 claims 則由 normalise_analysis_claims()
+        降級為 claim_proposals
+      - live 模式的 LLM 呼叫數從 3 次增為 4 次（已更新 .kiro/steering/tech.md 的配額說明）
+      - 比較題頂層 claims.json 用 claims_by_coin 分腳保存（兩腳都從 CL-001 編號，合併會破壞
+        Claim 與該腳證據的對應）；T5 的 manifest 需照此形狀處理
+      - src/day1_mvp.py 未修改：related_claim_ids 相容欄位已於 T0.6 加入，T4 只填值
+      - Web UI 尚未顯示 Claim（T6）；claims.json 仍以 output_dir 直接寫出，未經 ArtifactStore（T5）
+      - 未執行真實 LLM 與 live API 驗證（保留至 T8）
 
   T5:
     title: Enforce Citation Gate and competition outputs

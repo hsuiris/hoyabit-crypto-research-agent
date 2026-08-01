@@ -389,8 +389,11 @@ class OfflineRegressionTests(unittest.TestCase):
                 self.assertEqual(record["scoring_version"], SCORING_VERSION)
                 self.assertIn(record["source_type"], SOURCE_TYPES)
                 self.assertIn(record["verification_status"], VERIFICATION_STATUSES)
-                # T4 尚未實作，claim 綁定仍應為空。
-                self.assertEqual(record["related_claim_ids"], [])
+                # T4 起 claim 綁定會被寫回：值只能是本次 run 的 Claim ID，未被任何 Claim
+                # 引用的證據仍維持空清單（不得為了好看而硬塞）。
+                self.assertIsInstance(record["related_claim_ids"], list)
+                for claim_id in record["related_claim_ids"]:
+                    self.assertRegex(claim_id, r"^CL-\d{3}$")
 
             log = json.loads((output / "execution_log.json").read_text(encoding="utf-8"))
             llm_step = next(step for step in log["steps"] if step["name"] == "llm_reasoning")

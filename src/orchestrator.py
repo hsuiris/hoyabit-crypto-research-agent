@@ -8,14 +8,17 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .claim_graph import (CLAIM_TIMEOUT_SECONDS, GRAPH_SOURCE_LLM, apply_related_claim_ids,
+                          build_claim_graph, claims_document)
 from .comparison import build_profile, compare_profiles, comparison_markdown
 from .credibility import load_source_registry, score_evidence_batch
 from .day2_sources import collect_evidence_detailed, stamp_credibility_metadata
-from .schemas import CREDIBILITY_WEIGHTS, HARD_CAPS, SCORING_VERSION
-from .validation import validate_evidence
+from .schemas import (ARTIFACT_FILENAMES, CONFIDENCE_WEIGHTS, CREDIBILITY_WEIGHTS, HARD_CAPS,
+                      SCORING_VERSION, VERDICT_INSUFFICIENT_EVIDENCE)
+from .validation import validate_claims, validate_evidence
 from .errors import AgentInputError, validate_request
-from .llm import (analyze_with_llm, critique_with_llm, default_llm_client, llm_is_configured,
-                  llm_runtime_info)
+from .llm import (CLAIM_PROPOSAL_RESULT_FIELD, analyze_with_llm, critique_with_llm,
+                  default_llm_client, llm_is_configured, llm_runtime_info)
 from .ohlcv import downsample, load_ohlcv, price_windows
 from .planner import (PLANNER_TIMEOUT_SECONDS, PLANNING_PATH_LLM, build_research_plan,
                       plan_to_dict)
@@ -35,6 +38,10 @@ CRITIC_PHASE_SECONDS = 120.0       # 2 min: audit the report against its own evi
 DEFAULT_TIME_BUDGET_SECONDS = COLLECTION_PHASE_SECONDS + REASONING_PHASE_SECONDS + CRITIC_PHASE_SECONDS
 _LLM_MIN_SECONDS = 20.0
 _CRITIC_MIN_SECONDS = 15.0
+# Claim building runs after the critic and, like the planner, draws on whatever is left of the total
+# deadline instead of getting a phase ceiling of its own -- so adding it cannot push the run past the
+# competition limit. Below this margin no model is called and the deterministic claim path is used.
+_CLAIM_MIN_SECONDS = 15.0
 # Planning runs before collection and draws on the same total deadline instead of getting a phase
 # ceiling of its own, so adding a planner cannot push the run past the competition limit. Below this
 # remaining margin the planner is not attempted at all -- the deterministic keyword plan is instant.
@@ -635,10 +642,147 @@ def _planner_step(plan, planning_log: dict, llm_info: dict) -> dict:
     }
 
 
+class _PreparedClaimsClient:
+    """A one-shot `LLMClient` that replays Claim proposals already returned by the analysis call.
+
+    The analysis response may carry a `claims` field (quarantined as `claim_proposals` by
+    `src/llm.py`). Those proposals still have to clear exactly the same gate as a dedicated claim
+    call -- every evidence ID must exist, facts must not smuggle in inference language, and the
+    model's own confidence and verdict are discarded -- so instead of trusting them directly they
+    are fed back through `src/claim_graph.py`'s validator via this adapter.
+
+    The point is quota, not cleverness: a full analysis already costs three model calls, and asking
+    the same model to restate its claims would make it four.
+    """
+
+    def __init__(self, proposals: list) -> None:
+        self.proposals = list(proposals)
+        self.calls = 0
+
+    def generate_json(self, *, prompt: str, schema: dict, schema_name: str, timeout_seconds: float) -> dict:
+        self.calls += 1
+        return {"claims": self.proposals}
+
+
+def _claim_client(reasoning: dict, *, use_llm: bool, client: object | None, deadline: float):
+    """Decide who proposes the Claim text: the analysis response, a fresh model call, or nobody.
+
+    Returning `None` is a normal outcome, not an error: `build_claim_graph()` then builds
+    conservative claims from the signal inventory that is already on the table.
+    """
+    if client is not None:
+        return client, "injected_client"
+    proposals = reasoning.get(CLAIM_PROPOSAL_RESULT_FIELD) or []
+    if proposals:
+        return _PreparedClaimsClient(proposals), "analysis_response_claims"
+    if not use_llm:
+        return None, "llm_disabled"
+    if not llm_is_configured():
+        return None, "no_provider_configured"
+    remaining = deadline - time.monotonic()
+    if remaining < _CLAIM_MIN_SECONDS:
+        return None, f"time_budget_remaining_{round(remaining, 1)}s"
+    return default_llm_client(), "llm_client"
+
+
+def _build_claims(result: dict, evidence: list, plan_dict: dict, signals: list[dict],
+                  critique: dict | None, *, client: object | None, deadline: float) -> dict:
+    """Build the Claim graph, and never let a model-authored graph through unvalidated.
+
+    A graph that fails `validate_claims` is not repaired in place -- the whole batch is discarded and
+    rebuilt deterministically, because a partially trusted graph is worse than an honest conservative
+    one. If the deterministic graph also fails, that is a bug in this pipeline and the run stops.
+    """
+    timeout = max(1.0, min(CLAIM_TIMEOUT_SECONDS, deadline - time.monotonic()))
+
+    def build(active_client):
+        return build_claim_graph(
+            result["coin"], result["question"], evidence,
+            signals=signals, stance=result["stance"], plan=plan_dict,
+            client=active_client, critique=critique, timeout_seconds=timeout,
+        )
+
+    graph = build(client)
+    errors = validate_claims(graph["claims"], evidence)
+    if errors and graph["source"] == GRAPH_SOURCE_LLM:
+        graph = build(None)
+        graph["fallback_reason"] = "claim validation failed: " + "; ".join(errors)
+        errors = validate_claims(graph["claims"], evidence)
+    if errors:
+        raise ValueError("Claim validation failed: " + "; ".join(errors))
+    return graph
+
+
+def _claims_step(graph: dict, client_reason: str, llm_info: dict, duration_ms: float) -> dict:
+    """The Execution Log entry for claim building: who proposed, who scored, what got capped."""
+    used_model = graph["source"] == GRAPH_SOURCE_LLM
+    claims = graph["claims"]
+    return {
+        "name": "build_claims",
+        "status": "success" if used_model else "fallback",
+        "claim_source": graph["source"],
+        # Only the wording can come from a model; the verdict and the score never do.
+        "proposed_by": "llm" if used_model else "deterministic_rules",
+        "scored_by": "deterministic_rules",
+        "provider": llm_info["provider"] if used_model else "deterministic",
+        "model": llm_info["model"] if used_model else None,
+        "client_selection": client_reason,
+        "duration_ms": duration_ms,
+        "fallback_reason": graph["fallback_reason"],
+        "claim_count": len(claims),
+        "verdicts": {claim["claim_id"]: claim["verdict"] for claim in claims},
+        "confidence_scores": {claim["claim_id"]: claim["confidence"]["score"] for claim in claims},
+        "confidence_limiters": {claim["claim_id"]: claim["confidence"]["limiters"]
+                                for claim in claims if claim["confidence"]["limiters"]},
+        "insufficient_evidence_claims": [claim["claim_id"] for claim in claims
+                                         if claim["verdict"] == VERDICT_INSUFFICIENT_EVIDENCE],
+        "hypothesis_assessments": graph["hypothesis_assessments"],
+        "evidence_with_claim_links": len(graph["related_claim_ids"]),
+        "rejected_evidence_ids": graph["rejected_evidence_ids"],
+        "confidence_weights": dict(CONFIDENCE_WEIGHTS),
+        "scoring_version": graph["scoring_version"],
+    }
+
+
+def _claims_markdown(graph: dict) -> str:
+    """Render the Claim graph so a reader can audit one claim without opening `claims.json`.
+
+    Every claim prints its three layers separately, both sides of the evidence, and the limiters that
+    held the score down -- a confidence number with no visible reason is not auditable.
+    """
+    blocks = []
+    for claim in graph["claims"]:
+        confidence = claim["confidence"]
+        lines = [
+            f"### {claim['claim_id']}｜{claim['statement']}",
+            f"- 判定：**{claim['verdict']}**　信心 {confidence['score']}"
+            f"（{confidence['level']}／{confidence['type']}，類型 {claim['claim_type']}）",
+        ]
+        for fact in claim["facts"]:
+            lines.append(f"- 事實：{fact['statement']}（{', '.join(fact['evidence_ids'])}）")
+        lines.append(f"- 推論：{claim['inference']}")
+        lines.append(f"- 結論：{claim['conclusion']}")
+        lines.append("- 支持證據：" + (", ".join(claim["supporting_evidence_ids"]) or "無"))
+        lines.append("- 反方證據：" + (", ".join(claim["contradicting_evidence_ids"]) or "無"))
+        lines.append("- 信心分量：" + "／".join(
+            f"{key}={confidence['components'].get(key)}" for key in CONFIDENCE_WEIGHTS))
+        if confidence["limiters"]:
+            lines.append("- 生效上限：" + "、".join(confidence["limiters"]))
+        for label, key in (("限制", "limitations"), ("推翻條件", "invalidation_conditions"),
+                           ("觀察重點", "watchpoints")):
+            for entry in claim[key]:
+                lines.append(f"- {label}：{entry}")
+        blocks.append("\n".join(lines))
+    note = ("_Claim 的 verdict 與信心由 deterministic Python 計算（%s），LLM 只提供敘述；"
+            "信心是 heuristic evidence score，不是市場正確機率。_" % graph["scoring_version"])
+    return "\n## Claims\n" + "\n\n".join(blocks) + "\n\n" + note + "\n"
+
+
 def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm: bool = False,
         ohlcv_path: Path | None = None, time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
         deadline: float | None = None, history_path: Path | None = None,
-        fulltext: bool = False, research_plan=None, planner_client: object | None = None) -> dict:
+        fulltext: bool = False, research_plan=None, planner_client: object | None = None,
+        claim_client: object | None = None) -> dict:
     coin, question = validate_request(coin, question)
     started = time.perf_counter()
     if deadline is None:
@@ -760,6 +904,32 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     result["critique"] = critique
     phase_timings["critic_ms"] = round((time.monotonic() - critic_started) * 1000, 1)
 
+    # Claims are built last because they consume the critic's verdict: the critic may only lower a
+    # claim's confidence, so it has to have spoken before the score is fixed.
+    # Timed in its own Execution Log step rather than in `phase_actual_ms`: the three phase ceilings
+    # are a frozen contract, and claim building has no ceiling of its own -- like planning, it runs
+    # inside whatever the total deadline has left.
+    claims_started = time.monotonic()
+    active_claim_client, claim_client_reason = _claim_client(
+        result["reasoning"], use_llm=use_llm, client=claim_client, deadline=deadline)
+    claim_graph = _build_claims(result, evidence, plan_dict, signals, critique,
+                                client=active_claim_client, deadline=deadline)
+    claims_doc = claims_document(claim_graph)
+    # Write the claim IDs back onto the evidence so `evidence.json` can be read in either direction:
+    # from a claim to its sources, and from a source to the claims that leaned on it.
+    linked_evidence_count = apply_related_claim_ids(evidence, claim_graph)
+    result["claims"] = claim_graph["claims"]
+    result["claim_graph"] = {
+        "source": claim_graph["source"],
+        "fallback_reason": claim_graph["fallback_reason"],
+        "claim_count": len(claim_graph["claims"]),
+        "verdicts": {claim["claim_id"]: claim["verdict"] for claim in claim_graph["claims"]},
+        "hypothesis_assessments": claim_graph["hypothesis_assessments"],
+        "linked_evidence_count": linked_evidence_count,
+        "scoring_version": claim_graph["scoring_version"],
+    }
+    claims_duration_ms = round((time.monotonic() - claims_started) * 1000, 1)
+
     validation_errors = validate_evidence(evidence, result["evidence_ids"], require_scored=True)
     if validation_errors:
         raise ValueError("Evidence validation failed: " + "; ".join(validation_errors))
@@ -803,10 +973,14 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
             f"／價格位於區間 {window['percentile_in_range']}% 分位"
             for label, window in history.content["windows"].items()
         ) + f"\n- 資料來源：{history.evidence_id}（{history.content['rows']} 個交易日）\n"
-    (output_dir / "report.md").write_text(f"# {result['coin']} Market Research\n\n## Question\n{question}\n\n## Stance\n{stance_block}\n## Market Judgment\n{reasoning['market_judgment']}\n{history_block}\n## Facts\n" + "\n".join(f"- {x}" for x in reasoning["facts"]) + "\n\n## Inferences\n" + "\n".join(f"- {x}" for x in reasoning["inferences"]) + f"\n\n## Conclusion\n{reasoning['conclusion']}\n{critique_block}\n## Confidence\n{reasoning['confidence']}\n\n## Indicators\n" + indicator_lines + "\n\n## Counter Evidence\n" + "\n".join(f"- {x}" for x in reasoning["counter_evidence"]) + "\n\n## Evidence Sources\n" + sources + "\n\n## Next Observations\n" + "\n".join(f"- {x}" for x in reasoning["observation_points"]) + "\n\n## Risks and Limitations\n" + "\n".join(f"- {x}" for x in result["risk_factors"]) + "\n\n_This is research support, not investment advice._\n", encoding="utf-8")
+    claims_block = _claims_markdown(claim_graph)
+    (output_dir / "report.md").write_text(f"# {result['coin']} Market Research\n\n## Question\n{question}\n\n## Stance\n{stance_block}\n## Market Judgment\n{reasoning['market_judgment']}\n{history_block}\n## Facts\n" + "\n".join(f"- {x}" for x in reasoning["facts"]) + "\n\n## Inferences\n" + "\n".join(f"- {x}" for x in reasoning["inferences"]) + f"\n\n## Conclusion\n{reasoning['conclusion']}\n{claims_block}{critique_block}\n## Confidence\n{reasoning['confidence']}\n\n## Indicators\n" + indicator_lines + "\n\n## Counter Evidence\n" + "\n".join(f"- {x}" for x in reasoning["counter_evidence"]) + "\n\n## Evidence Sources\n" + sources + "\n\n## Next Observations\n" + "\n".join(f"- {x}" for x in reasoning["observation_points"]) + "\n\n## Risks and Limitations\n" + "\n".join(f"- {x}" for x in result["risk_factors"]) + "\n\n_This is research support, not investment advice._\n", encoding="utf-8")
     (output_dir / "evidence.json").write_text(json.dumps([asdict(item) for item in evidence], indent=2), encoding="utf-8")
     (output_dir / "research_plan.json").write_text(
         json.dumps(plan_dict, ensure_ascii=False, indent=2), encoding="utf-8",
+    )
+    (output_dir / ARTIFACT_FILENAMES["claims"]).write_text(
+        json.dumps(claims_doc, ensure_ascii=False, indent=2), encoding="utf-8",
     )
     skipped = [entry for entry in collection_log if "skipped" in entry]
     (output_dir / "execution_log.json").write_text(json.dumps({
@@ -840,6 +1014,7 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
             {"name": "validate_evidence", "status": "success", "error_count": 0},
             {"name": "llm_reasoning", "status": llm_status, **llm_info},
             {"name": "critic_review", "status": critic_status, **llm_info},
+            _claims_step(claim_graph, claim_client_reason, llm_info, claims_duration_ms),
             {"name": "generate_report", "status": "success"},
         ],
         "duration_ms": round((time.perf_counter() - started) * 1000, 2),
@@ -849,7 +1024,7 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
 
 def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, live: bool = False,
                    use_llm: bool = False, time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
-                   planner_client: object | None = None) -> dict:
+                   planner_client: object | None = None, claim_client: object | None = None) -> dict:
     """Run two single-coin analyses and render a side-by-side comparison.
 
     Both legs share one wall-clock deadline rather than getting a full budget each, so the pair
@@ -875,14 +1050,29 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
         json.dumps(shared_plan_dict, ensure_ascii=False, indent=2), encoding="utf-8",
     )
 
-    results, profiles = {}, {}
+    results, profiles, claims_by_coin = {}, {}, {}
     for coin in (coin_a, coin_b):
         leg_dir = output_dir / coin
         results[coin] = run(coin, question, leg_dir, live=live, use_llm=use_llm,
                             time_budget_seconds=time_budget_seconds, deadline=deadline,
-                            research_plan=shared_plan)
+                            research_plan=shared_plan, claim_client=claim_client)
         evidence = json.loads((leg_dir / "evidence.json").read_text(encoding="utf-8"))
         profiles[coin] = build_profile(coin, evidence)
+        claims_by_coin[coin] = json.loads(
+            (leg_dir / ARTIFACT_FILENAMES["claims"]).read_text(encoding="utf-8"))
+
+    # One `claims.json` for the pair, keyed by coin. The legs are kept separate rather than merged
+    # into one list: both legs number their claims from CL-001, and renumbering them would break the
+    # link between a claim and the leg whose evidence it was scored against.
+    (output_dir / ARTIFACT_FILENAMES["claims"]).write_text(json.dumps({
+        "mode": "comparison",
+        "coins": [coin_a, coin_b],
+        # A comparison is only fair if both sides were read over the same window and the same
+        # dimensions, so the shared plan's terms are recorded next to the claims they produced.
+        "shared_time_window": dict(shared_plan.time_window),
+        "comparison_dimensions": list(shared_plan.comparison_dimensions),
+        "claims_by_coin": claims_by_coin,
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
 
     comparison = compare_profiles(profiles[coin_a], profiles[coin_b])
     markdown = comparison_markdown(comparison, profiles[coin_a], profiles[coin_b])
@@ -896,6 +1086,7 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
         "mode": "comparison", "coins": [coin_a, coin_b], "question": question,
         "research_plan": shared_plan_dict, "planning": shared_planning_log,
         "results": results, "profiles": profiles, "comparison": comparison,
+        "claims_by_coin": claims_by_coin,
         "markdown": markdown,
         "duration_ms": round((time.perf_counter() - started) * 1000, 2),
     }

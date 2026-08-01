@@ -68,7 +68,7 @@ Before every Task:
   - _Commit: `feat(T3): add explainable evidence credibility engine`_
   - _Stop after Task: mandatory_
 
-- [ ] T4. Build the Claim–Evidence Graph and deterministic Claim confidence
+- [x] T4. Build the Claim–Evidence Graph and deterministic Claim confidence
   - Read `docs/competition-tasks/T4-claim-graph.md`.
   - Add Fact/Inference/Conclusion separation.
   - Add supporting and contradicting Evidence, verdict, confidence, limitations, invalidation conditions, and watchpoints.
