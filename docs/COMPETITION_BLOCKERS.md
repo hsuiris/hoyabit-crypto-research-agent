@@ -6,13 +6,52 @@
 
 | ID | Task | Detected At | Symptom | Root Cause / Current Theory | Attempts | Time Spent | Safe Fallback | Owner | Status |
 |---|---|---|---|---|---|---:|---|---|---|
-| — | — | — | — | — | — | — | — | — | — |
+| B1 | T2 | 2026-08-01T10:45+08:00 | 無法開始 T2 接線：`src/planner.py` 不存在 | Track B 尚未 commit planner 模組；Track A 的職責僅限接線，不得代為實作 | 見下方 B1 說明 | 8 min | 現有 deterministic offline pipeline 未被修改，三項既有提交物照常產出 | Track B（模組）／Track A（接線） | BLOCKED |
 
 ## Resolved Blockers
 
 | ID | Task | Resolution | Tests | Commit |
 |---|---|---|---|---|
 | — | — | — | — | — |
+
+### B1：T2 依賴的 Track B 模組尚未 commit
+
+- **Task**：T2（question-driven research planner 接線）
+- **Track A 的範圍**：把 Track B 已 commit 的純模組接進 `src/orchestrator.py`、`src/llm.py`、
+  `src/validation.py`、`src/app.py`、`lambda_handler.py`，並更新 `docs/COMPETITION_TASK_STATUS.yaml`。
+  Track A 不得建立或修改 `src/planner.py`。
+
+- **實際檢查與結果**（HEAD = `3b7a251`，branch `hackathon/competition-ready`）：
+
+  | 檢查 | 結果 |
+  |---|---|
+  | `ls src/planner.py` | 不存在 |
+  | `git log --all --oneline -- src/planner.py` | 無任何 commit |
+  | `git stash list` | 空 |
+  | `git branch -a` | 只有 `hackathon/competition-ready`、`main`、`remotes/origin/main` |
+  | `git worktree list` | 只有目前 worktree |
+  | `git status --short` | 乾淨，無未追蹤的 planner 檔案 |
+
+- **順帶確認的後續依賴**（同樣不存在、無 commit）：
+
+  | 路徑 | 需要它的 Task |
+  |---|---|
+  | `src/credibility.py` | T3 |
+  | `config/source_registry.json` | T3 |
+  | `src/claim_graph.py` | T4 |
+  | `src/run_manager.py` | T7（`src/artifact_store.py` 已存在，T5 的 manifest 可用） |
+
+- **安全 fallback**：不做任何功能性修改。既有 deterministic offline pipeline 完全未動，
+  `report.md`／`evidence.json`／`execution_log.json` 照常產出。基線回歸已確認
+  `python3 -m unittest discover -s tests` → 175 tests、175 passed、0 failed、0 errors。
+
+- **解除條件**：Track B commit `src/planner.py`（含 T2 spec 要求的 ResearchPlan schema、
+  7 種 task mode、關鍵字 deterministic fallback）之後，Track A 即可執行 T2 接線：
+  orchestrator 呼叫 planner、輸出 `research_plan.json`、Execution Log 記錄
+  planner provider／model／duration／fallback used／time window assumptions。
+
+- **未執行的事項（刻意）**：未建立 `src/planner.py`、未改動 `src/orchestrator.py`、
+  未改動 `src/llm.py`、未新增 T2 測試。
 
 ## Blocker Rules
 

@@ -2,7 +2,7 @@ project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
 current_task: T2
-last_updated_at: 2026-08-01T10:32:00+08:00
+last_updated_at: 2026-08-01T10:52:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
 full_suite_latest: 175 tests, 175 passed, 0 failed, 0 errors
@@ -110,15 +110,24 @@ tasks:
 
   T2:
     title: Add question-driven research planner
-    status: READY
+    status: BLOCKED
     depends_on: [T1]
     target_minutes: 60
-    started_at: null
+    started_at: 2026-08-01T10:45:00+08:00
     completed_at: null
     commit: null
-    test_summary: null
-    blockers: []
-    known_limitations: []
+    test_summary: >-
+      未執行 T2 targeted tests（無可測對象）。基線回歸確認：
+      python3 -m unittest discover -s tests → 175 tests, 175 passed, 0 failed, 0 errors。
+    blockers: [B1]
+    owner_note: >-
+      Track A 只負責接線（把 Track B 的純模組接進 orchestrator／llm／validation／app）。
+      Track B 的 src/planner.py 尚未 commit，因此 T2 無法接線。Track A 不得代為實作 planner。
+    known_limitations:
+      - src/planner.py 不存在（git log --all 無任何 commit 觸及該路徑，無 stash、無其他 branch／worktree）
+      - 同時確認缺少後續 Task 的 Track B 模組：src/credibility.py、src/claim_graph.py、
+        src/run_manager.py、config/source_registry.json，故 T3／T4 也將在依賴到位前無法接線
+      - research_plan.json 尚未產生；Execution Log 尚未加入 planner provider／fallback 欄位
 
   T3:
     title: Add explainable evidence credibility engine
