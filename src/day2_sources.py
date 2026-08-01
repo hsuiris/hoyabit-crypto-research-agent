@@ -23,9 +23,19 @@ from .vegas_strategy import analyze_vegas_channel, check_timeframe_alignment
 COIN_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin", "XRP": "ripple"}
 FUTURES_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT", "BNB": "BNBUSDT", "XRP": "XRPUSDT"}
 
-# Curated, source-verified large exchange wallets (Etherscan/BscScan public tags, cross-checked
-# 2026-07-28 against live balances). Not a live whale-discovery feed: SOL/XRP have no free, no-key
-# balance API for a verified address list yet, so they intentionally raise NotImplementedError.
+# Curated large accounts, each cross-checked against a live balance before being added here. This is
+# not a whale-discovery feed: it re-reads a fixed address list, so it can show a known holder moving
+# size but cannot find a new one.
+#
+# BTC/ETH/BNB entries carry exchange labels because those addresses are among the most widely
+# documented on-chain (Etherscan/BscScan public tags, cross-checked 2026-07-28).
+#
+# SOL/XRP entries deliberately do NOT name an owner. Balances were verified on-chain 2026-08-01, but
+# the ownership attribution could not be confirmed against a first-party source -- and a balance
+# proves only that an account holds size, never who controls it (see the Observable Fact vs
+# Source Statement split in .kiro/steering/evidence-confidence-standards.md). Naming a likely
+# exchange here would put an unverifiable claim into the evidence table, so the label states what is
+# actually known. The credibility engine's `unverifiable_entity_attribution` cap applies regardless.
 KNOWN_WHALE_ADDRESSES = {
     "BTC": [
         {"label": "Binance Cold Wallet 1", "address": "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo"},
@@ -39,29 +49,61 @@ KNOWN_WHALE_ADDRESSES = {
         {"label": "Binance 7 (BSC)", "address": "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8"},
         {"label": "Binance Hot Wallet 20 (BSC)", "address": "0xf977814e90da44bfa03b6295a0616a897441acec"},
     ],
+    "SOL": [
+        # 10,755,443 SOL 與 693,532 SOL（實測 2026-08-01）。
+        {"label": "SOL 大額帳戶 1（持有者未經第一方確認）",
+         "address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"},
+        {"label": "SOL 大額帳戶 2（持有者未經第一方確認）",
+         "address": "5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9"},
+    ],
+    "XRP": [
+        # 10,605,986 XRP 與 9,258,993 XRP（實測 2026-08-01）。
+        {"label": "XRP 大額帳戶 1（持有者未經第一方確認）",
+         "address": "rLW9gnQo7BQhU6igk5keqYnH3TVrCxGRzm"},
+        {"label": "XRP 大額帳戶 2（持有者未經第一方確認）",
+         "address": "rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv"},
+    ],
 }
 
 WHALE_EXPLORER_URL = {
     "BTC": "https://www.blockchain.com/explorer/addresses/btc/{address}",
     "ETH": "https://etherscan.io/address/{address}",
     "BNB": "https://bscscan.com/address/{address}",
+    "SOL": "https://solscan.io/account/{address}",
+    "XRP": "https://livenet.xrpl.org/accounts/{address}",
 }
 
-# Official project feeds, probed 2026-07-31. ETH/BTC/SOL publish a real first-party feed.
-# Ripple and BNB Chain do not expose a working public RSS/Atom endpoint (ripple.com/insights/feed
-# is 404; bnbchain.org/en/blog/feed serves HTML; binance.com announcement feeds answer 202 with an
-# empty body behind bot protection), so those two fall back to a Google News feed *restricted to the
-# official domains*. That is second-hand syndication, not a first-party feed -- it is labelled and
-# scored differently below so the distinction stays visible in the evidence table.
+# Official project feeds, probed 2026-07-31 and re-probed 2026-08-01. ETH/BTC/SOL publish a real
+# first-party feed on their own domain.
+#
+# Ripple and BNB Chain still expose no working blog RSS/Atom endpoint (ripple.com/insights/feed is
+# 404, xrpl.org has no feed and no autodiscovery tag, bnbchain.org/en/blog/feed serves HTML, and the
+# BNB Chain Medium account at medium.com/feed/@bnbchain is a real feed but has not published since
+# 2021-05). What both projects *do* publish first-hand is their reference-client release feed on
+# GitHub, which is genuinely first-party and independently verifiable.
+#
+# That feed is narrower than a general announcement channel -- it carries protocol/client releases,
+# not partnerships or listings -- so the evidence description says so rather than implying the feed
+# covers every official announcement. The domain-restricted Google News feed stays as the second
+# entry: if a release feed is quiet, syndication still yields something, and it is scored lower and
+# labelled as non-first-party so the distinction stays visible in the evidence table.
 OFFICIAL_FEEDS = {
     "ETH": [("Ethereum Foundation Blog", "https://blog.ethereum.org/en/feed.xml", True)],
     "BTC": [("Bitcoin Optech Newsletter", "https://bitcoinops.org/feed.xml", True)],
     "SOL": [("Solana Official News", "https://solana.com/news/rss.xml", True)],
-    "XRP": [("Google News (restricted to ripple.com / xrpl.org)",
+    "XRP": [("XRP Ledger Foundation rippled releases",
+             "https://github.com/XRPLF/rippled/releases.atom", True),
+            ("Google News (restricted to ripple.com / xrpl.org)",
              "https://news.google.com/rss/search?q=" + quote("site:ripple.com OR site:xrpl.org"), False)],
-    "BNB": [("Google News (restricted to bnbchain.org / binance.com announcements)",
+    "BNB": [("BNB Chain bsc client releases",
+             "https://github.com/bnb-chain/bsc/releases.atom", True),
+            ("Google News (restricted to bnbchain.org / binance.com announcements)",
              "https://news.google.com/rss/search?q=" + quote("site:bnbchain.org OR site:binance.com/en/support/announcement"), False)],
 }
+
+# 只有這兩幣的第一方來源是「參考客戶端發布」而非一般公告頻道；描述必須說清楚，否則讀者會
+# 以為看到的是完整官方公告（違反 Source Statement 不得被放大成 Fact 的分層規則）。
+RELEASE_FEED_COINS = frozenset({"XRP", "BNB"})
 
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
 
@@ -255,35 +297,133 @@ def fetch_coingecko(coin: str = "ETH", days: int = 14) -> Evidence:
     )
 
 
-def fetch_funding_rate(coin: str = "ETH") -> Evidence:
-    """Fetch the current perpetual-futures funding rate from Binance's public (no-key) endpoint.
+# Funding-rate providers, in preference order. Binance stays first so nothing changes where it is
+# reachable; the other two exist because Binance geo-blocks AWS us-west-2 (see aws/README.md) and the
+# derivatives *domain* only has two collectors -- funding rate and long/short ratio -- both of which
+# used to be Binance-only. One geo-block therefore erased an entire research domain from the report.
+# Kraken Futures is a US-regulated venue and dYdX v4 is decentralised, so both answer from US IPs.
+#
+# Settlement intervals differ and MUST be normalised: Binance settles every 8 hours, Kraken and dYdX
+# every hour. The +/-0.01% `bias` thresholds below are defined on an 8-hour basis, so feeding an
+# hourly rate in unchanged would move the same market state a whole bias level just by switching
+# provider. Every provider therefore returns an 8-hour-equivalent percentage.
+# Cross-checked 2026-08-01 after normalisation: ETH read -0.01825% via Kraken and -0.01784% via dYdX.
+KRAKEN_FUTURES_SYMBOLS = {"BTC": "PF_XBTUSD", "ETH": "PF_ETHUSD", "SOL": "PF_SOLUSD",
+                          "BNB": "PF_BNBUSD", "XRP": "PF_XRPUSD"}
+DYDX_MARKETS = {"BTC": "BTC-USD", "ETH": "ETH-USD", "SOL": "SOL-USD",
+                "BNB": "BNB-USD", "XRP": "XRP-USD"}
+# Binance quotes one rate per 8h window; Kraken and dYdX quote hourly.
+FUNDING_SETTLEMENT_HOURS = 8
 
-    A positive rate means longs pay shorts (long side is crowded / paying a premium to stay open);
-    a negative rate means shorts pay longs (short side is crowded). Magnitude, not just sign, matters:
-    most of the time funding sits within roughly +/-0.01% per 8h window.
-    """
-    coin = coin.upper()
+
+def _funding_from_binance(coin: str) -> dict:
     symbol = FUTURES_SYMBOLS[coin]
     url = f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={quote(symbol)}"
     payload = _get_json(url)
     rate = payload.get("lastFundingRate")
     if rate is None:
         raise ValueError("Binance returned no funding rate")
-    funding_rate_pct = round(float(rate) * 100, 4)
-    if funding_rate_pct > 0.01:
-        bias = "long_crowded"
-    elif funding_rate_pct < -0.01:
-        bias = "short_crowded"
-    else:
-        bias = "balanced"
-    return Evidence(
-        f"EV-DERIV-{coin}-001", "Binance Futures", url, datetime.now(timezone.utc).isoformat(),
-        "derivatives", coin, "current", {
-            "symbol": symbol, "funding_rate_pct": funding_rate_pct, "bias": bias,
-            "mark_price": payload.get("markPrice"), "next_funding_time": payload.get("nextFundingTime"),
-        }, 0.75,
-        {"endpoint": url, "symbol": symbol, "raw_funding_rate": rate}, f"{coin} perpetual-futures funding rate and long/short crowding bias"
-    )
+    # Already an 8-hour rate: no conversion, which is why this stays the preferred provider.
+    return {"symbol": symbol, "url": url, "pct_8h": float(rate) * 100,
+            "native_interval_hours": 8, "mark_price": payload.get("markPrice"),
+            "next_funding_time": payload.get("nextFundingTime"), "raw_funding_rate": rate}
+
+
+def _funding_from_kraken(coin: str) -> dict:
+    symbol = KRAKEN_FUTURES_SYMBOLS[coin]
+    url = "https://futures.kraken.com/derivatives/api/v3/tickers"
+    payload = _get_json(url)
+    ticker = next((item for item in payload.get("tickers") or []
+                   if item.get("symbol") == symbol), None)
+    if ticker is None:
+        raise ValueError(f"Kraken Futures has no ticker for {symbol}")
+    rate, mark_price = ticker.get("fundingRate"), ticker.get("markPrice")
+    if rate is None or not mark_price:
+        raise ValueError(f"Kraken Futures returned no funding rate for {symbol}")
+    # Kraken quotes funding in quote currency per contract, so the comparable relative rate is
+    # `fundingRate / markPrice` -- an absolute figure would scale with the coin's price level.
+    hourly = float(rate) / float(mark_price)
+    return {"symbol": symbol, "url": url, "pct_8h": hourly * FUNDING_SETTLEMENT_HOURS * 100,
+            "native_interval_hours": 1, "mark_price": mark_price,
+            "next_funding_time": None, "raw_funding_rate": rate}
+
+
+def _funding_from_dydx(coin: str) -> dict:
+    market = DYDX_MARKETS[coin]
+    url = f"https://indexer.dydx.trade/v4/perpetualMarkets?ticker={quote(market)}"
+    payload = _get_json(url)
+    entry = (payload.get("markets") or {}).get(market)
+    if not entry:
+        raise ValueError(f"dYdX has no market for {market}")
+    rate = entry.get("nextFundingRate")
+    if rate is None:
+        raise ValueError(f"dYdX returned no funding rate for {market}")
+    return {"symbol": market, "url": url,
+            "pct_8h": float(rate) * FUNDING_SETTLEMENT_HOURS * 100,
+            "native_interval_hours": 1, "mark_price": entry.get("oraclePrice"),
+            "next_funding_time": None, "raw_funding_rate": rate}
+
+
+FUNDING_RATE_PROVIDERS = (
+    ("Binance Futures", _funding_from_binance),
+    ("Kraken Futures", _funding_from_kraken),
+    ("dYdX v4", _funding_from_dydx),
+)
+
+
+def fetch_funding_rate(coin: str = "ETH") -> Evidence:
+    """Fetch the current perpetual-futures funding rate, trying each provider in turn.
+
+    A positive rate means longs pay shorts (long side is crowded / paying a premium to stay open);
+    a negative rate means shorts pay longs (short side is crowded). Magnitude, not just sign, matters:
+    most of the time funding sits within roughly +/-0.01% per 8h window.
+
+    Falling through to a later provider is **not** a degradation: the data is still live and
+    first-hand, just from another venue. The evidence records which venue answered and what the
+    venue's native settlement interval was, so a reader can reproduce the number.
+    """
+    coin = coin.upper()
+    errors = []
+    for provider_name, provider in FUNDING_RATE_PROVIDERS:
+        try:
+            quote_data = provider(coin)
+        except Exception as error:  # 換下一個交易所，全部失敗才讓 collector 降級
+            errors.append(f"{provider_name}: {type(error).__name__}")
+            continue
+
+        funding_rate_pct = round(quote_data["pct_8h"], 4)
+        if funding_rate_pct > 0.01:
+            bias = "long_crowded"
+        elif funding_rate_pct < -0.01:
+            bias = "short_crowded"
+        else:
+            bias = "balanced"
+        url = quote_data["url"]
+        return Evidence(
+            f"EV-DERIV-{coin}-001", provider_name, url, datetime.now(timezone.utc).isoformat(),
+            "derivatives", coin, "current", {
+                "symbol": quote_data["symbol"], "funding_rate_pct": funding_rate_pct, "bias": bias,
+                "mark_price": quote_data["mark_price"],
+                "next_funding_time": quote_data["next_funding_time"],
+                "provider": provider_name,
+                # 讀者要能判斷這個百分比的基準，否則無法與其他來源比較。
+                "funding_interval_hours": FUNDING_SETTLEMENT_HOURS,
+                "provider_native_interval_hours": quote_data["native_interval_hours"],
+                "providers_tried": errors or None,
+                # 資金費率是「該交易所的」市場狀態，不是全市場常數。實測 2026-08-01 ETH 在
+                # Binance 為 +0.00568%（balanced）、在 Kraken 為 -0.01824%（short_crowded）——
+                # 換了交易所 bias 可能不同。因此本欄位必須連同 provider 一起解讀。
+                "scope_note": f"本費率為 {provider_name} 單一交易所的永續合約報價，"
+                              "不同交易所的費率與擁擠方向可能相反，不可視為全市場共識",
+            }, 0.75,
+            {"endpoint": url, "symbol": quote_data["symbol"],
+             "raw_funding_rate": quote_data["raw_funding_rate"],
+             "provider": provider_name,
+             "normalised_to_hours": FUNDING_SETTLEMENT_HOURS,
+             "provider_native_interval_hours": quote_data["native_interval_hours"]},
+            f"{coin} perpetual-futures funding rate and long/short crowding bias"
+        )
+    raise ValueError("All funding-rate providers failed: " + "; ".join(errors))
 
 
 def fetch_whale_wallets(coin: str = "ETH") -> Evidence:
@@ -291,7 +431,11 @@ def fetch_whale_wallets(coin: str = "ETH") -> Evidence:
 
     This is a free/no-key proxy for whale tracking, not a live whale-discovery feed: it does not
     find new large holders, it re-queries a fixed, source-cited address list against free public
-    balance endpoints (blockchain.info for BTC, public JSON-RPC for ETH/BNB).
+    balance endpoints (blockchain.info for BTC, public JSON-RPC for ETH/BNB/SOL/XRP).
+
+    Each chain reports balances in its own base unit, so the divisor differs per chain: satoshi
+    (1e8), wei (1e18), lamports (1e9) and drops (1e6). Sharing one divisor would silently misreport
+    balances by orders of magnitude.
     """
     coin = coin.upper()
     addresses = KNOWN_WHALE_ADDRESSES.get(coin)
@@ -307,6 +451,26 @@ def fetch_whale_wallets(coin: str = "ETH") -> Evidence:
             if balance is None:
                 raise ValueError(f"blockchain.info returned no balance for {item['address']}")
             wallets.append({**item, "balance": round(balance / 1e8, 4), "explorer_url": WHALE_EXPLORER_URL["BTC"].format(address=item["address"])})
+    elif coin == "SOL":
+        source_url = "https://api.mainnet-beta.solana.com"
+        for item in addresses:
+            result = _post_json(source_url, {"jsonrpc": "2.0", "id": 1, "method": "getBalance",
+                                             "params": [item["address"]]})
+            lamports = (result.get("result") or {}).get("value")
+            if lamports is None:
+                raise ValueError(f"{source_url} returned no balance for {item['address']}")
+            wallets.append({**item, "balance": round(int(lamports) / 1e9, 4),
+                            "explorer_url": WHALE_EXPLORER_URL["SOL"].format(address=item["address"])})
+    elif coin == "XRP":
+        source_url = "https://xrplcluster.com/"
+        for item in addresses:
+            result = _post_json(source_url, {"method": "account_info", "params": [
+                {"account": item["address"], "ledger_index": "validated"}]})
+            drops = ((result.get("result") or {}).get("account_data") or {}).get("Balance")
+            if drops is None:
+                raise ValueError(f"{source_url} returned no balance for {item['address']}")
+            wallets.append({**item, "balance": round(int(drops) / 1e6, 4),
+                            "explorer_url": WHALE_EXPLORER_URL["XRP"].format(address=item["address"])})
     else:
         source_url = "https://ethereum.publicnode.com" if coin == "ETH" else "https://bsc-dataseed.binance.org/"
         for item in addresses:
@@ -316,9 +480,15 @@ def fetch_whale_wallets(coin: str = "ETH") -> Evidence:
                 raise ValueError(f"{source_url} returned no balance for {item['address']}")
             wallets.append({**item, "balance": round(int(hex_balance, 16) / 1e18, 4), "explorer_url": WHALE_EXPLORER_URL[coin].format(address=item["address"])})
 
+    # SOL/XRP 的持有者未經確認，note 不能沿用「已知大型交易所/機構地址」的說法。
+    attributed = coin not in {"SOL", "XRP"}
+    note = ("僅追蹤已知大型交易所/機構地址的即時餘額，非全網即時巨鯨偵測" if attributed else
+            "僅追蹤固定的大額帳戶清單，餘額為鏈上實測；持有者歸屬未經第一方確認，"
+            "不得據此推論交易所動向或交易意圖")
     return Evidence(
         f"EV-WHALE-{coin}-001", "Public balance check (curated known addresses)", source_url, datetime.now(timezone.utc).isoformat(),
-        "whale", coin, "current", {"wallets": wallets, "note": "僅追蹤已知大型交易所/機構地址的即時餘額，非全網即時巨鯨偵測"}, 0.65,
+        "whale", coin, "current", {"wallets": wallets, "note": note,
+                                   "owner_attribution_verified": attributed}, 0.65,
         {"addresses": [item["address"] for item in addresses]}, f"Known large-wallet balance snapshot for {coin}"
     )
 
@@ -725,15 +895,24 @@ def fetch_official_announcements(coin: str = "ETH") -> Evidence:
             entries = _parse_feed_entries(_get_bytes(feed_url), limit=5)
             if not entries:
                 raise ValueError(f"{source_name} returned no entries")
+            release_feed = first_party and coin in RELEASE_FEED_COINS
+            if release_feed:
+                note = "第一方發布，但範圍僅限參考客戶端／協議版本發布，不含合作、上架等一般公告"
+            elif first_party:
+                note = "第一方官方發布"
+            else:
+                note = "官方網域限定的新聞聚合（非第一方 feed）"
             return Evidence(
                 f"EV-ANNOUNCE-{coin}-001", source_name, feed_url, datetime.now(timezone.utc).isoformat(),
                 "announcement", coin, "recent", {
                     "items": entries,
                     "first_party": first_party,
-                    "note": "第一方官方發布" if first_party else "官方網域限定的新聞聚合（非第一方 feed）",
+                    "scope": "client_releases" if release_feed else "general",
+                    "note": note,
                 }, 0.85 if first_party else 0.55,
                 {"feed_url": feed_url, "entry_count": len(entries), "first_party": first_party},
-                f"Official project announcements for {coin}"
+                (f"{coin} official reference-client release announcements" if release_feed
+                 else f"Official project announcements for {coin}")
             )
         except Exception as error:
             last_error = error

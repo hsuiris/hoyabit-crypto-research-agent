@@ -19,6 +19,7 @@ from dataclasses import MISSING, asdict, fields
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import URLError
 
 from src.credibility import load_source_registry, score_evidence
 from src.day1_mvp import Evidence, mock_evidence
@@ -99,11 +100,24 @@ class SourceTypeMappingTest(unittest.TestCase):
         self.assertTrue(first_party.content["first_party"])
         self.assertEqual(first_party.source_type, "official_announcement")
 
-        # XRP has no working first-party feed, so OFFICIAL_FEEDS falls back to a domain-restricted
-        # Google News query. That is syndication and must not be scored as an official statement.
-        syndicated = stamp_credibility_metadata(fetch_official_announcements("XRP"))
+        # XRP／BNB 的第一方來源是 GitHub 上的參考客戶端發布 feed；取不到時 OFFICIAL_FEEDS 會退回
+        # 官方網域限定的 Google News 查詢。那是二手聚合，不得被當成官方聲明計分。
+        def only_google_news(url, *args, **kwargs):
+            if "github.com" in url:
+                raise URLError("release feed unavailable")
+            return RSS_FEED
+
+        with patch("src.day2_sources._get_bytes", side_effect=only_google_news):
+            syndicated = stamp_credibility_metadata(fetch_official_announcements("XRP"))
         self.assertFalse(syndicated.content["first_party"])
         self.assertEqual(syndicated.source_type, "secondary_media")
+
+    @patch("src.day2_sources._get_bytes", return_value=RSS_FEED)
+    def test_release_feed_is_still_scored_as_an_official_announcement(self, _get_bytes):
+        evidence = stamp_credibility_metadata(fetch_official_announcements("BNB"))
+
+        self.assertTrue(evidence.content["first_party"])
+        self.assertEqual(evidence.source_type, "official_announcement")
 
     def test_explicit_source_type_is_never_overwritten(self):
         evidence = stamp_credibility_metadata(

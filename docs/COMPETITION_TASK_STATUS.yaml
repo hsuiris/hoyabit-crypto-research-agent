@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T8.3
-last_updated_at: 2026-08-01T23:45:00+08:00
+current_task: T8.4
+last_updated_at: 2026-08-02T01:10:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 622 tests, 622 passed, 0 failed, 0 errors
+full_suite_latest: 646 tests, 646 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -689,4 +689,103 @@ tasks:
         `demo-fixtures/competition-ready/` 內的既有 fixture 仍是舊的英文標題版本（含
         live-success）。那是歷史執行紀錄，刻意不改寫；現場展示若要中文版需重新產生
       - ZIP 在記憶體組出（Lambda /tmp 空間有限）；單次回應大小受 Function URL 6 MB buffered 上限約束
+      - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
+
+  T8.4:
+    title: Close the three data-coverage gaps (derivatives geo-block, XRP/BNB first-party, SOL/XRP whale)
+    status: PARTIAL
+    depends_on: [T8.3]
+    target_minutes: 120
+    started_at: 2026-08-02T00:00:00+08:00
+    completed_at: 2026-08-02T01:10:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "feat(T8.4)"`。
+    commit: 'feat(T8.4): survive the Binance geo-block and close two coverage gaps'
+    # PARTIAL 的唯一原因是部署未完成（AWS credentials 過期），程式與測試部分全數通過。
+    partial_reason: >-
+      程式、測試與本機五幣 live／offline E2E 全部通過，但**未部署到 AWS**：本機
+      credentials 為 NoCredentials（Workshop Studio 臨時憑證已過期）。因此「雲端 derivatives
+      領域確實被救回」這件事目前只有本機的封鎖模擬證據，沒有真實 us-west-2 的驗證。
+    note: >-
+      原始 T0-T8 計畫沒有這個 Task，由使用者指派。起因是盤點資料爬取範圍時發現三個覆蓋缺口。
+      不新增 collector（維持 11 個）、不改 evidence ID、不改 domain 對應、不改計分規則。
+    root_cause: >-
+      (1) derivatives 領域在雲端整個消失：該領域只有 `derivatives`（資金費率）與
+          `long_short_ratio` 兩個 collector，兩者都只打 Binance，而 Binance 封鎖 AWS
+          us-west-2。一次地域封鎖等於抹掉一整個研究領域，不是「資料不足」。
+      (2) XRP／BNB 的官方公告不是第一方：走 Google News 的 site: query，first_party=False、
+          可靠度 0.55。命題把「官方公告」單獨列為一類來源。
+      (3) whale collector 只支援 BTC／ETH／BNB：抽到 SOL 或 XRP 一定 NotImplementedError，
+          降級成可靠度 0.20，那兩幣的 onchain 領域少一條獨立來源鏈。
+    fix: >-
+      1. src/day2_sources.py 新增資金費率備援鏈 FUNDING_RATE_PROVIDERS：
+         Binance Futures → Kraken Futures（美國合規交易所）→ dYdX v4（去中心化）。
+         **結算週期必須換算**：Binance 原生 8 小時，Kraken 與 dYdX 都是每小時，而 bias 的
+         ±0.01% 門檻是以 8 小時訂的，直接填每小時費率會讓同一個市場狀態跳一個 bias 等級。
+         每個 provider 負責回傳 8 小時等值百分比。Kraken 的 fundingRate 是報價幣計價，
+         需除以 markPrice 才是可比的相對費率。
+         走備援不算降級（資料仍是即時第一手），但證據會記錄實際回答的交易所、其原生結算
+         週期、以及失敗的來源清單；另加 scope_note 說明費率是單一交易所報價，不同交易所
+         可能相反，不得視為全市場共識（實測 ETH 在 Binance 為 balanced、Kraken 為
+         short_crowded）。
+      2. OFFICIAL_FEEDS 為 XRP／BNB 加上第一方來源：XRPLF/rippled 與 bnb-chain/bsc 的
+         GitHub releases atom feed（皆實測可取得且持續更新）。該 feed 範圍僅限參考客戶端
+         發布，因此 content 新增 scope 欄位並在 note 寫明，避免被讀成完整官方公告。
+         原本的 Google News 聚合保留為第二順位，取不到時仍有輸出且維持 0.55 與非第一方標示。
+      3. KNOWN_WHALE_ADDRESSES 與 WHALE_EXPLORER_URL 新增 SOL／XRP，fetch_whale_wallets
+         新增 SOL（getBalance／lamports 1e9）與 XRP（account_info／drops 1e6）分支。
+         SOL／XRP 的標籤刻意不指名持有者：餘額經鏈上實測，但歸屬無法對第一方確認，而餘額
+         只能證明帳戶持有規模、不能證明由誰控制。content 新增 owner_attribution_verified，
+         note 也隨之改寫，不得沿用「已知大型交易所地址」的說法。
+    rejected_alternatives: >-
+      OKX／Bybit／Deribit：都對美國 IP 有限制，選它們等於把同一個問題換個地方發生。
+      BNB Chain 官方 Medium（medium.com/feed/@bnbchain）：確實是 feed，但最後一篇是
+      2021-05，等於死訊源。
+      long_short_ratio 改用未平倉量替代：語意不同（總持倉 vs 多空擁擠度），會把一個指標
+      偽裝成另一個，因此不做。
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_funding_rate_providers → 18 tests OK
+      （備援順序、五幣三來源對映、8 小時換算、bias 門檻、失敗來源記錄、單一交易所標註、
+      全數失敗才拋錯、Kraken 缺 symbol／markPrice 為 0 時換下一家、derivatives 領域存活的
+      結構保證）。外部 API 全部 mock，不依賴網路。
+      回歸：3 個既有測試斷言舊行為（XRP 非第一方、SOL/XRP 巨鯨不支援），已改寫成涵蓋
+      新舊兩條路徑：以 URL 決定 mock 行為，讓「第一方 feed 失敗才退回聚合」也被測到。
+      完整套件：python3 -m unittest discover -s tests → 646 tests, 646 passed, 0 failed
+      （T8.3 後為 622）。
+      本機五幣 live E2E：BTC／ETH／SOL／BNB／XRP 全部零降級、六個領域都有真實證據、
+      Citation Gate 皆 PASS、六檔齊備；五幣公告皆 first_party=True；五幣巨鯨皆 2 個帳戶。
+      五幣 offline E2E：六檔齊備、gate 皆 PASS。
+      **雲端情境模擬（關鍵驗證）**：以 patch 封鎖所有 binance 主機後跑 live ETH ——
+      degradation_reasons 由 3 項（derivatives／vegas_channel／long_short_ratio）降為 2 項，
+      collector_fallback:derivatives 消失，derivatives 證據改由 Kraken Futures 提供
+      （-0.0182%／short_crowded／可靠度 0.8375），有真實證據的領域由 5 個回到 6 個。
+    artifacts:
+      - src/day2_sources.py
+      - tests/test_funding_rate_providers.py
+      - tests/test_production_readiness.py
+      - tests/test_day7_upgrades.py
+      - tests/test_t3_credibility_wiring.py
+    blockers:
+      - >-
+        AWS credentials 已過期（NoCredentials），無法部署也無法從 us-west-2 實測。
+        取得新憑證後執行 ./aws/deploy.sh 再跑 ./aws/verify-deployment.sh --run，
+        確認 degradation_reasons 不再含 collector_fallback:derivatives。
+    known_limitations:
+      - >-
+        Kraken／dYdX 是否真的能從 us-west-2 連通，只能在雲端實測。本機測試對這題沒有參考
+        價值（台灣 IP 連 Binance 都通）。選這兩家的理由是 Kraken 為美國合規交易所、dYdX 為
+        去中心化服務，但這是推論不是實測結果
+      - >-
+        vegas_channel（Binance klines）與 long_short_ratio（Binance 大戶多空比）仍是
+        Binance 單一來源，雲端會繼續降級。前者屬 market 領域、有 CoinGecko 撐著；後者屬
+        derivatives 領域，但該領域已由資金費率救回。大戶多空比在 Kraken／dYdX 都沒有等價
+        端點，Kraken 現貨 OHLC 上限 720 根也不足以支撐 Vegas 的 EMA676 暖身
+      - >-
+        不同交易所的資金費率是各自市場的狀態，換 provider 可能讓 bias 相反。已在
+        scope_note 標明，但這代表雲端（Kraken）與本機（Binance）的 derivatives 訊號可能
+        不一致，Demo 時若要對照需說明
+      - >-
+        SOL／XRP 的大額帳戶持有者未經第一方確認，只能作為「有大額帳戶」的觀察，不得推論
+        交易所動向或交易意圖
+      - GitHub releases feed 只涵蓋客戶端／協議發布，不含合作與上架公告；已在 scope 與 note 標明
       - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）

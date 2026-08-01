@@ -5,7 +5,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import lambda_handler
-from src.day2_sources import fetch_funding_rate, fetch_long_short_ratio, fetch_onchain, fetch_social_bluesky, fetch_social_hackernews, fetch_social_reddit, fetch_vegas_signal, fetch_whale_wallets
+from src.day2_sources import (KNOWN_WHALE_ADDRESSES, WHALE_EXPLORER_URL, fetch_funding_rate,
+                              fetch_long_short_ratio, fetch_onchain, fetch_social_bluesky,
+                              fetch_social_hackernews, fetch_social_reddit, fetch_vegas_signal,
+                              fetch_whale_wallets)
 from src.orchestrator import run
 
 
@@ -76,9 +79,44 @@ class ProductionReadinessTest(unittest.TestCase):
         evidence = fetch_whale_wallets("ETH")
         self.assertEqual(evidence.content["wallets"][0]["balance"], 1996008.0)
 
-    def test_whale_wallets_unsupported_for_sol_and_xrp(self):
+    def test_whale_wallets_cover_every_supported_coin(self):
+        """五幣都要有地址與瀏覽器連結，否則抽到該幣時鏈上領域會少一條來源鏈。"""
+        for coin in ("BTC", "ETH", "BNB", "SOL", "XRP"):
+            self.assertTrue(KNOWN_WHALE_ADDRESSES.get(coin), coin)
+            self.assertIn(coin, WHALE_EXPLORER_URL, coin)
+
+    def test_whale_wallets_reject_an_unconfigured_coin(self):
+        with self.assertRaises(NotImplementedError):
+            fetch_whale_wallets("DOGE")
+
+    @patch("src.day2_sources._post_json")
+    def test_solana_balance_is_read_in_lamports(self, mock_post):
+        """SOL 用 lamports（1e9）。共用 wei 的除數會讓餘額差 9 個數量級。"""
+        mock_post.return_value = {"result": {"value": 10_755_443_990_000_000}}
+
+        evidence = fetch_whale_wallets("SOL")
+
+        self.assertEqual(evidence.data_type, "whale")
+        self.assertEqual(evidence.content["wallets"][0]["balance"], 10_755_443.99)
+        # 持有者未經確認，不得沿用「已知交易所地址」的說法。
+        self.assertFalse(evidence.content["owner_attribution_verified"])
+        self.assertIn("持有者歸屬未經第一方確認", evidence.content["note"])
+
+    @patch("src.day2_sources._post_json")
+    def test_xrp_balance_is_read_in_drops(self, mock_post):
+        """XRP 用 drops（1e6），且回應結構與 EVM 的 eth_getBalance 完全不同。"""
+        mock_post.return_value = {"result": {"account_data": {"Balance": "10605986220000"}}}
+
+        evidence = fetch_whale_wallets("XRP")
+
+        self.assertEqual(evidence.content["wallets"][0]["balance"], 10_605_986.22)
+        self.assertIn("livenet.xrpl.org", evidence.content["wallets"][0]["explorer_url"])
+
+    @patch("src.day2_sources._post_json", return_value={"result": {}})
+    def test_missing_balance_raises_instead_of_reporting_zero(self, mock_post):
+        """讀不到餘額必須拋錯讓 collector 降級，不能靜靜回報 0 餘額。"""
         for coin in ("SOL", "XRP"):
-            with self.assertRaises(NotImplementedError):
+            with self.assertRaises(ValueError, msg=coin):
                 fetch_whale_wallets(coin)
 
     @patch("src.day2_sources._get_json")

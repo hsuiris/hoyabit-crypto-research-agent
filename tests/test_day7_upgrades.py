@@ -7,6 +7,7 @@ import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import URLError
 
 from src.comparison import attention_profile, build_profile, compare_profiles, liquidity_profile, risk_exposure_profile
 from src.day1_mvp import mock_evidence
@@ -75,11 +76,29 @@ class AnnouncementSourceTest(unittest.TestCase):
         self.assertEqual(evidence.content["items"][0]["title"], "Bitcoin Optech Newsletter #415")
         self.assertEqual(evidence.content["items"][0]["url"], "https://bitcoinops.org/en/newsletters/415/")
 
-    @patch("src.day2_sources._get_bytes", return_value=RSS_FEED)
-    def test_syndicated_feed_is_scored_lower_than_first_party(self, _get_bytes):
-        evidence = fetch_official_announcements("XRP")
+    @patch("src.day2_sources._get_bytes", return_value=ATOM_FEED)
+    def test_release_feed_is_first_party_but_declares_its_narrow_scope(self, _get_bytes):
+        """XRP／BNB 的第一方來源是參考客戶端發布，不是一般公告頻道，範圍必須寫明。"""
+        for coin in ("XRP", "BNB"):
+            evidence = fetch_official_announcements(coin)
+            self.assertTrue(evidence.content["first_party"], coin)
+            self.assertEqual(evidence.reliability_score, 0.85, coin)
+            self.assertEqual(evidence.content["scope"], "client_releases", coin)
+            self.assertIn("僅限參考客戶端", evidence.content["note"], coin)
+
+    def test_syndicated_feed_is_scored_lower_than_first_party(self):
+        """第一方發布 feed 取不到時退回官方網域限定的聚合，且必須降分並標明非第一方。"""
+        def only_google_news(url, *args, **kwargs):
+            if "github.com" in url:
+                raise URLError("release feed unavailable")
+            return RSS_FEED
+
+        with patch("src.day2_sources._get_bytes", side_effect=only_google_news):
+            evidence = fetch_official_announcements("XRP")
+
         self.assertFalse(evidence.content["first_party"])
         self.assertEqual(evidence.reliability_score, 0.55)
+        self.assertEqual(evidence.content["scope"], "general")
 
 
 class WatchdogTest(unittest.TestCase):
