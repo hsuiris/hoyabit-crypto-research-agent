@@ -11,8 +11,11 @@ from .comparison import build_profile, compare_profiles, comparison_markdown
 from .day2_sources import collect_evidence_detailed
 from .validation import validate_evidence
 from .errors import AgentInputError, validate_request
-from .llm import analyze_with_llm, critique_with_llm, llm_runtime_info
+from .llm import (analyze_with_llm, critique_with_llm, default_llm_client, llm_is_configured,
+                  llm_runtime_info)
 from .ohlcv import downsample, load_ohlcv, price_windows
+from .planner import (PLANNER_TIMEOUT_SECONDS, PLANNING_PATH_LLM, build_research_plan,
+                      plan_to_dict)
 
 
 _TREND_LABELS = {"bullish_aligned": "多頭排列", "bearish_aligned": "空頭排列", "mixed": "訊號不一"}
@@ -29,6 +32,14 @@ CRITIC_PHASE_SECONDS = 120.0       # 2 min: audit the report against its own evi
 DEFAULT_TIME_BUDGET_SECONDS = COLLECTION_PHASE_SECONDS + REASONING_PHASE_SECONDS + CRITIC_PHASE_SECONDS
 _LLM_MIN_SECONDS = 20.0
 _CRITIC_MIN_SECONDS = 15.0
+# Planning runs before collection and draws on the same total deadline instead of getting a phase
+# ceiling of its own, so adding a planner cannot push the run past the competition limit. Below this
+# remaining margin the planner is not attempted at all -- the deterministic keyword plan is instant.
+_PLANNER_MIN_SECONDS = 5.0
+
+# Where the plan came from, as recorded in the Execution Log. "shared" means the plan was built once
+# by a comparison run and handed to both legs, so both coins are judged over the same time window.
+_PLANNING_PATH_SHARED = "shared"
 
 
 def _signal_inventory(result: dict, evidence: list) -> list[dict]:
@@ -435,14 +446,67 @@ def _price_history_evidence(coin: str, history_path: Path):
     )
 
 
+def _plan_research(question: str, coins: list[str], *, use_llm: bool, client: object | None,
+                   deadline: float):
+    """Turn the question into a `ResearchPlan` before any evidence is collected.
+
+    The planner decides *what to look into*; it never produces a market conclusion and it is never
+    allowed to stop the run. Model failure, malformed JSON or an unknown task mode all degrade to the
+    deterministic keyword plan inside `src/planner.py`, so this call always returns a usable plan.
+    """
+    remaining = deadline - time.monotonic()
+    if remaining < _PLANNER_MIN_SECONDS:
+        # Same watchdog rule as the analyst phase: a call started with seconds left burns budget and
+        # still fails, and the deterministic plan costs nothing.
+        return build_research_plan(question, coins, client=None)
+    if client is None and use_llm and llm_is_configured():
+        client = default_llm_client()
+    return build_research_plan(question, coins, client=client,
+                               timeout_seconds=min(PLANNER_TIMEOUT_SECONDS, remaining))
+
+
+def _planner_step(plan, planning_log: dict, llm_info: dict) -> dict:
+    """The Execution Log entry for planning: which path ran, how long it took, what it assumed."""
+    used_model = planning_log["path"] == PLANNING_PATH_LLM
+    return {
+        "name": "plan_research",
+        "status": "fallback" if planning_log["fallback_used"] else "success",
+        "path": planning_log["path"],
+        # Only claim a provider when a model actually produced the plan; the deterministic path is
+        # reported as such rather than borrowing the configured provider's name.
+        "provider": llm_info["provider"] if used_model else "deterministic",
+        "model": llm_info["model"] if used_model else None,
+        "region": llm_info["region"] if used_model else None,
+        "duration_ms": round(planning_log["duration_seconds"] * 1000, 1),
+        "fallback_used": planning_log["fallback_used"],
+        "fallback_reason": planning_log["fallback_reason"],
+        "task_modes": list(plan.task_modes),
+        "time_window": dict(plan.time_window),
+        "time_window_assumptions": list(plan.assumptions),
+        "hypothesis_count": len(plan.hypotheses),
+        "required_domains": list(plan.required_domains),
+    }
+
+
 def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm: bool = False,
         ohlcv_path: Path | None = None, time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
         deadline: float | None = None, history_path: Path | None = None,
-        fulltext: bool = False) -> dict:
+        fulltext: bool = False, research_plan=None, planner_client: object | None = None) -> dict:
     coin, question = validate_request(coin, question)
     started = time.perf_counter()
     if deadline is None:
         deadline = time.monotonic() + time_budget_seconds
+    # Plan before collecting. A comparison run passes its shared plan in so both legs are planned
+    # once, over one time window and one set of comparison dimensions.
+    if research_plan is None:
+        plan, planning_log = _plan_research(
+            question, [coin], use_llm=use_llm, client=planner_client, deadline=deadline,
+        )
+    else:
+        plan, planning_log = research_plan, {
+            "path": _PLANNING_PATH_SHARED, "fallback_used": False,
+            "fallback_reason": None, "duration_seconds": 0.0,
+        }
     phase_started = time.monotonic()
     collection_deadline = min(deadline, phase_started + COLLECTION_PHASE_SECONDS)
     evidence, collection_log, agent_report = collect_evidence_detailed(
@@ -467,8 +531,10 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         market.content["dates"] = [row["date"] for row in rows]
     if history_path:
         evidence.append(_price_history_evidence(coin, history_path))
+    plan_dict = plan_to_dict(plan)
     result = {
         "coin": coin.upper(), "question": question,
+        "research_plan": plan_dict, "planning": planning_log,
         "summary": f"{coin.upper()} has a positive market signal; news, on-chain and social evidence require further validation.",
         "signals": {item.data_type: item.content.get("sentiment", "available") for item in evidence},
         "indicators": market.content if market is not None else {},
@@ -585,6 +651,9 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         ) + f"\n- 資料來源：{history.evidence_id}（{history.content['rows']} 個交易日）\n"
     (output_dir / "report.md").write_text(f"# {result['coin']} Market Research\n\n## Question\n{question}\n\n## Stance\n{stance_block}\n## Market Judgment\n{reasoning['market_judgment']}\n{history_block}\n## Facts\n" + "\n".join(f"- {x}" for x in reasoning["facts"]) + "\n\n## Inferences\n" + "\n".join(f"- {x}" for x in reasoning["inferences"]) + f"\n\n## Conclusion\n{reasoning['conclusion']}\n{critique_block}\n## Confidence\n{reasoning['confidence']}\n\n## Indicators\n" + indicator_lines + "\n\n## Counter Evidence\n" + "\n".join(f"- {x}" for x in reasoning["counter_evidence"]) + "\n\n## Evidence Sources\n" + sources + "\n\n## Next Observations\n" + "\n".join(f"- {x}" for x in reasoning["observation_points"]) + "\n\n## Risks and Limitations\n" + "\n".join(f"- {x}" for x in result["risk_factors"]) + "\n\n_This is research support, not investment advice._\n", encoding="utf-8")
     (output_dir / "evidence.json").write_text(json.dumps([asdict(item) for item in evidence], indent=2), encoding="utf-8")
+    (output_dir / "research_plan.json").write_text(
+        json.dumps(plan_dict, ensure_ascii=False, indent=2), encoding="utf-8",
+    )
     skipped = [entry for entry in collection_log if "skipped" in entry]
     (output_dir / "execution_log.json").write_text(json.dumps({
         "status": "success",
@@ -603,6 +672,7 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         "collection_agents": agent_report,
         "steps": [
             {"name": "parse_input", "status": "success"},
+            _planner_step(plan, planning_log, llm_info),
             {"name": "collect_evidence", "status": "degraded" if skipped else "success", "details": collection_log},
             {"name": "calculate_indicators", "status": "success"},
             {"name": "validate_evidence", "status": "success", "error_count": 0},
@@ -616,7 +686,8 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
 
 
 def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, live: bool = False,
-                   use_llm: bool = False, time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS) -> dict:
+                   use_llm: bool = False, time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
+                   planner_client: object | None = None) -> dict:
     """Run two single-coin analyses and render a side-by-side comparison.
 
     Both legs share one wall-clock deadline rather than getting a full budget each, so the pair
@@ -632,11 +703,22 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
     deadline = time.monotonic() + time_budget_seconds
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # One plan for the pair, not one per leg: a comparison is only fair if both coins are read over
+    # the same time window, the same as-of and the same comparison dimensions.
+    shared_plan, shared_planning_log = _plan_research(
+        question, [coin_a, coin_b], use_llm=use_llm, client=planner_client, deadline=deadline,
+    )
+    shared_plan_dict = plan_to_dict(shared_plan)
+    (output_dir / "research_plan.json").write_text(
+        json.dumps(shared_plan_dict, ensure_ascii=False, indent=2), encoding="utf-8",
+    )
+
     results, profiles = {}, {}
     for coin in (coin_a, coin_b):
         leg_dir = output_dir / coin
         results[coin] = run(coin, question, leg_dir, live=live, use_llm=use_llm,
-                            time_budget_seconds=time_budget_seconds, deadline=deadline)
+                            time_budget_seconds=time_budget_seconds, deadline=deadline,
+                            research_plan=shared_plan)
         evidence = json.loads((leg_dir / "evidence.json").read_text(encoding="utf-8"))
         profiles[coin] = build_profile(coin, evidence)
 
@@ -650,6 +732,7 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
     )
     payload = {
         "mode": "comparison", "coins": [coin_a, coin_b], "question": question,
+        "research_plan": shared_plan_dict, "planning": shared_planning_log,
         "results": results, "profiles": profiles, "comparison": comparison,
         "markdown": markdown,
         "duration_ms": round((time.perf_counter() - started) * 1000, 2),

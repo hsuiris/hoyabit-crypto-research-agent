@@ -6,15 +6,20 @@
 
 | ID | Task | Detected At | Symptom | Root Cause / Current Theory | Attempts | Time Spent | Safe Fallback | Owner | Status |
 |---|---|---|---|---|---|---:|---|---|---|
-| B1 | T2 | 2026-08-01T10:45+08:00 | 無法開始 T2 接線：`src/planner.py` 不存在 | Track B 尚未 commit planner 模組；Track A 的職責僅限接線，不得代為實作 | 見下方 B1 說明 | 8 min | 現有 deterministic offline pipeline 未被修改，三項既有提交物照常產出 | Track B（模組）／Track A（接線） | BLOCKED |
+| — | — | — | — | — | — | — | — | — | — |
 
 ## Resolved Blockers
 
 | ID | Task | Resolution | Tests | Commit |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| B1 | T2 | Track B 於 `85bc551` commit `src/planner.py`，Track A 隨即完成接線（Orchestrator 呼叫 planner、產出 `research_plan.json`、Execution Log 新增 `plan_research` step） | `tests/test_t2_planner_wiring.py` 16 tests OK；完整套件 326 tests OK | `feat(T2): add question-driven research planner` |
 
-### B1：T2 依賴的 Track B 模組尚未 commit
+### B1（已解除）：T2 依賴的 Track B 模組尚未 commit
+
+- **解除**：Track B 在 `85bc551` commit `src/planner.py`（同批另有 `ff9d226` credibility、
+  `a262378` claim graph、`2e32eea` run manager、`f57f4f9` report renderer、`config/source_registry.json`），
+  T3-T5 的依賴模組也一併到位。Track A 在 `feat(T2): add question-driven research planner`
+  完成 T2 接線。以下為當時的檢查紀錄，保留備查。
 
 - **Task**：T2（question-driven research planner 接線）
 - **Track A 的範圍**：把 Track B 已 commit 的純模組接進 `src/orchestrator.py`、`src/llm.py`、

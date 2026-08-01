@@ -2,10 +2,10 @@ project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
 current_task: T2
-last_updated_at: 2026-08-01T10:52:00+08:00
+last_updated_at: 2026-08-01T11:34:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 175 tests, 175 passed, 0 failed, 0 errors
+full_suite_latest: 326 tests, 326 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -110,28 +110,43 @@ tasks:
 
   T2:
     title: Add question-driven research planner
-    status: BLOCKED
+    status: PASS
     depends_on: [T1]
     target_minutes: 60
-    started_at: 2026-08-01T10:45:00+08:00
-    completed_at: null
-    commit: null
+    started_at: 2026-08-01T11:12:00+08:00
+    completed_at: 2026-08-01T11:34:00+08:00
+    # 一個 Task 一個 commit，因此無法在該 commit 內寫入自己的 hash；改以 commit message 標識，
+    # 實際 hash 見 `git log --grep "feat(T2)"`。
+    commit: 'feat(T2): add question-driven research planner'
     test_summary: >-
-      未執行 T2 targeted tests（無可測對象）。基線回歸確認：
-      python3 -m unittest discover -s tests → 175 tests, 175 passed, 0 failed, 0 errors。
-    blockers: [B1]
+      targeted：python3 -m unittest tests.test_t2_planner_wiring → 16 tests OK（全程 mock client，無網路）。
+      完整套件：python3 -m unittest discover -s tests → 326 tests, 326 passed, 0 failed, 0 errors。
+      Offline smoke：run('ETH', 假設題, live=False, use_llm=False) 產出 report.md／evidence.json／
+      execution_log.json／research_plan.json 四檔，plan_research step 記錄
+      provider=deterministic、fallback_reason=no_client_injected、time_window_assumptions 非空。
     owner_note: >-
-      Track A 只負責接線（把 Track B 的純模組接進 orchestrator／llm／validation／app）。
-      Track B 的 src/planner.py 尚未 commit，因此 T2 無法接線。Track A 不得代為實作 planner。
+      Track A 只做接線。src/planner.py 由 Track B 於 85bc551 提供，本 Task 未修改該檔。
+      blocker B1（planner 模組未 commit）已於本 Task 解除，見 docs/COMPETITION_BLOCKERS.md。
+    artifacts:
+      - src/orchestrator.py
+      - tests/test_t2_planner_wiring.py
+      - research_plan.json（每次 run 的輸出目錄，比較執行另在頂層產生共享 plan）
+    integration_points:
+      - run() 在蒐集前呼叫 _plan_research()，新增 research_plan／planner_client 兩個 optional 參數
+      - run_comparison() 只規劃一次，把 shared plan 傳入兩腳（path=shared），確保共用 time window 與 dimensions
+      - Execution Log 新增 plan_research step（parse_input 之後、collect_evidence 之前）
+      - result["research_plan"]／result["planning"] 供 T4／T5／Web UI 取用
+    blockers: []
     known_limitations:
-      - src/planner.py 不存在（git log --all 無任何 commit 觸及該路徑，無 stash、無其他 branch／worktree）
-      - 同時確認缺少後續 Task 的 Track B 模組：src/credibility.py、src/claim_graph.py、
-        src/run_manager.py、config/source_registry.json，故 T3／T4 也將在依賴到位前無法接線
-      - research_plan.json 尚未產生；Execution Log 尚未加入 planner provider／fallback 欄位
+      - 依 T2 spec 第 8 條刻意不讓 plan 縮減 Collector 範圍，required_domains 目前只記錄不生效
+      - report.md 尚未顯示 plan（報告渲染由 T5 的 report renderer 接手）
+      - research_plan.json 仍以 output_dir 直接寫出，未經 ArtifactStore；manifest 於 T5 併入
+      - lambda_handler.py 回傳仍只含三檔，六項提交物於 T5 處理
+      - planner 的 LLM 路徑僅以 mock client 驗證，未執行真實 provider 呼叫（保留至 T8）
 
   T3:
     title: Add explainable evidence credibility engine
-    status: TODO
+    status: READY
     depends_on: [T2]
     target_minutes: 90
     started_at: null
