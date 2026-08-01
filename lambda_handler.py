@@ -9,11 +9,15 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 from src.errors import AgentInputError
-from src.llm import llm_is_configured
+from src.llm import configured_provider, llm_is_configured
 from src.orchestrator import run
 
 
 def _load_llm_credentials() -> bool:
+    # Bedrock authenticates with the Lambda execution role / ambient AWS credential chain, never
+    # with a provider API key stored in Secrets Manager.  Do not attempt a secret lookup here.
+    if configured_provider() == "bedrock":
+        return llm_is_configured()
     if llm_is_configured():
         return True
     secret_arn = os.getenv("LLM_SECRET_ARN") or os.getenv("OPENAI_SECRET_ARN")

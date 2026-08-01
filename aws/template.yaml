@@ -12,16 +12,24 @@ Parameters:
   LLMProvider:
     Type: String
     Default: gemini
-    AllowedValues: [gemini, openai]
+    AllowedValues: [bedrock, gemini, openai, none]
   GeminiModel:
     Type: String
     Default: gemini-3.6-flash
   OpenAIModel:
     Type: String
     Default: gpt-4o-mini
+  BedrockModelId:
+    Type: String
+    # A same-region foundation model ID: keep this in sync with the Lambda deployment region.
+    Default: amazon.nova-lite-v1:0
 
 Conditions:
   HasLLMSecret: !Not [!Equals [!Ref LLMSecretArn, '']]
+  UsesBedrock: !Equals [!Ref LLMProvider, bedrock]
+  HasNonBedrockSecret: !And
+    - !Condition HasLLMSecret
+    - !Not [!Condition UsesBedrock]
 
 Resources:
   AgentRole:
@@ -37,7 +45,7 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - !If
-          - HasLLMSecret
+          - HasNonBedrockSecret
           - PolicyName: ReadLLMSecret
             PolicyDocument:
               Version: '2012-10-17'
@@ -45,6 +53,18 @@ Resources:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref LLMSecretArn
+          - !Ref AWS::NoValue
+        - !If
+          - UsesBedrock
+          - PolicyName: InvokeConfiguredBedrockModel
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                # Converse authorizes through bedrock:InvokeModel. Scope it to the configured
+                # foundation model rather than allowing all Bedrock models or any admin policy.
+                - Effect: Allow
+                  Action: bedrock:InvokeModel
+                  Resource: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}
           - !Ref AWS::NoValue
 
   AgentFunction:
@@ -67,6 +87,10 @@ Resources:
           LLM_PROVIDER: !Ref LLMProvider
           GEMINI_MODEL: !Ref GeminiModel
           OPENAI_MODEL: !Ref OpenAIModel
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+          # AWS_REGION is Lambda-reserved; pass the deployed region through a provider-specific
+          # variable while llm.py also supports AWS_REGION and AWS_DEFAULT_REGION locally.
+          BEDROCK_REGION: !Ref AWS::Region
 
   AgentFunctionUrl:
     Type: AWS::Lambda::Url

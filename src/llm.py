@@ -1,4 +1,4 @@
-"""Provider-neutral LLM reasoning adapters for Gemini and OpenAI."""
+"""Provider-neutral LLM reasoning adapters for Gemini, OpenAI, and Amazon Bedrock."""
 
 from __future__ import annotations
 
@@ -6,6 +6,13 @@ import json
 import os
 from urllib.parse import quote
 from urllib.request import Request, urlopen
+
+try:
+    import boto3
+    from botocore.config import Config as BotoConfig
+except ImportError:  # Local offline use remains possible without the AWS SDK.
+    boto3 = None
+    BotoConfig = None
 
 
 ANALYSIS_SCHEMA = {
@@ -20,7 +27,10 @@ ANALYSIS_SCHEMA = {
         "observation_points": {"type": "array", "items": {"type": "string"}},
         "cited_evidence_ids": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["market_judgment", "confidence", "facts", "inferences", "conclusion", "counter_evidence", "observation_points", "cited_evidence_ids"],
+    "required": [
+        "market_judgment", "confidence", "facts", "inferences", "conclusion",
+        "counter_evidence", "observation_points", "cited_evidence_ids",
+    ],
     "additionalProperties": False,
 }
 
@@ -101,91 +111,54 @@ def build_critic_prompt(coin: str, question: str, result: dict, evidence: list[d
     return _CRITIC_PROMPT + json.dumps(payload, ensure_ascii=False)
 
 
-def _parse_critic_output(output_text: str | None) -> dict:
-    if not output_text:
-        raise ValueError("Critic response contained no structured output")
-    result = json.loads(output_text)
-    missing = set(CRITIC_SCHEMA["required"]) - set(result)
-    if missing:
-        raise ValueError(f"Critic response missing required fields: {sorted(missing)}")
-    if result["verdict"] not in {"pass", "concerns", "fail"}:
-        raise ValueError(f"Invalid critic verdict: {result['verdict']}")
-    adjustment = result.get("confidence_adjustment")
-    if not isinstance(adjustment, (int, float)) or not -1 <= adjustment <= 0:
-        raise ValueError("Critic confidence_adjustment must be between -1 and 0")
-    return result
-
-
-def critique_with_llm(coin: str, question: str, result: dict, evidence: list[dict], timeout: int = 60) -> dict:
-    """Second-opinion pass: audit the analysis against its own evidence.
-
-    Deliberately a separate call rather than another field on the analysis schema -- a model asked
-    to produce a conclusion and critique it in one breath rates its own work generously.
-    """
-    provider = configured_provider()
-    prompt = build_critic_prompt(coin, question, result, evidence)
-    if provider == "gemini":
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError("GEMINI_API_KEY is not configured")
-        model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
-        payload = {
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"responseMimeType": "application/json",
-                                 "responseJsonSchema": CRITIC_SCHEMA, "temperature": 0.1},
-        }
-        endpoint = ("https://generativelanguage.googleapis.com/v1beta/models/"
-                    f"{quote(model, safe='')}:generateContent")
-        request = Request(endpoint, data=json.dumps(payload).encode(), method="POST", headers={
-            "x-goog-api-key": api_key, "Content-Type": "application/json",
-            "User-Agent": "hoyabit-market-research-agent/1.0"})
-        with urlopen(request, timeout=timeout) as response:
-            raw = json.loads(response.read().decode())
-        candidates = raw.get("candidates", [])
-        if not candidates:
-            reason = raw.get("promptFeedback", {}).get("blockReason", "no candidates")
-            raise ValueError(f"Gemini critic response blocked or empty: {reason}")
-        parts = candidates[0].get("content", {}).get("parts", [])
-        return _parse_critic_output("".join(part.get("text", "") for part in parts))
-    if provider == "openai":
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY is not configured")
-        payload = {
-            "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-            "input": prompt,
-            "text": {"format": {"type": "json_schema", "name": "research_critique",
-                                "strict": True, "schema": CRITIC_SCHEMA}},
-            "store": False,
-        }
-        request = Request("https://api.openai.com/v1/responses", data=json.dumps(payload).encode(),
-                          method="POST", headers={"Authorization": f"Bearer {api_key}",
-                                                  "Content-Type": "application/json"})
-        with urlopen(request, timeout=timeout) as response:
-            raw = json.loads(response.read().decode())
-        output_text = raw.get("output_text")
-        if not output_text:
-            for item in raw.get("output", []):
-                for content in item.get("content", []):
-                    if content.get("type") in {"output_text", "text"}:
-                        output_text = content.get("text")
-                        break
-        return _parse_critic_output(output_text)
-    raise RuntimeError(f"No LLM provider configured for critique (provider={provider})")
-
-
 def configured_provider() -> str:
-    """Return the explicitly selected provider, or infer one from available keys."""
+    """Return the explicitly selected provider, or infer one from configured credentials."""
     provider = os.getenv("LLM_PROVIDER", "").strip().lower()
     if not provider:
         if os.getenv("GEMINI_API_KEY"):
             return "gemini"
         if os.getenv("OPENAI_API_KEY"):
             return "openai"
+        if os.getenv("BEDROCK_MODEL_ID"):
+            return "bedrock"
         return "none"
-    if provider not in {"gemini", "openai", "none"}:
+    if provider not in {"bedrock", "gemini", "openai", "none"}:
         raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
     return provider
+
+
+def _bedrock_region() -> str | None:
+    """Prefer an explicit deployment setting, then Lambda/AWS standard region variables."""
+    return (os.getenv("BEDROCK_REGION") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"))
+
+
+def _bedrock_model_id() -> str:
+    model_id = os.getenv("BEDROCK_MODEL_ID", "").strip()
+    if not model_id:
+        raise RuntimeError("BEDROCK_MODEL_ID is not configured")
+    return model_id
+
+
+def _environment_int(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError as error:
+        raise ValueError(f"{name} must be an integer") from error
+    if value <= 0:
+        raise ValueError(f"{name} must be greater than zero")
+    return value
+
+
+def _environment_temperature(name: str, default: float) -> float:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a number") from error
+    if not 0 <= value <= 1:
+        raise ValueError(f"{name} must be between 0 and 1")
+    return value
 
 
 def llm_is_configured() -> bool:
@@ -194,6 +167,8 @@ def llm_is_configured() -> bool:
         provider == "gemini" and bool(os.getenv("GEMINI_API_KEY"))
     ) or (
         provider == "openai" and bool(os.getenv("OPENAI_API_KEY"))
+    ) or (
+        provider == "bedrock" and bool(os.getenv("BEDROCK_MODEL_ID", "").strip())
     )
 
 
@@ -204,63 +179,67 @@ def llm_runtime_info() -> dict:
         if provider == "gemini"
         else os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         if provider == "openai"
+        else os.getenv("BEDROCK_MODEL_ID")
+        if provider == "bedrock"
         else None
     )
-    return {"provider": provider, "model": model}
+    return {"provider": provider, "model": model, "region": _bedrock_region() if provider == "bedrock" else None}
 
 
-def _parse_json_output(output_text: str | None) -> dict:
-    if not output_text:
-        raise ValueError("LLM response contained no structured output")
-    result = json.loads(output_text)
-    missing = set(ANALYSIS_SCHEMA["required"]) - set(result)
+def _validate_required_fields(result: object, schema: dict, schema_name: str) -> dict:
+    if not isinstance(result, dict):
+        raise ValueError(f"{schema_name} response must be a JSON object")
+    missing = set(schema["required"]) - set(result)
     if missing:
-        raise ValueError(f"LLM response missing required fields: {sorted(missing)}")
-    confidence = result.get("confidence")
-    if not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
-        raise ValueError("LLM confidence must be between 0 and 1")
+        raise ValueError(f"{schema_name} response missing required fields: {sorted(missing)}")
     return result
 
 
-def _analyze_openai(coin: str, question: str, evidence: list[dict]) -> dict:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is not configured")
-    payload = {
-        "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-        "input": build_prompt(coin, question, evidence),
-        "text": {"format": {"type": "json_schema", "name": "market_analysis", "strict": True, "schema": ANALYSIS_SCHEMA}},
-        "store": False,
-    }
-    request = Request("https://api.openai.com/v1/responses", data=json.dumps(payload).encode(), headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, method="POST")
-    with urlopen(request, timeout=60) as response:
-        raw = json.loads(response.read().decode())
-    output_text = raw.get("output_text")
+def _parse_json_object(output_text: str | None, schema: dict, schema_name: str) -> dict:
     if not output_text:
-        for item in raw.get("output", []):
-            for content in item.get("content", []):
-                if content.get("type") in {"output_text", "text"}:
-                    output_text = content.get("text")
-                    break
-    return _parse_json_output(output_text)
+        raise ValueError(f"{schema_name} response contained no structured output")
+    return _validate_required_fields(json.loads(output_text), schema, schema_name)
 
 
-def _analyze_gemini(coin: str, question: str, evidence: list[dict]) -> dict:
+def _openai_output_text(raw: dict) -> str | None:
+    output_text = raw.get("output_text")
+    if output_text:
+        return output_text
+    for item in raw.get("output", []):
+        for content in item.get("content", []):
+            if content.get("type") in {"output_text", "text"}:
+                return content.get("text")
+    return None
+
+
+def _gemini_output_text(raw: dict, schema_name: str) -> str:
+    candidates = raw.get("candidates", [])
+    if not candidates:
+        reason = raw.get("promptFeedback", {}).get("blockReason", "no candidates")
+        raise ValueError(f"Gemini {schema_name} response blocked or empty: {reason}")
+    parts = candidates[0].get("content", {}).get("parts", [])
+    return "".join(part.get("text", "") for part in parts)
+
+
+def _bedrock_output_text(raw: dict) -> str:
+    content = raw.get("output", {}).get("message", {}).get("content", [])
+    texts = [item.get("text", "") for item in content if isinstance(item, dict) and item.get("text")]
+    if not texts:
+        raise ValueError("Bedrock response contained no text content")
+    return "".join(texts)
+
+
+def _generate_gemini(prompt: str, schema: dict, timeout_seconds: int) -> str:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is not configured")
     model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
     payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": build_prompt(coin, question, evidence)}],
-            }
-        ],
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
             "responseMimeType": "application/json",
-            "responseJsonSchema": ANALYSIS_SCHEMA,
-            "temperature": 0.2,
+            "responseJsonSchema": schema,
+            "temperature": 0.1 if schema is CRITIC_SCHEMA else 0.2,
         },
     }
     endpoint = (
@@ -277,21 +256,118 @@ def _analyze_gemini(coin: str, question: str, evidence: list[dict]) -> dict:
         },
         method="POST",
     )
-    with urlopen(request, timeout=60) as response:
-        raw = json.loads(response.read().decode())
-    candidates = raw.get("candidates", [])
-    if not candidates:
-        reason = raw.get("promptFeedback", {}).get("blockReason", "no candidates")
-        raise ValueError(f"Gemini response blocked or empty: {reason}")
-    parts = candidates[0].get("content", {}).get("parts", [])
-    output_text = "".join(part.get("text", "") for part in parts)
-    return _parse_json_output(output_text)
+    with urlopen(request, timeout=timeout_seconds) as response:
+        return _gemini_output_text(json.loads(response.read().decode()), "structured")
+
+
+def _generate_openai(prompt: str, schema: dict, schema_name: str, timeout_seconds: int) -> str | None:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+    payload = {
+        "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        "input": prompt,
+        "text": {"format": {"type": "json_schema", "name": schema_name, "strict": True, "schema": schema}},
+        "store": False,
+    }
+    request = Request(
+        "https://api.openai.com/v1/responses",
+        data=json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(request, timeout=timeout_seconds) as response:
+        return _openai_output_text(json.loads(response.read().decode()))
+
+
+def _bedrock_retry_prompt(prompt: str, schema: dict) -> str:
+    return (
+        f"{prompt}\n\nYour previous response was invalid. Return only one valid JSON object that "
+        f"includes every required field and conforms to this JSON Schema:\n{json.dumps(schema, ensure_ascii=False)}"
+    )
+
+
+def _generate_bedrock(prompt: str, schema: dict, schema_name: str, timeout_seconds: int) -> dict:
+    """Use Converse and retry once only for malformed or incomplete structured output."""
+    model_id = _bedrock_model_id()
+    if boto3 is None:
+        raise RuntimeError("Amazon Bedrock requires boto3; install it locally or run in AWS Lambda")
+    region = _bedrock_region()
+    client_kwargs = {"region_name": region} if region else {}
+    if BotoConfig is not None:
+        client_kwargs["config"] = BotoConfig(
+            connect_timeout=timeout_seconds,
+            read_timeout=timeout_seconds,
+            retries={"max_attempts": 0},
+        )
+    client = boto3.client("bedrock-runtime", **client_kwargs)
+    request_prompt = prompt + (
+        "\n\nReturn only one valid JSON object. It must conform to this JSON Schema:\n"
+        + json.dumps(schema, ensure_ascii=False)
+    )
+    for attempt in range(2):
+        response = client.converse(
+            modelId=model_id,
+            messages=[{"role": "user", "content": [{"text": request_prompt}]}],
+            inferenceConfig={
+                "maxTokens": _environment_int("BEDROCK_MAX_TOKENS", 2048),
+                "temperature": _environment_temperature("BEDROCK_TEMPERATURE", 0.2),
+            },
+        )
+        try:
+            return _parse_json_object(_bedrock_output_text(response), schema, schema_name)
+        except (json.JSONDecodeError, ValueError) as error:
+            if attempt:
+                raise ValueError(f"Bedrock {schema_name} response was invalid after one retry: {error}") from error
+            request_prompt = _bedrock_retry_prompt(prompt, schema)
+    raise AssertionError("Bedrock JSON retry loop exited unexpectedly")
+
+
+def generate_json_with_llm(prompt: str, schema: dict, schema_name: str, timeout_seconds: int) -> dict:
+    """Generate and minimally validate a schema-shaped JSON object from the selected provider."""
+    provider = configured_provider()
+    if provider == "gemini":
+        return _parse_json_object(_generate_gemini(prompt, schema, timeout_seconds), schema, schema_name)
+    if provider == "openai":
+        return _parse_json_object(_generate_openai(prompt, schema, schema_name, timeout_seconds), schema, schema_name)
+    if provider == "bedrock":
+        return _generate_bedrock(prompt, schema, schema_name, timeout_seconds)
+    raise RuntimeError(f"No LLM provider is configured (provider={provider})")
+
+
+def _validate_critic_result(result: dict) -> dict:
+    if result["verdict"] not in {"pass", "concerns", "fail"}:
+        raise ValueError(f"Invalid critic verdict: {result['verdict']}")
+    adjustment = result.get("confidence_adjustment")
+    if not isinstance(adjustment, (int, float)) or not -1 <= adjustment <= 0:
+        raise ValueError("Critic confidence_adjustment must be between -1 and 0")
+    return result
+
+
+def _parse_critic_output(output_text: str | None) -> dict:
+    return _validate_critic_result(_parse_json_object(output_text, CRITIC_SCHEMA, "Critic"))
+
+
+def critique_with_llm(coin: str, question: str, result: dict, evidence: list[dict], timeout: int = 60) -> dict:
+    """Audit an analysis independently; the returned critique may only lower confidence."""
+    prompt = build_critic_prompt(coin, question, result, evidence)
+    return _validate_critic_result(
+        generate_json_with_llm(prompt, CRITIC_SCHEMA, "research_critique", timeout)
+    )
+
+
+def _validate_analysis_result(result: dict) -> dict:
+    confidence = result.get("confidence")
+    if not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
+        raise ValueError("LLM confidence must be between 0 and 1")
+    return result
+
+
+def _parse_json_output(output_text: str | None) -> dict:
+    return _validate_analysis_result(_parse_json_object(output_text, ANALYSIS_SCHEMA, "LLM"))
 
 
 def analyze_with_llm(coin: str, question: str, evidence: list[dict]) -> dict:
-    provider = configured_provider()
-    if provider == "gemini":
-        return _analyze_gemini(coin, question, evidence)
-    if provider == "openai":
-        return _analyze_openai(coin, question, evidence)
-    raise RuntimeError("No LLM provider is configured")
+    return _validate_analysis_result(
+        generate_json_with_llm(build_prompt(coin, question, evidence), ANALYSIS_SCHEMA, "market_analysis", 60)
+    )
