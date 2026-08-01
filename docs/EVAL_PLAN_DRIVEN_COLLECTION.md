@@ -2,7 +2,10 @@
 
 **狀態**：P0 已實作（第 2 節）；P1 plan→collection 接線仍為評估，未實作
 **日期**：2026-08-01
-**評估分支**：`GoToAWS0801`（測試時 HEAD 為 T8 凍結後狀態，541 tests 全過）
+**評估分支**：`GoToAWS0801`。評估（第 1 節）在 T8 凍結後狀態進行，當時 541 tests 全過；
+P0 實作（第 2 節）在並行的 D5／D7 部署 commit 之後進行，基線已為 581 tests，加上本次
+新增的 6 個共 587 tests 全過。
+**commit 可追溯性**：本文件初版所在的 commit 混合了另一個 session 的工作，見附錄二。
 **動機**：目前題目幾乎不影響報告內容。實測顯示不同題目產生的立場、權重、證據集完全相同。
 **硬要求**（使用者指定）：所有 LLM 產出必須可溯源；報告每一項內容必須有依據。
 
@@ -349,7 +352,7 @@ LLM 路徑下**無法保證**，只有 fallback 路徑能保證。這一點必�
 
 ---
 
-## 附錄：本評估的驗證方式
+## 附錄一：本評估的驗證方式
 
 所有數字來自實際執行，非推估。
 
@@ -378,3 +381,93 @@ run('ETH', '近期市場狀況、主要驅動因素與風險是什麼？', Path(
 
 `outputs-q1`／`q2`／`q3`／`outputs-live-check` 受 `.gitignore` 的 `outputs-*/` 忽略，
 本文引用的數值已內嵌於上方各節，不依賴這些目錄存在。
+
+
+---
+
+## 附錄二：commit 可追溯性更正記錄
+
+本節是從本評估這一側留下的更正記錄，用途是與
+`.kiro/specs/hoyabit-aws-deployment/status.yaml`（D8 的 `commit_note`）以及 commit
+`683035c docs(D8): correct commit traceability after concurrent commit` 對齊說法。
+兩份記錄描述同一件事，缺一份就只有單方面說法。
+
+### 發生了什麼
+
+本文件原本應該單獨提交。實際上在 `git add` 與 `git commit` 之間，另一個並行的 session
+（AWS 部署工作，D8）也對同一個工作區執行了 `git add`，因此該 session 的 12 個檔案被一併
+提交進同一個 commit。
+
+```text
+commit 2bd7fb5
+message  docs: evaluate plan-driven collection and flag domain_coverage denominator gap
+內容     13 個檔案
+```
+
+message 只描述了其中 1 個檔案。
+
+### 檔案歸屬
+
+`2bd7fb5` 中屬於本評估的檔案（1 個）：
+
+```text
+docs/EVAL_PLAN_DRIVEN_COLLECTION.md
+```
+
+`2bd7fb5` 中屬於 D8（AWS 部署 live smoke）的檔案（12 個）：
+
+```text
+.kiro/specs/hoyabit-aws-deployment/status.yaml
+demo-fixtures/competition-ready/live-success/README.md
+demo-fixtures/competition-ready/live-success/claims.json
+demo-fixtures/competition-ready/live-success/evidence.json
+demo-fixtures/competition-ready/live-success/execution_log.json
+demo-fixtures/competition-ready/live-success/manifest.json
+demo-fixtures/competition-ready/live-success/report.md
+demo-fixtures/competition-ready/live-success/research_plan.json
+docs/COMPETITION_BLOCKERS.md
+docs/COMPETITION_TASK_STATUS.yaml
+docs/aws-architecture.md
+scripts/verify_live_smoke.py
+```
+
+### 本評估相關工作的實際 commit
+
+```text
+2bd7fb5  本文件初版（與 D8 的 12 個檔案混合，見上）
+276983e  P0 修正：src/claim_graph.py、tests/test_claim_graph.py、本文件更新
+         message: fix(claims): stop a narrow research plan from inflating claim confidence
+```
+
+`276983e` 提交前已先以 `git diff --cached --name-only` 確認 index 只含預期的 3 個檔案，
+未再發生混合。
+
+### 為什麼不改寫歷史
+
+使用者在得知以下事實後決定維持現狀：
+
+1. D8 那一側已在 `683035c` 與 status.yaml 的 `commit_note` 留下更正記錄，並明確記載
+   「刻意不使用 `git commit --amend` 改寫 2bd7fb5」。
+2. status.yaml 已把 `commit: 2bd7fb5` 寫成 D8 的稽核記錄。改寫會讓該 SHA 失效，
+   稽核記錄反而指向不存在的 commit——**可追溯性會變差，不是變好**。
+3. 新 SHA 只有在改寫完成後才能得知，但更新 status.yaml 又會再改變 commit 內容，
+   需要額外的修正 commit，形成循環。
+4. 改寫範圍是 4 個 commit，其中 3 個屬於仍在活躍提交的並行 session，
+   rebase 期間再次衝突的機率高。
+
+因此形式上的缺陷（message 與內容不完全對應）以書面更正記錄補足，不以改寫歷史處理。
+
+### 實際狀態
+
+13 個檔案全部進入版控且內容正確。缺陷僅限於 `2bd7fb5` 的 message 未涵蓋全部內容，
+該缺陷已在三處留下記錄：`683035c` 的 commit message、status.yaml 的 `commit_note`、
+以及本節。
+
+### 教訓
+
+同一個工作區同時有兩個 session 在提交時，`git add` 與 `git commit` 之間存在競態窗口——
+`git commit` 提交的是**當下整個 index**，不是先前 `git add` 的那些路徑。
+
+規避方式（本次之後已採用）：提交前一律以 `git diff --cached --name-only` 確認 index 內容；
+或改用 `git commit -- <paths>` 只提交指定路徑。並行工作應各自使用獨立分支或工作區
+（`git worktree`），避免共用 index。
