@@ -115,7 +115,12 @@ class LongHorizonContextTest(unittest.TestCase):
             self.assertIn("market", by_type)  # the 14-day live/fixture series survives
             history = next(item for item in evidence if item["data_type"] == "price_history")
             self.assertEqual(set(history["content"]["windows"]), {"14d", "90d", "365d", "full"})
-            self.assertEqual(history["reliability_score"], 0.95)
+            # T3: the adapter's hand-written 0.95 is now only a hint. The printed score comes from
+            # the credibility engine, and the hint stays in the breakdown for audit.
+            self.assertEqual(history["source_type"], "local_csv")
+            self.assertEqual(history["score_breakdown"]["legacy_reliability_hint"], 0.95)
+            self.assertEqual(history["reliability_score"], history["score_breakdown"]["final_score"])
+            self.assertEqual(history["score_limiters"], [])
 
     def test_report_includes_long_horizon_section_only_with_history(self):
         with tempfile.TemporaryDirectory() as directory:

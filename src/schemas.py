@@ -211,9 +211,20 @@ SOURCE_TYPE_FALLBACK_FIXTURE = "fallback_fixture"
 # ``unverified`` 是預設值；``partially_confirmed`` 取自 design.md 5.5 的輸出範例；
 # ``verified`` 取自 evidence-confidence-standards（LLM 不得自行把 unverified 改成 verified）；
 # ``rejected`` 由 T5 citation gate 使用，被 reject 的 Evidence 不得進入主要報告。
-VERIFICATION_STATUSES = ("unverified", "partially_confirmed", "verified", "rejected")
+# ``unavailable``／``fallback`` 由 T3 追加（T3-credibility.md 規則 11）：降級證據必須留在
+# Evidence List 供稽核，但狀態要一眼看出它不是實證。兩者的差別是「原本預期取得但這次取不到」
+# 與「本來就是離線 fixture」。追加在尾端，既有值的字面與順序不變。
+VERIFICATION_STATUSES = (
+    "unverified", "partially_confirmed", "verified", "rejected", "unavailable", "fallback",
+)
 VERIFICATION_STATUS_UNVERIFIED = "unverified"
 VERIFICATION_STATUS_REJECTED = "rejected"
+VERIFICATION_STATUS_UNAVAILABLE = "unavailable"
+VERIFICATION_STATUS_FALLBACK = "fallback"
+# 這兩個狀態代表「不得作為主要實證」；validator 與 T4／T5 用同一份集合判斷。
+NON_SUBSTANTIVE_VERIFICATION_STATUSES = frozenset({
+    VERIFICATION_STATUS_REJECTED, VERIFICATION_STATUS_UNAVAILABLE, VERIFICATION_STATUS_FALLBACK,
+})
 
 # hard cap 是上限，必須以 min(raw_score, cap) 套用，不可被加權平均突破。
 # ``missing_fetched_at`` 在 T3 與 steering 中寫的是 ``rejected``（不是一個數字）：

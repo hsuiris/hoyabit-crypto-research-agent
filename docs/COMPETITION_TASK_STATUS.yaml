@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T2
-last_updated_at: 2026-08-01T11:34:00+08:00
+current_task: T3
+last_updated_at: 2026-08-01T12:34:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 326 tests, 326 passed, 0 failed, 0 errors
+full_suite_latest: 375 tests, 375 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -146,19 +146,59 @@ tasks:
 
   T3:
     title: Add explainable evidence credibility engine
-    status: READY
+    status: PASS
     depends_on: [T2]
     target_minutes: 90
-    started_at: null
-    completed_at: null
-    commit: null
-    test_summary: null
+    started_at: 2026-08-01T11:45:00+08:00
+    completed_at: 2026-08-01T12:34:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "feat(T3)"`。
+    commit: 'feat(T3): add explainable evidence credibility engine'
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_t3_credibility_wiring → 49 tests OK
+      （網路全程 patch、時間傳入固定 now）；python3 -m unittest tests.test_credibility → 引擎本身 OK。
+      完整套件：python3 -m unittest discover -s tests → 375 tests, 375 passed, 0 failed, 0 errors。
+      Offline smoke：run('ETH', ..., live=False, use_llm=False) 產出四檔，evidence.json 每筆都有
+      score_breakdown（raw／final／components／weights／hard_cap／limiters／legacy hint），
+      execution_log 新增 score_evidence step 且排在 llm_reasoning 之前。
+      降級 smoke：run(live=True, deadline 已過) 全部證據 source_type=fallback_fixture、
+      verification_status=unavailable、分數 <= 0.20。Web 首頁 HTTP 200 且含 HOYA BIT。
+    owner_note: >-
+      Track A 只做接線與 validator。src/credibility.py 與 config/source_registry.json 由 Track B
+      於 ff9d226 提供，本 Task 未修改該引擎的計分邏輯。
+    artifacts:
+      - src/day1_mvp.py
+      - src/day2_sources.py
+      - src/validation.py
+      - src/orchestrator.py
+      - src/schemas.py
+      - tests/test_t3_credibility_wiring.py
+    integration_points:
+      - day2_sources 新增 DATA_TYPE_SOURCE_TYPES 與 stamp_credibility_metadata()：只補 metadata
+        （source_type、published_at／event_time、news item lineage），不計分
+      - orchestrator 新增 enrich_and_score_evidence()／_credibility_summary()／
+        _credibility_risk_factors()，在 _signal_inventory 與任何推理之前覆寫 reliability_score
+      - validate_evidence() 新增 require_scored 參數；orchestrator 以 require_scored=True 呼叫
+      - report.md 的 Evidence Sources 每行顯示類別、狀態、原始分數、生效上限、新鮮度依據與五項分量
+      - execution_log.json 新增 score_evidence step（collect_evidence 之後、calculate_indicators 之前）
+      - result["credibility"] 供 T4／T5／Web UI 取用
     blockers: []
-    known_limitations: []
+    known_limitations:
+      - schemas.VERIFICATION_STATUSES 追加 unavailable／fallback（T3 規則 11 需要），
+        既有四個值的字面與順序不變；tests/test_schema_contract.py 已同步
+      - 離線模式的 mock_evidence 全部標為 fallback_fixture，因此 offline run 只有本地 CSV
+        （price_history／ohlcv）算實證；這是刻意的誠實降級，T4／T5 的 insufficient_evidence
+        判斷會據此生效
+      - Evidence 層級的 independence 只依 lineage 群組大小稀釋；news 內部的同源轉載以
+        content["independent_story_count"] 表達，尚未回饋到 Evidence 的 independence 分量
+      - tvl 對應到 market_api（DefiLlama 為公開市場資料 API），source_registry 的
+        known_limitations 屬類別層級描述，不完全貼合 TVL
+      - Evidence 的 related_claim_ids 仍為空，claim 綁定屬 T4
+      - 未執行 live API 與真實 LLM 驗證（保留至 T8）
 
   T4:
     title: Add Claim-Evidence Graph and confidence engine
-    status: TODO
+    status: READY
     depends_on: [T3]
     target_minutes: 90
     started_at: null

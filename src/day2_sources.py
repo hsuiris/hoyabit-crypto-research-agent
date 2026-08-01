@@ -14,6 +14,8 @@ from urllib.robotparser import RobotFileParser
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
+from .credibility import lineage_id_for, parse_timestamp
+from .schemas import VERIFICATION_STATUS_UNAVAILABLE
 from .day1_mvp import Evidence, mock_evidence
 from .vegas_strategy import analyze_vegas_channel, check_timeframe_alignment
 
@@ -62,6 +64,152 @@ OFFICIAL_FEEDS = {
 }
 
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
+
+
+# ---------------------------------------------------------------------------------------------
+# T3: credibility metadata
+#
+# The data layer supplies the *metadata* the credibility engine needs and nothing else: which
+# registry category a source belongs to, when the data itself is from (as opposed to when we
+# fetched it), and which news items trace back to the same story. No scoring happens here --
+# `src/credibility.py` owns the arithmetic and `src/orchestrator.py` owns writing scores back, so
+# an adapter can never talk its own reliability up.
+# ---------------------------------------------------------------------------------------------
+
+# data_type -> config/source_registry.json category. Chosen by *how the data is obtained*, which is
+# what the registry's quality/traceability/freshness baselines actually describe:
+#   whale/onchain    both read chain state from a public node or block explorer API
+#   vegas_channel    an indicator computed from Binance spot klines, i.e. market data
+#   tvl              DefiLlama's public market-data API (documented endpoint, snapshot semantics)
+#   news             Google News + publisher feeds are syndication, not first-party statements
+#   price_history    the repository's own daily CSV
+DATA_TYPE_SOURCE_TYPES = {
+    "market": "market_api",
+    "price_history": "local_csv",
+    "news": "secondary_media",
+    "announcement": "official_announcement",
+    "macro": "macro_api",
+    "onchain": "blockchain_raw",
+    "whale": "blockchain_raw",
+    "social": "social_public",
+    "derivatives": "derivatives_api",
+    "long_short_ratio": "derivatives_api",
+    "vegas_channel": "market_api",
+    "tvl": "market_api",
+}
+
+# A degraded record keeps its place in the evidence list so the reader can see what was missing, but
+# its status has to say so. "unavailable" = we expected this source and could not get it (here);
+# "fallback" = it was a fixture from the start (set in `src/day1_mvp.py`).
+
+
+def _epoch_or_timestamp(value):
+    """Parse a feed/API timestamp, accepting epoch seconds as well as date strings."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    return parse_timestamp(value)
+
+
+def _newest(values) -> str | None:
+    """The most recent parseable timestamp in `values`, as ISO-8601, or None."""
+    parsed = [item for item in (_epoch_or_timestamp(value) for value in values) if item is not None]
+    return max(parsed).isoformat() if parsed else None
+
+
+def _item_times(items, keys) -> str | None:
+    return _newest([item.get(key) for item in items if isinstance(item, dict) for key in keys])
+
+
+def _annotate_news_lineage(items: list) -> dict:
+    """Group news items that trace back to the same story, in place.
+
+    Twenty outlets running the same wire copy is one confirmation, not twenty. Each item gets the
+    lineage ID the credibility engine would give it, plus a flag when an earlier item already
+    covered that story; the returned summary is what the report and the claim graph should count.
+    """
+    groups: dict[str, list[str]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        lineage = lineage_id_for(item)
+        item["lineage_id"] = lineage
+        item["duplicate_of_lineage"] = lineage in groups
+        groups.setdefault(lineage, []).append(item.get("url") or item.get("title") or "")
+    return {
+        "lineage_groups": dict(groups),
+        "independent_story_count": len(groups),
+        "duplicate_item_count": sum(len(value) - 1 for value in groups.values()),
+    }
+
+
+def _time_semantics(evidence: Evidence) -> tuple[str | None, str | None]:
+    """(published_at, event_time) for one record: when the data itself is from.
+
+    Freshness must not be inferred from `fetched_at` for anything published: a two-year-old article
+    downloaded a second ago is not fresh. Snapshot-style sources (market, derivatives, chain state)
+    legitimately treat the fetch time as the observation time and are declared as such in the
+    registry, so they only need an explicit time when the payload carries one.
+    """
+    content = evidence.content if isinstance(evidence.content, dict) else {}
+    data_type = evidence.data_type
+    items = content.get("items") if isinstance(content.get("items"), list) else []
+    posts = content.get("posts") if isinstance(content.get("posts"), list) else []
+    history = content.get("history") if isinstance(content.get("history"), list) else []
+
+    if data_type in {"news", "announcement"}:
+        return _item_times(items, ("published", "updated", "published_at")), None
+    if data_type == "social":
+        return None, _item_times(posts, ("created_utc", "indexed_at", "created_at"))
+    if data_type == "macro":
+        macro_history = content.get("fear_greed_history")
+        latest = macro_history[-1].get("time") if isinstance(macro_history, list) and macro_history else None
+        published = _item_times(content.get("fed_releases") or [], ("published",))
+        return published, _newest([latest])
+    if data_type == "tvl":
+        return None, _newest([history[-1].get("time")]) if history else None
+    if data_type == "price_history":
+        return None, _newest([content.get("date_end")])
+    if data_type == "market":
+        dates = content.get("dates")
+        latest = dates[-1] if isinstance(dates, list) and dates else None
+        return None, _newest([latest])
+    return None, None
+
+
+def stamp_credibility_metadata(evidence: Evidence) -> Evidence:
+    """Fill in the T3 metadata for one record, in place. Idempotent; never assigns a score.
+
+    An explicitly set `source_type` wins: a fixture stays a fixture even when it stands in for a
+    live source, and the orchestrator's own CSV-backed records classify themselves.
+    """
+    if evidence.source_type in (None, "", "unknown"):
+        evidence.source_type = DATA_TYPE_SOURCE_TYPES.get(evidence.data_type, "unknown")
+    if evidence.data_type == "announcement" and evidence.source_type == "official_announcement":
+        content = evidence.content if isinstance(evidence.content, dict) else {}
+        if not content.get("first_party"):
+            # A Google-News feed restricted to official domains is still syndication (see
+            # OFFICIAL_FEEDS): scoring it as a first-party announcement would overstate it.
+            evidence.source_type = "secondary_media"
+
+    published_at, event_time = _time_semantics(evidence)
+    if published_at and not evidence.published_at:
+        evidence.published_at = published_at
+    if event_time and not evidence.event_time:
+        evidence.event_time = event_time
+
+    if evidence.data_type in {"news", "announcement"} and isinstance(evidence.content, dict):
+        items = evidence.content.get("items")
+        if isinstance(items, list) and items:
+            evidence.content.update(_annotate_news_lineage(items))
+
+    if not evidence.source_lineage_id:
+        evidence.source_lineage_id = lineage_id_for(evidence)
+    return evidence
 
 
 def _get_json(url: str, timeout: int = 8) -> dict:
@@ -799,7 +947,7 @@ def _fallback_evidence(label: str, coin: str, error: Exception) -> Evidence | No
         if mock is None:
             return None
         status = "unsupported" if isinstance(error, NotImplementedError) else "unavailable"
-        return replace(
+        return stamp_credibility_metadata(replace(
             mock,
             evidence_id=f"{mock.evidence_id}-{coin}-FALLBACK",
             fetched_at=datetime.now(timezone.utc).isoformat(),
@@ -807,15 +955,19 @@ def _fallback_evidence(label: str, coin: str, error: Exception) -> Evidence | No
             reliability_score=0.20,
             content_reference={"fallback": True, "error_type": type(error).__name__, "fixture": mock.source},
             related_claim=f"{label} signal unavailable for {coin}; do not treat fallback as live evidence",
-        )
+            source_type="fallback_fixture",
+            verification_status=VERIFICATION_STATUS_UNAVAILABLE,
+        ))
     id_prefix, source, url, time_range, extra = spec
     status = "unsupported" if isinstance(error, NotImplementedError) else "unavailable"
-    return Evidence(
+    return stamp_credibility_metadata(Evidence(
         f"{id_prefix}-{coin}-FALLBACK", source, url, datetime.now(timezone.utc).isoformat(),
         label, coin, time_range, {"status": status, "reason": type(error).__name__, **extra}, 0.20,
         {"fallback": True, "error_type": type(error).__name__},
-        f"{label} signal unavailable for {coin}; do not treat fallback as live evidence"
-    )
+        f"{label} signal unavailable for {coin}; do not treat fallback as live evidence",
+        source_type="fallback_fixture",
+        verification_status=VERIFICATION_STATUS_UNAVAILABLE,
+    ))
 
 
 # Sources grouped into domain agents. Each agent owns one research aspect and runs independently,
@@ -861,7 +1013,7 @@ def collect_evidence_detailed(coin: str = "ETH", live: bool = False, deadline: f
     footnotes, and footnotes that move between runs would be worse than a slower pipeline.
     """
     if not live:
-        return mock_evidence(coin), ["mock_mode"], []
+        return [stamp_credibility_metadata(item) for item in mock_evidence(coin)], ["mock_mode"], []
 
     loaders = dict(_SOURCE_LOADERS)
     canonical_order = [label for label, _ in _SOURCE_LOADERS]
@@ -889,7 +1041,7 @@ def collect_evidence_detailed(coin: str = "ETH", live: bool = False, deadline: f
         reports = [run_agent(*agent) for agent in COLLECTION_AGENTS]
 
     by_label = {label: evidence for report in reports for label, evidence in report["collected"]}
-    evidence = [by_label[label] for label in canonical_order if label in by_label]
+    evidence = [stamp_credibility_metadata(by_label[label]) for label in canonical_order if label in by_label]
     log = [entry for label in canonical_order for report in reports
            for entry in report["log"] if entry.startswith(f"{label}:")]
     agent_report = [

@@ -57,6 +57,23 @@ _MOCK_SCALE = {"BTC": 6.0, "ETH": 3.0, "SOL": 1.4, "BNB": 1.1, "XRP": 0.8}
 
 
 def mock_evidence(coin: str = "ETH") -> list[Evidence]:
+    return [_as_fixture(item) for item in _mock_records(coin)]
+
+
+def _as_fixture(evidence: Evidence) -> Evidence:
+    """Label every Day-1 record as what it is: a fixture, not an observation.
+
+    T3 scores `fallback_fixture` under a 0.20 hard cap, so a fixture can keep the pipeline and the
+    offline demo running without ever being counted as substantive evidence. The per-record
+    `reliability_score` above stays untouched as a legacy hint -- the credibility engine recomputes
+    and overwrites it (see `src/credibility.py`).
+    """
+    evidence.source_type = "fallback_fixture"
+    evidence.verification_status = "fallback"
+    return evidence
+
+
+def _mock_records(coin: str = "ETH") -> list[Evidence]:
     now = datetime.now(timezone.utc).isoformat()
     scale = _MOCK_SCALE.get(coin.upper(), 1.0)
     prices = [round(100 * scale * (1 + 0.006 * index), 2) for index in range(14)]

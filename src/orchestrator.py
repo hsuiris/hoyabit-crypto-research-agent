@@ -5,10 +5,13 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .comparison import build_profile, compare_profiles, comparison_markdown
-from .day2_sources import collect_evidence_detailed
+from .credibility import load_source_registry, score_evidence_batch
+from .day2_sources import collect_evidence_detailed, stamp_credibility_metadata
+from .schemas import CREDIBILITY_WEIGHTS, HARD_CAPS, SCORING_VERSION
 from .validation import validate_evidence
 from .errors import AgentInputError, validate_request
 from .llm import (analyze_with_llm, critique_with_llm, default_llm_client, llm_is_configured,
@@ -443,7 +446,151 @@ def _price_history_evidence(coin: str, history_path: Path):
         0.95,
         {"file": str(history_path), "rows": len(rows), "windows": sorted(windows)},
         f"{coin.upper()} multi-year price context: return, volatility, drawdown and range position",
+        source_type="local_csv",
     )
+
+
+def enrich_and_score_evidence(evidence: list, *, registry=None, now=None) -> list[dict]:
+    """Score every record before anything reads it, and write the result back onto the evidence.
+
+    This is the single point where `reliability_score` is decided. The adapters' hand-written
+    numbers survive only as `legacy_reliability_hint` inside the breakdown: a source that is easy to
+    reproduce and recent scores well because of what it is, not because whoever wrote the adapter
+    felt good about it. Nothing here consults a model -- the arithmetic is in `src/credibility.py`
+    and is a pure function of the metadata plus `now`.
+
+    `now` is resolved once for the whole batch so every record's freshness is measured against the
+    same instant; tests pass it in to get a fixed answer.
+    """
+    scoring_now = now or datetime.now(timezone.utc)
+    active_registry = registry if registry is not None else load_source_registry()
+    for item in evidence:
+        stamp_credibility_metadata(item)
+    records = score_evidence_batch(evidence, active_registry, now=scoring_now)
+    for item, record in zip(evidence, records):
+        item.source_lineage_id = record["source_lineage_id"]
+        item.independence_factor = record["independence_factor"]
+        item.verification_status = record["verification_status"]
+        item.score_limiters = list(record["score_limiters"])
+        item.scoring_version = record["scoring_version"]
+        item.score_breakdown = {
+            "raw_score": record["raw_score"],
+            "final_score": record["final_score"],
+            "components": dict(record["components"]),
+            "weights": dict(CREDIBILITY_WEIGHTS),
+            "hard_cap": record["hard_cap"],
+            "score_limiters": list(record["score_limiters"]),
+            "freshness_basis": record["freshness_basis"],
+            "age_days": record["age_days"],
+            "lineage_size": record["lineage_size"],
+            "source_type": record["source_type"],
+            "known_limitations": list(record["known_limitations"]),
+            "notes": list(record["notes"]),
+            # Kept for audit: what the adapter claimed before the engine recomputed it.
+            "legacy_reliability_hint": item.reliability_score,
+            "registry_version": active_registry.get("registry_version"),
+            "scoring_version": record["scoring_version"],
+            "scored_at": scoring_now.isoformat(),
+        }
+        item.reliability_score = record["final_score"]
+    return records
+
+
+_FRESHNESS_BASIS_LABELS = {
+    "event_time": "事件時間", "published_at": "發布時間", "fetched_at": "取得時間（無事件時間）",
+}
+_VERIFICATION_STATUS_LABELS = {
+    "unverified": "未交叉驗證", "partially_confirmed": "部分佐證", "verified": "已驗證",
+    "rejected": "已排除", "unavailable": "取不到（降級）", "fallback": "離線 fixture",
+}
+
+
+def _evidence_source_line(item) -> str:
+    """One evidence row that shows how its score was formed, not just the number.
+
+    A bare "reliability: 0.6" is unauditable -- the reader cannot tell a mediocre source from a good
+    source that hit a cap. The raw score, the cap that bit and the freshness basis are what make the
+    number arguable.
+    """
+    breakdown = item.score_breakdown or {}
+    parts = [
+        f"類別 {item.source_type}",
+        f"狀態 {_VERIFICATION_STATUS_LABELS.get(item.verification_status, item.verification_status)}",
+    ]
+    if breakdown:
+        components = breakdown.get("components") or {}
+        parts.append("原始 {}".format(breakdown.get("raw_score")))
+        if breakdown.get("score_limiters"):
+            parts.append("上限 {}（{}）".format(breakdown.get("hard_cap"), "、".join(breakdown["score_limiters"])))
+        basis = breakdown.get("freshness_basis") or ""
+        if basis:
+            parts.append("新鮮度依 {}（{} 天前）".format(
+                _FRESHNESS_BASIS_LABELS.get(basis, basis), breakdown.get("age_days")))
+        parts.append("分量 " + "／".join(f"{key}={components.get(key)}" for key in CREDIBILITY_WEIGHTS))
+    return (f"- {item.evidence_id}: [{item.source}]({item.source_url}) "
+            f"(reliability: {item.reliability_score}) ｜ " + "｜".join(parts))
+
+
+def _credibility_risk_factors(credibility: dict) -> list[str]:
+    """Turn the scoring outcome into limitations the reader can act on.
+
+    An offline or heavily degraded run must say so in the report itself. A reader who only sees the
+    conclusion has no way to know the evidence behind it was a fixture, and a stance built on
+    fixtures reads exactly like one built on observations unless we print the difference.
+    """
+    factors = []
+    fallback_count = len(credibility["fallback_ids"])
+    if credibility["substantive_count"] == 0:
+        factors.append(
+            f"本次全部 {credibility['evidence_count']} 筆證據皆為離線 fixture 或降級來源"
+            f"（可信度上限 {HARD_CAPS['fallback_fixture']}），只足以示範流程，不足以支撐方向性結論。"
+        )
+    elif fallback_count:
+        factors.append(
+            f"{fallback_count} 筆證據為降級來源（{', '.join(credibility['fallback_ids'])}），"
+            f"可信度已壓到 {HARD_CAPS['fallback_fixture']} 以下，不得作為結論的唯一依據。"
+        )
+    if credibility["shared_lineages"]:
+        groups = "；".join(", ".join(ids) for ids in credibility["shared_lineages"].values())
+        factors.append(f"有證據來自同一來源鏈（{groups}），獨立性已稀釋，不視為多個獨立確認。")
+    other_caps = {name: count for name, count in credibility["limiter_counts"].items()
+                  if name != "fallback_fixture"}
+    if other_caps:
+        detail = "、".join(f"{name}×{count}" for name, count in sorted(other_caps.items()))
+        factors.append(f"以下可信度上限已生效，相關敘述不得超過證據能證明的範圍：{detail}。")
+    return factors
+
+
+def _credibility_summary(records: list[dict], registry_version: str) -> dict:
+    """The Execution Log / UI view of scoring: what was capped, what was rejected, what is left."""
+    lineages: dict[str, list[str]] = {}
+    for record in records:
+        lineages.setdefault(record["source_lineage_id"], []).append(record["evidence_id"])
+    substantive = [
+        record for record in records
+        if not record["rejected"] and record["source_type"] != "fallback_fixture"
+    ]
+    return {
+        "scoring_version": records[0]["scoring_version"] if records else SCORING_VERSION,
+        "registry_version": registry_version,
+        "evidence_count": len(records),
+        "substantive_count": len(substantive),
+        "fallback_ids": [record["evidence_id"] for record in records
+                         if record["source_type"] == "fallback_fixture"],
+        "rejected_ids": [record["evidence_id"] for record in records if record["rejected"]],
+        "capped_ids": [record["evidence_id"] for record in records if record["score_limiters"]],
+        "limiter_counts": {
+            name: sum(1 for record in records if name in record["score_limiters"])
+            for name in sorted({name for record in records for name in record["score_limiters"]})
+        },
+        "source_type_counts": {
+            name: sum(1 for record in records if record["source_type"] == name)
+            for name in sorted({record["source_type"] for record in records})
+        },
+        "independent_lineage_count": len(lineages),
+        "shared_lineages": {key: value for key, value in lineages.items() if len(value) > 1},
+        "mean_final_score": round(sum(record["final_score"] for record in records) / len(records), 4) if records else 0.0,
+    }
 
 
 def _plan_research(question: str, coins: list[str], *, use_llm: bool, client: object | None,
@@ -523,18 +670,25 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         prices = [row["close"] for row in rows]
         if market is None:
             from .day1_mvp import Evidence
-            from datetime import datetime, timezone
-            market = Evidence("EV-OHLCV-001", "Competition OHLCV CSV", str(ohlcv_path), datetime.now(timezone.utc).isoformat(), "market", coin, f"{len(rows)}d", {}, 0.95, {"file": str(ohlcv_path), "rows": len(rows), "date_start": rows[0]["date"], "date_end": rows[-1]["date"]}, f"Competition OHLCV close prices for {coin}")
+            market = Evidence("EV-OHLCV-001", "Competition OHLCV CSV", str(ohlcv_path), datetime.now(timezone.utc).isoformat(), "market", coin, f"{len(rows)}d", {}, 0.95, {"file": str(ohlcv_path), "rows": len(rows), "date_start": rows[0]["date"], "date_end": rows[-1]["date"]}, f"Competition OHLCV close prices for {coin}", source_type="local_csv")
             evidence.insert(0, market)
         market.content["prices"] = prices
         market.content["volumes"] = [row["volume"] for row in rows]
         market.content["dates"] = [row["date"] for row in rows]
     if history_path:
         evidence.append(_price_history_evidence(coin, history_path))
+    # Score before anything reads the evidence: the signal inventory, the prompt, the report and the
+    # claim graph all quote `reliability_score`, so they must all see the engine's number rather
+    # than the adapter's hint.
+    registry = load_source_registry()
+    credibility_records = enrich_and_score_evidence(evidence, registry=registry)
+    credibility = _credibility_summary(credibility_records,
+                                       registry.get("registry_version", "unavailable"))
     plan_dict = plan_to_dict(plan)
     result = {
         "coin": coin.upper(), "question": question,
         "research_plan": plan_dict, "planning": planning_log,
+        "credibility": credibility,
         "summary": f"{coin.upper()} has a positive market signal; news, on-chain and social evidence require further validation.",
         "signals": {item.data_type: item.content.get("sentiment", "available") for item in evidence},
         "indicators": market.content if market is not None else {},
@@ -545,7 +699,7 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     }
     signals = _signal_inventory(result, evidence)
     result["stance"] = _market_stance(signals)
-    result["risk_factors"] = _dynamic_risk_factors(result, evidence, signals)
+    result["risk_factors"] = _dynamic_risk_factors(result, evidence, signals) + _credibility_risk_factors(credibility)
     llm_status = "offline_fallback"
     llm_info = llm_runtime_info()
     llm_seconds_remaining = round(reasoning_deadline - time.monotonic(), 1)
@@ -606,11 +760,11 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     result["critique"] = critique
     phase_timings["critic_ms"] = round((time.monotonic() - critic_started) * 1000, 1)
 
-    validation_errors = validate_evidence(evidence, result["evidence_ids"])
+    validation_errors = validate_evidence(evidence, result["evidence_ids"], require_scored=True)
     if validation_errors:
         raise ValueError("Evidence validation failed: " + "; ".join(validation_errors))
     output_dir.mkdir(parents=True, exist_ok=True)
-    sources = "\n".join(f"- {item.evidence_id}: [{item.source}]({item.source_url}) (reliability: {item.reliability_score})" for item in evidence)
+    sources = "\n".join(_evidence_source_line(item) for item in evidence)
     reasoning = result["reasoning"]
     # Series belong in the charts, not the prose report: dumping the raw `dates`/`prices` arrays
     # here buried the readable indicators under hundreds of lines.
@@ -674,6 +828,14 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
             {"name": "parse_input", "status": "success"},
             _planner_step(plan, planning_log, llm_info),
             {"name": "collect_evidence", "status": "degraded" if skipped else "success", "details": collection_log},
+            {
+                # Deterministic Python, never the model: the log records the engine version and
+                # every cap that fired so a reviewer can recompute any score by hand.
+                "name": "score_evidence",
+                "status": "degraded" if credibility["rejected_ids"] or credibility["fallback_ids"] else "success",
+                "scored_by": "deterministic_rules",
+                **credibility,
+            },
             {"name": "calculate_indicators", "status": "success"},
             {"name": "validate_evidence", "status": "success", "error_count": 0},
             {"name": "llm_reasoning", "status": llm_status, **llm_info},

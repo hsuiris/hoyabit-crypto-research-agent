@@ -336,8 +336,15 @@ class ImmutabilityTests(unittest.TestCase):
             "major_media", "secondary_media", "social_public", "macro_api", "local_csv",
             "fallback_fixture", "unknown",
         ))
+        # T3 appended "unavailable"／"fallback" (T3-credibility.md rule 11). Additive only: the
+        # first four values and their order are still the T0.6 contract.
         self.assertEqual(VERIFICATION_STATUSES,
+                         ("unverified", "partially_confirmed", "verified", "rejected",
+                          "unavailable", "fallback"))
+        self.assertEqual(VERIFICATION_STATUSES[:4],
                          ("unverified", "partially_confirmed", "verified", "rejected"))
+        self.assertEqual(schemas.NON_SUBSTANTIVE_VERIFICATION_STATUSES,
+                         frozenset({"rejected", "unavailable", "fallback"}))
         self.assertEqual(SCHEMA_VERSION, "competition-schema-v1")
         self.assertEqual(SCORING_VERSION, "credibility-v1")
 
@@ -364,7 +371,7 @@ class ArtifactContractTests(unittest.TestCase):
 
 class OfflineRegressionTests(unittest.TestCase):
     def test_offline_run_still_produces_the_three_existing_artifacts(self):
-        """T0.6 只加欄位與常數，既有離線流程與三個輸出檔必須完全不受影響。"""
+        """既有離線流程與三個輸出檔必須不受影響；新欄位由 T3 起開始填值。"""
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
             result = run("ETH", "T0.6 schema contract 離線回歸", output, live=False, use_llm=False)
@@ -377,11 +384,13 @@ class OfflineRegressionTests(unittest.TestCase):
             for record in records:
                 for name in EVIDENCE_CREDIBILITY_FIELDS:
                     self.assertIn(name, record, f"{record['evidence_id']} missing {name}")
-                # T0.6 不計分，所以新欄位必須保持未填狀態。
-                self.assertEqual(record["score_breakdown"], {})
-                self.assertEqual(record["score_limiters"], [])
+                # T0.6 凍結形狀、T3 開始填值：分數必須可展開，且離線 fixture 不得偽裝成實證。
+                self.assertEqual(record["score_breakdown"]["final_score"], record["reliability_score"])
+                self.assertEqual(record["scoring_version"], SCORING_VERSION)
+                self.assertIn(record["source_type"], SOURCE_TYPES)
+                self.assertIn(record["verification_status"], VERIFICATION_STATUSES)
+                # T4 尚未實作，claim 綁定仍應為空。
                 self.assertEqual(record["related_claim_ids"], [])
-                self.assertEqual(record["verification_status"], "unverified")
 
             log = json.loads((output / "execution_log.json").read_text(encoding="utf-8"))
             llm_step = next(step for step in log["steps"] if step["name"] == "llm_reasoning")
