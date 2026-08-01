@@ -510,7 +510,16 @@ tasks:
     target_minutes: 45
     completed_at: 2026-08-01T18:05:00+08:00
     requirements: [9.1, 9.2, 9.3, 9.4, 9.5, 10.1, 10.2, 10.3]
-    commit: 'docs(D8): record live bedrock smoke and resolve B2'
+    commit: 2bd7fb5   # 見下方 commit_note：實際 hash 與預期的 message 不符
+    commit_note: >-
+      預期的 commit message 是 'docs(D8): record live bedrock smoke and resolve B2'，
+      但 D8 的所有檔案實際上被另一個並行的 session 一併提交進 2bd7fb5
+      （message 為 'docs: evaluate plan-driven collection and flag domain_coverage
+      denominator gap'），該 commit 同時包含 docs/EVAL_PLAN_DRIVEN_COLLECTION.md。
+      已逐一確認 D8 的 13 個檔案全部進入版控且內容正確（B2 的 Active Blockers 已清空、
+      T8 含 live smoke run_id、六項 fixture 與 manifest 齊備）。
+      刻意不使用 git commit --amend 改寫該 commit：它混合了兩個 session 的工作，
+      改寫有與並行作業衝突的風險。此欄位即為可追溯的更正記錄。
     dependency_note: >-
       D7 為 PARTIAL（僅剩需人工在 Console 建立的 Budgets 告警）。D8 仍執行，理由記於
       D7 的 next_task_note：live smoke 的正確性不依賴成本告警，且成本上限已由
