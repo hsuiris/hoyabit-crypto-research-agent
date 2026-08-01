@@ -335,6 +335,36 @@ def generate_json_with_llm(prompt: str, schema: dict, schema_name: str, timeout_
     raise RuntimeError(f"No LLM provider is configured (provider={provider})")
 
 
+class ExistingLLMClient:
+    """`LLMClient` 實作：包裝本檔既有的 Gemini／OpenAI／Bedrock adapter。
+
+    行為與直接呼叫 `generate_json_with_llm()` 完全相同（含 provider 選擇、JSON 驗證與
+    Bedrock 的單次重試），存在的目的只是讓呼叫端依賴介面而非依賴模組函式。
+    """
+
+    def generate_json(self, *, prompt: str, schema: dict, schema_name: str, timeout_seconds: float) -> dict:
+        return generate_json_with_llm(prompt, schema, schema_name, int(timeout_seconds))
+
+
+class OfflineLLMClient:
+    """`LLMClient` 實作：不呼叫任何模型，直接拋出 RuntimeError。
+
+    供離線模式與測試明確注入使用。呼叫端（Orchestrator）本來就會攔下例外並改用
+    deterministic offline reasoning，所以注入此 client 等同於強制走離線推理路徑。
+    """
+
+    def generate_json(self, *, prompt: str, schema: dict, schema_name: str, timeout_seconds: float) -> dict:
+        raise RuntimeError(
+            f"OfflineLLMClient does not call any model ({schema_name}); "
+            "callers must fall back to deterministic offline reasoning"
+        )
+
+
+def default_llm_client() -> "ExistingLLMClient":
+    """預設 client。維持現有行為：未設定 provider 時由 adapter 自行拋出可診斷的錯誤。"""
+    return ExistingLLMClient()
+
+
 def _validate_critic_result(result: dict) -> dict:
     if result["verdict"] not in {"pass", "concerns", "fail"}:
         raise ValueError(f"Invalid critic verdict: {result['verdict']}")
@@ -348,12 +378,18 @@ def _parse_critic_output(output_text: str | None) -> dict:
     return _validate_critic_result(_parse_json_object(output_text, CRITIC_SCHEMA, "Critic"))
 
 
-def critique_with_llm(coin: str, question: str, result: dict, evidence: list[dict], timeout: int = 60) -> dict:
-    """Audit an analysis independently; the returned critique may only lower confidence."""
+def critique_with_llm(coin: str, question: str, result: dict, evidence: list[dict], timeout: int = 60,
+                      client: object | None = None) -> dict:
+    """Audit an analysis independently; the returned critique may only lower confidence.
+
+    `client` 可注入任何 `LLMClient`（測試用 mock、離線 client、日後的 Bedrock client）；
+    未提供時使用預設 client，行為與注入前完全相同。
+    """
     prompt = build_critic_prompt(coin, question, result, evidence)
-    return _validate_critic_result(
-        generate_json_with_llm(prompt, CRITIC_SCHEMA, "research_critique", timeout)
+    raw = (client or default_llm_client()).generate_json(
+        prompt=prompt, schema=CRITIC_SCHEMA, schema_name="research_critique", timeout_seconds=timeout,
     )
+    return _validate_critic_result(_validate_required_fields(raw, CRITIC_SCHEMA, "Critic"))
 
 
 def _validate_analysis_result(result: dict) -> dict:
@@ -367,7 +403,12 @@ def _parse_json_output(output_text: str | None) -> dict:
     return _validate_analysis_result(_parse_json_object(output_text, ANALYSIS_SCHEMA, "LLM"))
 
 
-def analyze_with_llm(coin: str, question: str, evidence: list[dict]) -> dict:
-    return _validate_analysis_result(
-        generate_json_with_llm(build_prompt(coin, question, evidence), ANALYSIS_SCHEMA, "market_analysis", 60)
+def analyze_with_llm(coin: str, question: str, evidence: list[dict], client: object | None = None) -> dict:
+    """Produce the structured analysis. `client` 可注入 `LLMClient`；預設維持原有行為。"""
+    raw = (client or default_llm_client()).generate_json(
+        prompt=build_prompt(coin, question, evidence),
+        schema=ANALYSIS_SCHEMA,
+        schema_name="market_analysis",
+        timeout_seconds=60,
     )
+    return _validate_analysis_result(_validate_required_fields(raw, ANALYSIS_SCHEMA, "LLM"))
