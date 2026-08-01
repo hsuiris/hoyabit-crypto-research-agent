@@ -2,8 +2,8 @@ project: hoyabit-aws-deployment
 spec_path: .kiro/specs/hoyabit-aws-deployment
 branch: okByYaya0801            # 與 hackathon/competition-ready 同一 commit
 baseline_commit: 5f369ce        # test(T8): freeze competition-ready demo
-current_task: D8
-last_updated_at: 2026-08-01T17:55:00+08:00
+current_task: D9
+last_updated_at: 2026-08-01T18:05:00+08:00
 
 # 本機驗證環境（實測，非推定）
 environment:
@@ -504,12 +504,82 @@ tasks:
 
   D8:
     title: Live Bedrock smoke, B2 resolution and doc sync
-    status: TODO
+    status: PASS
     executor: BOTH
     depends_on: [D7]
     target_minutes: 45
+    completed_at: 2026-08-01T18:05:00+08:00
     requirements: [9.1, 9.2, 9.3, 9.4, 9.5, 10.1, 10.2, 10.3]
-    commit: 'docs(D8): record live bedrock smoke and sync aws architecture'
+    commit: 'docs(D8): record live bedrock smoke and resolve B2'
+    dependency_note: >-
+      D7 為 PARTIAL（僅剩需人工在 Console 建立的 Budgets 告警）。D8 仍執行，理由記於
+      D7 的 next_task_note：live smoke 的正確性不依賴成本告警，且成本上限已由
+      reserved concurrency 5 達成。
+    live_smoke:
+      executed_once: true
+      run_id: RUN-20260801T094240Z-BTC-f3d916b3
+      mode: formal
+      coin: BTC
+      question: 分析 BTC 近期市場狀況、主要驅動因素與下行風險
+      environment: AWS Lambda Function URL，us-west-2，amazon.nova-lite-v1:0
+      duration_seconds: 31.2
+      analyst_status: success        # B2 解除條件之一
+      critic_status: success         # B2 解除條件之一
+      planner_provider: bedrock
+      citation_gate: PASS_WITH_WARNINGS（0 error、0 warning、10 個語意 finding）
+      manifest_hashes: 5/5 相符；寫成 fixture 落地後重新從磁碟計算仍全部相符
+      collectors: 8/11 success（3 個 Binance 因 us-west-2 地理封鎖而 fallback）
+      run_status: COMPLETED_DEGRADED
+      run_status_reason: >-
+        與模型無關。僅因三個 Binance collector 被地理封鎖而降級，這是誠實標示，
+        且 Citation Gate 仍 PASS、fallback 證據不構成任何主要 Claim 的唯一支持。
+      fixture_saved_to: demo-fixtures/competition-ready/live-success/
+    acceptance:
+      - 'PASS: live smoke 只執行一次（formal 模式，BTC）'
+      - 'PASS: analyst stage status = success，provider = bedrock'
+      - 'PASS: critic stage status = success，provider = bedrock'
+      - 'PASS: 六項提交物齊備，manifest 五個 SHA-256 全部相符'
+      - 'PASS: Citation Gate PASS_WITH_WARNINGS，0 error，11 項 check 全 pass'
+      - 'PASS: B2 依實際結果更新為已解除，並更正原記錄的錯誤根因'
+      - 'PASS: docs/aws-architecture.md 重寫為實際部署狀態，明確區分已驗證與未實作'
+      - 'PASS: offline-backup（6 檔）與 comparison-backup（7 檔）仍存在，未刪除'
+      - 'PASS: 完整測試套件 581 tests OK'
+    documents_updated:
+      - path: docs/COMPETITION_BLOCKERS.md
+        change: >-
+          B2 移出 Active Blockers 並移入 Resolved；新增解除結果表、原記錄根因不成立的更正、
+          解除過程發現的真正缺陷（markdown fence）、以及 COMPLETED_DEGRADED 的原因說明。
+          原始記錄保留於「原始記錄（備查）」段落，未刪除。Active Blockers 現為空。
+      - path: docs/COMPETITION_TASK_STATUS.yaml
+        change: >-
+          T8 的 blockers 由 [B2] 改為 []；新增 live_smoke_resolved_by 區塊記錄 run_id、
+          環境、結果、根因更正與殘餘降級原因。status 刻意維持 PARTIAL——T8 的驗收範圍屬於
+          hoyabit-competition-ready spec，本次只解除其 blocker 並補上證據，不追溯改寫該
+          spec 的驗收結論。tag 仍為 null，是否建立由使用者決定。
+      - path: demo-fixtures/competition-ready/live-success/README.md
+        change: >-
+          填入實際成功結果表、COMPLETED_DEGRADED 的原因、以及第三處過時根因的更正。
+      - path: docs/aws-architecture.md
+        change: >-
+          全文重寫。原內容落後（仍寫 OpenAI Responses API 與 300 秒 timeout）。
+          新版標明已部署驗證的事實表、逐元件的驗證狀態（已驗證／未實作／被封鎖）、
+          更新後的 Mermaid 圖、風險表的實際發生狀態，以及本機與 Lambda 的差異對照。
+    stale_root_cause_corrected_in_three_places: true
+    artifacts:
+      - scripts/verify_live_smoke.py
+      - demo-fixtures/competition-ready/live-success/（六項提交物 + README）
+    test_summary: >-
+      live smoke：POST formal BTC → HTTP 200、117 KB、34.1 秒；
+      python3 scripts/verify_live_smoke.py /tmp/live.json → 四項判定全 PASS，B2 解除條件滿足；
+      --write-fixture 寫出六檔後從磁碟重新計算 SHA-256 → 全部相符；
+      COMPETITION_TASK_STATUS.yaml 經 YAML parser 驗證可解析，T8 blockers 為空；
+      完整套件：python3 -m unittest discover -s tests → 581 tests, 581 passed, 0 failed, 0 errors。
+    blockers: []
+    notes: >-
+      scripts/verify_live_smoke.py 刻意寫成獨立腳本而非 shell heredoc：回應含中文與大量
+      括號，在 heredoc 中會被 shell 展開或截斷（實作過程中已踩到一次）。
+      該腳本的 --write-fixture 只在四項判定全部通過時才寫出，降級的執行無法被存成
+      live-success——這是把「不得將 fallback 宣稱為模型成功」這條規則寫進工具，而非只靠紀律。
     in_scope:
       - docs/COMPETITION_BLOCKERS.md（B2）
       - docs/COMPETITION_TASK_STATUS.yaml（T8）

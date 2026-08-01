@@ -1,0 +1,1951 @@
+[
+  {
+    "evidence_id": "EV-MARKET-001",
+    "source": "CoinGecko",
+    "source_url": "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=14",
+    "fetched_at": "2026-08-01T09:42:43.049561+00:00",
+    "data_type": "market",
+    "coin": "BTC",
+    "time_range": "14d",
+    "content": {
+      "start_price": 63947.240966667276,
+      "end_price": 63050.66104220197,
+      "return_pct": -1.4,
+      "prices": [
+        63819.0,
+        63780.0,
+        62334.52,
+        65043.98,
+        64756.28,
+        63830.2,
+        63931.67,
+        64834.22,
+        64722.54,
+        65255.51,
+        66556.16,
+        66114.49,
+        65098.97,
+        64139.99,
+        64090.03
+      ],
+      "dates": [
+        "2026-07-11",
+        "2026-07-12",
+        "2026-07-13",
+        "2026-07-14",
+        "2026-07-15",
+        "2026-07-16",
+        "2026-07-17",
+        "2026-07-18",
+        "2026-07-19",
+        "2026-07-20",
+        "2026-07-21",
+        "2026-07-22",
+        "2026-07-23",
+        "2026-07-24",
+        "2026-07-25"
+      ],
+      "volumes": [
+        9151.97432,
+        13914.83703,
+        21682.50204,
+        20552.41384,
+        18401.89741,
+        18764.52679,
+        18189.89389,
+        8031.18012,
+        8379.91474,
+        21323.48702,
+        18618.28087,
+        18074.86602,
+        14698.22673,
+        16821.2718,
+        928.18907
+      ]
+    },
+    "reliability_score": 0.4875,
+    "content_reference": {
+      "endpoint": "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=14",
+      "query": {
+        "vs_currency": "usd",
+        "days": 14
+      },
+      "points": 337
+    },
+    "related_claim": "BTC 14-day market return",
+    "source_type": "market_api",
+    "published_at": null,
+    "event_time": "2026-08-01T00:00:00+00:00",
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:39ef32d11489",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.4875,
+      "final_score": 0.4875,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 1.0,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "event_time",
+      "age_days": 0.4047,
+      "lineage_size": 1,
+      "source_type": "market_api",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.9,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [
+      "CL-001"
+    ],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-NEWS-001",
+    "source": "Google News RSS + publisher feeds",
+    "source_url": "https://news.google.com/rss/search?q=BTC%20crypto",
+    "fetched_at": "2026-08-01T09:42:43.525118+00:00",
+    "data_type": "news",
+    "coin": "BTC",
+    "time_range": "14d",
+    "content": {
+      "items": [
+        {
+          "title": "Coldcard Bitcoin loss estimate rises to $70M after Galaxy analysis",
+          "url": "https://cointelegraph.com/news/coldcard-bitcoin-loss-estimate-70-million-galaxy-analysis?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Sat, 01 Aug 2026 09:23:56 +0000",
+          "summary": "Galaxy Research identified 1,196 addresses that lost 1,082.65 Bitcoin in a 41-minute window, expanding the estimated scope of the Coldcard wallet incident.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:d45cc48e6bd7",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Bitcoin ETFs end July in the green despite late-month selling",
+          "url": "https://cointelegraph.com/markets/bitcoin-etfs-july-green-despite-late-month-selling?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Sat, 01 Aug 2026 07:23:07 +0000",
+          "summary": "Spot Bitcoin ETFs attracted $172.4 million in July inflows but remained $5.3 billion negative year to date after heavy withdrawals in May and June.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:f0a8643bc53c",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Here’s what happened in crypto today",
+          "url": "https://cointelegraph.com/news/what-happened-in-crypto-today?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Fri, 31 Jul 2026 18:09:51 +0000",
+          "summary": "Need to know what happened in crypto today? Here is the latest news on daily trends and events impacting Bitcoin price, blockchain, DeFi, Web3 and crypto regulation.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:5cf9244b08ba",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "US Treasury yields rise as TIPS challenge the inflation narrative",
+          "url": "https://cointelegraph.com/markets/us-treasury-yields-rise-as-tips-challenge-the-inflation-narrative?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Fri, 31 Jul 2026 16:14:19 +0000",
+          "summary": "TIPS data points to rising real yields, not inflation, a dynamic that weighs on non-yielding assets like Bitcoin.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:b2401050f576",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Bitcoin price sinks to 2-week lows as US stocks fail to copy Asia rebound",
+          "url": "https://cointelegraph.com/markets/bitcoin-two-week-lows-us-stocks-fail-copy-asia-rebound?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Fri, 31 Jul 2026 15:57:03 +0000",
+          "summary": "Bitcoin saw fresh downside pressure as US stocks tracked sideways into the end of the month, diverging from the relief bounce seen in Asia.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:f699e37711a3",
+          "duplicate_of_lineage": false
+        }
+      ],
+      "summarised_count": 5,
+      "fulltext_count": 0,
+      "lineage_groups": {
+        "lin:normalized_title:d45cc48e6bd7": [
+          "https://cointelegraph.com/news/coldcard-bitcoin-loss-estimate-70-million-galaxy-analysis?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+        ],
+        "lin:normalized_title:f0a8643bc53c": [
+          "https://cointelegraph.com/markets/bitcoin-etfs-july-green-despite-late-month-selling?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+        ],
+        "lin:normalized_title:5cf9244b08ba": [
+          "https://cointelegraph.com/news/what-happened-in-crypto-today?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+        ],
+        "lin:normalized_title:b2401050f576": [
+          "https://cointelegraph.com/markets/us-treasury-yields-rise-as-tips-challenge-the-inflation-narrative?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+        ],
+        "lin:normalized_title:f699e37711a3": [
+          "https://cointelegraph.com/markets/bitcoin-two-week-lows-us-stocks-fail-copy-asia-rebound?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+        ]
+      },
+      "independent_story_count": 5,
+      "duplicate_item_count": 0
+    },
+    "reliability_score": 0.4875,
+    "content_reference": {
+      "feed_url": "https://news.google.com/rss/search?q=BTC%20crypto",
+      "article_count": 5,
+      "with_lede": 5,
+      "with_fulltext": 0,
+      "items": [
+        {
+          "title": "Coldcard Bitcoin loss estimate rises to $70M after Galaxy analysis",
+          "url": "https://cointelegraph.com/news/coldcard-bitcoin-loss-estimate-70-million-galaxy-analysis?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Sat, 01 Aug 2026 09:23:56 +0000",
+          "summary": "Galaxy Research identified 1,196 addresses that lost 1,082.65 Bitcoin in a 41-minute window, expanding the estimated scope of the Coldcard wallet incident.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:d45cc48e6bd7",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Bitcoin ETFs end July in the green despite late-month selling",
+          "url": "https://cointelegraph.com/markets/bitcoin-etfs-july-green-despite-late-month-selling?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Sat, 01 Aug 2026 07:23:07 +0000",
+          "summary": "Spot Bitcoin ETFs attracted $172.4 million in July inflows but remained $5.3 billion negative year to date after heavy withdrawals in May and June.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:f0a8643bc53c",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Here’s what happened in crypto today",
+          "url": "https://cointelegraph.com/news/what-happened-in-crypto-today?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Fri, 31 Jul 2026 18:09:51 +0000",
+          "summary": "Need to know what happened in crypto today? Here is the latest news on daily trends and events impacting Bitcoin price, blockchain, DeFi, Web3 and crypto regulation.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:5cf9244b08ba",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "US Treasury yields rise as TIPS challenge the inflation narrative",
+          "url": "https://cointelegraph.com/markets/us-treasury-yields-rise-as-tips-challenge-the-inflation-narrative?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Fri, 31 Jul 2026 16:14:19 +0000",
+          "summary": "TIPS data points to rising real yields, not inflation, a dynamic that weighs on non-yielding assets like Bitcoin.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:b2401050f576",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Bitcoin price sinks to 2-week lows as US stocks fail to copy Asia rebound",
+          "url": "https://cointelegraph.com/markets/bitcoin-two-week-lows-us-stocks-fail-copy-asia-rebound?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Fri, 31 Jul 2026 15:57:03 +0000",
+          "summary": "Bitcoin saw fresh downside pressure as US stocks tracked sideways into the end of the month, diverging from the relief bounce seen in Asia.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:f699e37711a3",
+          "duplicate_of_lineage": false
+        }
+      ]
+    },
+    "related_claim": "Recent news context for BTC",
+    "source_type": "secondary_media",
+    "published_at": "2026-08-01T09:23:56+00:00",
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:normalized_title:d45cc48e6bd7",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.4875,
+      "final_score": 0.4875,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 1.0,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "published_at",
+      "age_days": 0.0131,
+      "lineage_size": 1,
+      "source_type": "secondary_media",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.6,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-MACRO-BTC-001",
+    "source": "Alternative.me Fear & Greed + Federal Reserve press releases",
+    "source_url": "https://api.alternative.me/fng/?limit=14",
+    "fetched_at": "2026-08-01T09:42:43.372302+00:00",
+    "data_type": "macro",
+    "coin": "BTC",
+    "time_range": "14d",
+    "content": {
+      "fear_greed_value": 27,
+      "fear_greed_classification": "Fear",
+      "fear_greed_history": [
+        {
+          "time": "2026-07-19",
+          "value": 28,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-20",
+          "value": 29,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-21",
+          "value": 25,
+          "classification": "Extreme Fear"
+        },
+        {
+          "time": "2026-07-22",
+          "value": 33,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-23",
+          "value": 31,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-24",
+          "value": 28,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-25",
+          "value": 27,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-26",
+          "value": 26,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-27",
+          "value": 30,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-28",
+          "value": 29,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-29",
+          "value": 29,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-30",
+          "value": 28,
+          "classification": "Fear"
+        },
+        {
+          "time": "2026-07-31",
+          "value": 25,
+          "classification": "Extreme Fear"
+        },
+        {
+          "time": "2026-08-01",
+          "value": 27,
+          "classification": "Fear"
+        }
+      ],
+      "fear_greed_change_14d": -1,
+      "risk_appetite_direction": "risk_appetite_stable",
+      "scope": "crypto market-wide (not coin-specific)",
+      "fed_releases": [
+        {
+          "title": "Federal Reserve issues FOMC statement",
+          "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm",
+          "published": "Wed, 29 Jul 2026 18:00:00 GMT",
+          "summary": "Federal Reserve issues FOMC statement"
+        },
+        {
+          "title": "Minutes of the Board's discount rate meetings on June 8 and June 17, 2026",
+          "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260714a.htm",
+          "published": "Tue, 14 Jul 2026 18:00:00 GMT",
+          "summary": "Minutes of the Board's discount rate meetings on June 8 and June 17, 2026"
+        },
+        {
+          "title": "Federal Reserve announces the leadership and objectives of its task forces to advance the conduct of monetary policy",
+          "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260709a.htm",
+          "published": "Thu, 9 Jul 2026 19:00:00 GMT",
+          "summary": "Federal Reserve announces the leadership and objectives of its task forces to advance the conduct of monetary policy"
+        },
+        {
+          "title": "Minutes of the Federal Open Market Committee, June 16-17, 2026",
+          "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260708a.htm",
+          "published": "Wed, 8 Jul 2026 18:00:00 GMT",
+          "summary": "Minutes of the Federal Open Market Committee, June 16-17, 2026"
+        },
+        {
+          "title": "Federal Reserve issues FOMC statement",
+          "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260617a.htm",
+          "published": "Wed, 17 Jun 2026 18:00:00 GMT",
+          "summary": "Federal Reserve issues FOMC statement"
+        }
+      ],
+      "latest_fomc_release": {
+        "title": "Federal Reserve issues FOMC statement",
+        "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm",
+        "published": "Wed, 29 Jul 2026 18:00:00 GMT",
+        "summary": "Federal Reserve issues FOMC statement"
+      },
+      "fed_status": "available"
+    },
+    "reliability_score": 0.4875,
+    "content_reference": {
+      "fear_greed_endpoint": "https://api.alternative.me/fng/?limit=14",
+      "fed_feed": "https://www.federalreserve.gov/feeds/press_monetary.xml",
+      "points": 14,
+      "fed_status": "available"
+    },
+    "related_claim": "Market-wide risk appetite and monetary-policy backdrop applied to BTC",
+    "source_type": "macro_api",
+    "published_at": "2026-07-29T18:00:00+00:00",
+    "event_time": "2026-08-01T00:00:00+00:00",
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:normalized_title:1906b1dd0c57",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.4875,
+      "final_score": 0.4875,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 1.0,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "event_time",
+      "age_days": 0.4047,
+      "lineage_size": 1,
+      "source_type": "macro_api",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.8,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [
+      "CL-001"
+    ],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-ANNOUNCE-BTC-001",
+    "source": "Bitcoin Optech Newsletter",
+    "source_url": "https://bitcoinops.org/feed.xml",
+    "fetched_at": "2026-08-01T09:42:43.621073+00:00",
+    "data_type": "announcement",
+    "coin": "BTC",
+    "time_range": "recent",
+    "content": {
+      "items": [
+        {
+          "title": "Bitcoin Optech Newsletter #416",
+          "url": "https://bitcoinops.org/en/newsletters/2026/07/31/",
+          "published": "2026-07-31T00:00:00+00:00",
+          "summary": "This week’s newsletter warns about a severe vulnerability affecting wallets generated by COLDCARD signing devices, summarizes the disclosure of two denial-of-service vulnerabilities in Core Lightning, and describes a proof of concept for a zero-knowledge proof of reserves.…",
+          "lineage_id": "lin:normalized_title:c0030a9e4ca0",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Bitcoin Optech Newsletter #415 Recap Podcast",
+          "url": "https://bitcoinops.org/en/podcast/2026/07/28/",
+          "published": "2026-07-28T00:00:00+00:00",
+          "summary": "Mark “Murch” Erhardt, Gustavo Flores Echaiz, and Mike Schmidt are joined by Fabian Jahr, Kruw, and Mojo to discuss Newsletter #415.",
+          "lineage_id": "lin:normalized_title:2d572fc1db33",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Bitcoin Optech Newsletter #415",
+          "url": "https://bitcoinops.org/en/newsletters/2026/07/24/",
+          "published": "2026-07-24T00:00:00+00:00",
+          "summary": "This week’s newsletter describes a draft BIP for full aggregation of BIP340 signatures. Also included are our regular sections describing recent changes to services and client software, announcing new releases and release candidates, and summarizing notable changes to popular Bitcoin infrastructure software.",
+          "lineage_id": "lin:normalized_title:fbc90b646365",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Bitcoin Optech Newsletter #414 Recap Podcast",
+          "url": "https://bitcoinops.org/en/podcast/2026/07/21/",
+          "published": "2026-07-21T00:00:00+00:00",
+          "summary": "Mark “Murch” Erhardt, Gustavo Flores Echaiz, and Mike Schmidt are joined by Keagan McClelland and Andrew Toth to discuss Newsletter #414.",
+          "lineage_id": "lin:normalized_title:418602ce07d0",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "Bitcoin Optech Newsletter #414",
+          "url": "https://bitcoinops.org/en/newsletters/2026/07/17/",
+          "published": "2026-07-17T00:00:00+00:00",
+          "summary": "This week’s newsletter describes a new project to apply formal verification to the Bitcoin protocol. Also included are our regular sections announcing new releases and release candidates, and describing notable changes to popular Bitcoin infrastructure software.",
+          "lineage_id": "lin:normalized_title:0009610cf16d",
+          "duplicate_of_lineage": false
+        }
+      ],
+      "first_party": true,
+      "note": "第一方官方發布",
+      "lineage_groups": {
+        "lin:normalized_title:c0030a9e4ca0": [
+          "https://bitcoinops.org/en/newsletters/2026/07/31/"
+        ],
+        "lin:normalized_title:2d572fc1db33": [
+          "https://bitcoinops.org/en/podcast/2026/07/28/"
+        ],
+        "lin:normalized_title:fbc90b646365": [
+          "https://bitcoinops.org/en/newsletters/2026/07/24/"
+        ],
+        "lin:normalized_title:418602ce07d0": [
+          "https://bitcoinops.org/en/podcast/2026/07/21/"
+        ],
+        "lin:normalized_title:0009610cf16d": [
+          "https://bitcoinops.org/en/newsletters/2026/07/17/"
+        ]
+      },
+      "independent_story_count": 5,
+      "duplicate_item_count": 0
+    },
+    "reliability_score": 0.4754,
+    "content_reference": {
+      "feed_url": "https://bitcoinops.org/feed.xml",
+      "entry_count": 5,
+      "first_party": true
+    },
+    "related_claim": "Official project announcements for BTC",
+    "source_type": "official_announcement",
+    "published_at": "2026-07-31T00:00:00+00:00",
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:normalized_title:c0030a9e4ca0",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.4754,
+      "final_score": 0.4754,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 0.9393,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "published_at",
+      "age_days": 1.4047,
+      "lineage_size": 1,
+      "source_type": "official_announcement",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.85,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-ONCHAIN-BTC-001",
+    "source": "Bitcoin",
+    "source_url": "https://blockchain.info/q/getblockcount",
+    "fetched_at": "2026-08-01T09:42:43.169290+00:00",
+    "data_type": "onchain",
+    "coin": "BTC",
+    "time_range": "current",
+    "content": {
+      "chain": "Bitcoin",
+      "latest_block_height": "960543"
+    },
+    "reliability_score": 0.3875,
+    "content_reference": {
+      "endpoint": "https://blockchain.info/q/getblockcount",
+      "chain": "Bitcoin"
+    },
+    "related_claim": "Current Bitcoin chain health observation for BTC",
+    "source_type": "blockchain_raw",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:8d14855b0f8d",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.3875,
+      "final_score": 0.3875,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 0.5,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "blockchain_raw",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "缺少 event_time／published_at，freshness 以 fetched_at 推估並設上限",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.7,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-SOCIAL-BTC-HN-001",
+    "source": "Hacker News Algolia search",
+    "source_url": "https://hn.algolia.com/api/v1/search_by_date?query=BTC%20crypto&tags=(story,comment)&hitsPerPage=25",
+    "fetched_at": "2026-08-01T09:42:43.498771+00:00",
+    "data_type": "social",
+    "coin": "BTC",
+    "time_range": "recent",
+    "content": {
+      "sentiment": "mixed",
+      "positive_terms": 0,
+      "negative_terms": 0,
+      "posts": [
+        {
+          "text": "Twenty-five years ago it was cryptography, today it's model weights",
+          "url": "https://news.ycombinator.com/item?id=49130315",
+          "created_at": "2026-08-01T01:39:54Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
+          "url": "https://news.ycombinator.com/item?id=49130200",
+          "created_at": "2026-08-01T01:12:58Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Tailscale didn't stop the Hugging Face intrusion",
+          "url": "https://news.ycombinator.com/item?id=49129849",
+          "created_at": "2026-08-01T00:00:12Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
+          "url": "https://news.ycombinator.com/item?id=49127673",
+          "created_at": "2026-07-31T19:38:14Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Premier league bans gambling sponsors",
+          "url": "https://news.ycombinator.com/item?id=49126006",
+          "created_at": "2026-07-31T17:17:48Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "U.S. debt-to-GDP ratio reaches 123%",
+          "url": "https://news.ycombinator.com/item?id=49124952",
+          "created_at": "2026-07-31T16:09:38Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "UEFA and its national associations will not participate in FIFA competitions",
+          "url": "https://news.ycombinator.com/item?id=49122226",
+          "created_at": "2026-07-31T12:25:34Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin trail, Google cookies and Uber Eats orders help tie man to Steam malware",
+          "url": "https://news.ycombinator.com/item?id=49085182",
+          "created_at": "2026-07-28T15:14:20Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin trail, Google cookies and Uber Eats orders help tie man to Steam malware",
+          "url": "https://news.ycombinator.com/item?id=49077445",
+          "created_at": "2026-07-28T00:07:04Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Codeberg Bans Cryptocurrency Projects",
+          "url": "https://news.ycombinator.com/item?id=49023386",
+          "created_at": "2026-07-23T15:40:30Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "I bought my first BTC back in 2018, and still worried about losing it until now",
+          "url": "https://news.ycombinator.com/item?id=49016850",
+          "created_at": "2026-07-23T04:14:00Z",
+          "points": 2,
+          "comments": 2,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "OpenNode – Bitcoin Payment Processor",
+          "url": "https://news.ycombinator.com/item?id=49007980",
+          "created_at": "2026-07-22T15:06:38Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Odin, Wikipedia and engagement farming",
+          "url": "https://news.ycombinator.com/item?id=48785402",
+          "created_at": "2026-07-04T13:51:22Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48665298",
+          "created_at": "2026-06-24T20:35:51Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48647805",
+          "created_at": "2026-06-23T16:54:02Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48647465",
+          "created_at": "2026-06-23T16:28:59Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48646160",
+          "created_at": "2026-06-23T15:04:47Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48645415",
+          "created_at": "2026-06-23T14:22:26Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48644127",
+          "created_at": "2026-06-23T12:47:01Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Volkswagen started blocking GrapheneOS users",
+          "url": "https://news.ycombinator.com/item?id=48572953",
+          "created_at": "2026-06-17T16:40:33Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "SpaceX to buy Cursor for $60B",
+          "url": "https://news.ycombinator.com/item?id=48558982",
+          "created_at": "2026-06-16T17:42:07Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "SpaceX Is Buying Cursor",
+          "url": "https://news.ycombinator.com/item?id=48556198",
+          "created_at": "2026-06-16T14:52:38Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "SpaceX to buy Cursor for $60B",
+          "url": "https://news.ycombinator.com/item?id=48555808",
+          "created_at": "2026-06-16T14:24:19Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Anthropic's open-source framework for AI-powered vulnerability discovery",
+          "url": "https://news.ycombinator.com/item?id=48410323",
+          "created_at": "2026-06-05T10:03:09Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin Has Longest Losing Streak Since August in Bruising Week",
+          "url": "https://www.bloomberg.com/news/articles/2026-06-04/bitcoin-btc-falls-to-pre-iran-conflict-low-as-crypto-slide-extends",
+          "created_at": "2026-06-04T13:02:26Z",
+          "points": 60,
+          "comments": 101,
+          "matched_positive": [],
+          "matched_negative": []
+        }
+      ]
+    },
+    "reliability_score": 0.4875,
+    "content_reference": {
+      "endpoint": "https://hn.algolia.com/api/v1/search_by_date?query=BTC%20crypto&tags=(story,comment)&hitsPerPage=25",
+      "query": "BTC crypto",
+      "post_count": 25,
+      "posts": [
+        {
+          "text": "Twenty-five years ago it was cryptography, today it's model weights",
+          "url": "https://news.ycombinator.com/item?id=49130315",
+          "created_at": "2026-08-01T01:39:54Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
+          "url": "https://news.ycombinator.com/item?id=49130200",
+          "created_at": "2026-08-01T01:12:58Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Tailscale didn't stop the Hugging Face intrusion",
+          "url": "https://news.ycombinator.com/item?id=49129849",
+          "created_at": "2026-08-01T00:00:12Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
+          "url": "https://news.ycombinator.com/item?id=49127673",
+          "created_at": "2026-07-31T19:38:14Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Premier league bans gambling sponsors",
+          "url": "https://news.ycombinator.com/item?id=49126006",
+          "created_at": "2026-07-31T17:17:48Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "U.S. debt-to-GDP ratio reaches 123%",
+          "url": "https://news.ycombinator.com/item?id=49124952",
+          "created_at": "2026-07-31T16:09:38Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "UEFA and its national associations will not participate in FIFA competitions",
+          "url": "https://news.ycombinator.com/item?id=49122226",
+          "created_at": "2026-07-31T12:25:34Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin trail, Google cookies and Uber Eats orders help tie man to Steam malware",
+          "url": "https://news.ycombinator.com/item?id=49085182",
+          "created_at": "2026-07-28T15:14:20Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin trail, Google cookies and Uber Eats orders help tie man to Steam malware",
+          "url": "https://news.ycombinator.com/item?id=49077445",
+          "created_at": "2026-07-28T00:07:04Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Codeberg Bans Cryptocurrency Projects",
+          "url": "https://news.ycombinator.com/item?id=49023386",
+          "created_at": "2026-07-23T15:40:30Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "I bought my first BTC back in 2018, and still worried about losing it until now",
+          "url": "https://news.ycombinator.com/item?id=49016850",
+          "created_at": "2026-07-23T04:14:00Z",
+          "points": 2,
+          "comments": 2,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "OpenNode – Bitcoin Payment Processor",
+          "url": "https://news.ycombinator.com/item?id=49007980",
+          "created_at": "2026-07-22T15:06:38Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Odin, Wikipedia and engagement farming",
+          "url": "https://news.ycombinator.com/item?id=48785402",
+          "created_at": "2026-07-04T13:51:22Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48665298",
+          "created_at": "2026-06-24T20:35:51Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48647805",
+          "created_at": "2026-06-23T16:54:02Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48647465",
+          "created_at": "2026-06-23T16:28:59Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48646160",
+          "created_at": "2026-06-23T15:04:47Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48645415",
+          "created_at": "2026-06-23T14:22:26Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto in 2026: Oh, This Is the Bad Place",
+          "url": "https://news.ycombinator.com/item?id=48644127",
+          "created_at": "2026-06-23T12:47:01Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Volkswagen started blocking GrapheneOS users",
+          "url": "https://news.ycombinator.com/item?id=48572953",
+          "created_at": "2026-06-17T16:40:33Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "SpaceX to buy Cursor for $60B",
+          "url": "https://news.ycombinator.com/item?id=48558982",
+          "created_at": "2026-06-16T17:42:07Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "SpaceX Is Buying Cursor",
+          "url": "https://news.ycombinator.com/item?id=48556198",
+          "created_at": "2026-06-16T14:52:38Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "SpaceX to buy Cursor for $60B",
+          "url": "https://news.ycombinator.com/item?id=48555808",
+          "created_at": "2026-06-16T14:24:19Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Anthropic's open-source framework for AI-powered vulnerability discovery",
+          "url": "https://news.ycombinator.com/item?id=48410323",
+          "created_at": "2026-06-05T10:03:09Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin Has Longest Losing Streak Since August in Bruising Week",
+          "url": "https://www.bloomberg.com/news/articles/2026-06-04/bitcoin-btc-falls-to-pre-iran-conflict-low-as-crypto-slide-extends",
+          "created_at": "2026-06-04T13:02:26Z",
+          "points": 60,
+          "comments": 101,
+          "matched_positive": [],
+          "matched_negative": []
+        }
+      ]
+    },
+    "related_claim": "Public technical-community discussion tone for BTC",
+    "source_type": "social_public",
+    "published_at": null,
+    "event_time": "2026-08-01T01:39:54+00:00",
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:410ba4667fec",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.4875,
+      "final_score": 0.4875,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 1.0,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "event_time",
+      "age_days": 0.3353,
+      "lineage_size": 1,
+      "source_type": "social_public",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.5,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-DERIV-BTC-FALLBACK",
+    "source": "Offline funding-rate fixture",
+    "source_url": "https://example.com/derivatives",
+    "fetched_at": "2026-08-01T09:42:43.089399+00:00",
+    "data_type": "derivatives",
+    "coin": "BTC",
+    "time_range": "current",
+    "content": {
+      "status": "unavailable",
+      "reason": "HTTPError",
+      "bias": "unknown"
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "fallback": true,
+      "error_type": "HTTPError"
+    },
+    "related_claim": "derivatives signal unavailable for BTC; do not treat fallback as live evidence",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unavailable",
+    "source_lineage_id": "lin:source_domain:12585507cf36",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.3875,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 0.5,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture",
+        "unverifiable_intent_attribution"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "缺少 event_time／published_at，freshness 以 fetched_at 推估並設上限",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.2,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture",
+      "unverifiable_intent_attribution"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-WHALE-BTC-001",
+    "source": "Public balance check (curated known addresses)",
+    "source_url": "https://blockchain.info/balance?active=34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo|3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6",
+    "fetched_at": "2026-08-01T09:42:43.371321+00:00",
+    "data_type": "whale",
+    "coin": "BTC",
+    "time_range": "current",
+    "content": {
+      "wallets": [
+        {
+          "label": "Binance Cold Wallet 1",
+          "address": "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",
+          "balance": 248597.5907,
+          "explorer_url": "https://www.blockchain.com/explorer/addresses/btc/34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo"
+        },
+        {
+          "label": "Binance Cold Wallet 2",
+          "address": "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6",
+          "balance": 185274.9191,
+          "explorer_url": "https://www.blockchain.com/explorer/addresses/btc/3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6"
+        }
+      ],
+      "note": "僅追蹤已知大型交易所/機構地址的即時餘額，非全網即時巨鯨偵測"
+    },
+    "reliability_score": 0.3875,
+    "content_reference": {
+      "addresses": [
+        "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",
+        "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6"
+      ]
+    },
+    "related_claim": "Known large-wallet balance snapshot for BTC",
+    "source_type": "blockchain_raw",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:fb674da3f790",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.3875,
+      "final_score": 0.3875,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 0.5,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.6,
+      "score_limiters": [
+        "unverifiable_entity_attribution"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "blockchain_raw",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "缺少 event_time／published_at，freshness 以 fetched_at 推估並設上限",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.65,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [
+      "unverifiable_entity_attribution"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-VEGAS-BTC-FALLBACK",
+    "source": "Offline Vegas Channel fixture",
+    "source_url": "https://example.com/vegas",
+    "fetched_at": "2026-08-01T09:42:43.014305+00:00",
+    "data_type": "vegas_channel",
+    "coin": "BTC",
+    "time_range": "4h trend / 1h execution",
+    "content": {
+      "status": "unavailable",
+      "reason": "HTTPError",
+      "4h": null,
+      "1h": null,
+      "alignment": null
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "fallback": true,
+      "error_type": "HTTPError"
+    },
+    "related_claim": "vegas_channel signal unavailable for BTC; do not treat fallback as live evidence",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unavailable",
+    "source_lineage_id": "lin:source_domain:427332215234",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.3875,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 0.5,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture",
+        "unverifiable_intent_attribution"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "缺少 event_time／published_at，freshness 以 fetched_at 推估並設上限",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.2,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture",
+      "unverifiable_intent_attribution"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-LSRATIO-BTC-FALLBACK",
+    "source": "Offline long/short ratio fixture",
+    "source_url": "https://example.com/long_short_ratio",
+    "fetched_at": "2026-08-01T09:42:43.063877+00:00",
+    "data_type": "long_short_ratio",
+    "coin": "BTC",
+    "time_range": "current",
+    "content": {
+      "status": "unavailable",
+      "reason": "HTTPError",
+      "history": [],
+      "current": null,
+      "bias": "unknown",
+      "consistency_pct": null
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "fallback": true,
+      "error_type": "HTTPError"
+    },
+    "related_claim": "long_short_ratio signal unavailable for BTC; do not treat fallback as live evidence",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unavailable",
+    "source_lineage_id": "lin:source_domain:50816dca730d",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.3875,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 0.5,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture",
+        "unverifiable_intent_attribution"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "缺少 event_time／published_at，freshness 以 fetched_at 推估並設上限",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.2,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture",
+      "unverifiable_intent_attribution"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  },
+  {
+    "evidence_id": "EV-TVL-BTC-001",
+    "source": "DefiLlama chain TVL (Bitcoin)",
+    "source_url": "https://api.llama.fi/v2/historicalChainTvl/Bitcoin",
+    "fetched_at": "2026-08-01T09:42:44.390996+00:00",
+    "data_type": "tvl",
+    "coin": "BTC",
+    "time_range": "last 90d",
+    "content": {
+      "chain": "Bitcoin",
+      "history": [
+        {
+          "time": "2026-05-04",
+          "tvl_usd": 5223789538.0
+        },
+        {
+          "time": "2026-05-05",
+          "tvl_usd": 5316775518.0
+        },
+        {
+          "time": "2026-05-06",
+          "tvl_usd": 5394533315.0
+        },
+        {
+          "time": "2026-05-07",
+          "tvl_usd": 5412576907.0
+        },
+        {
+          "time": "2026-05-08",
+          "tvl_usd": 5323969889.0
+        },
+        {
+          "time": "2026-05-09",
+          "tvl_usd": 5258527984.0
+        },
+        {
+          "time": "2026-05-10",
+          "tvl_usd": 5281359994.0
+        },
+        {
+          "time": "2026-05-11",
+          "tvl_usd": 5353803414.0
+        },
+        {
+          "time": "2026-05-12",
+          "tvl_usd": 5340185233.0
+        },
+        {
+          "time": "2026-05-13",
+          "tvl_usd": 5285276794.0
+        },
+        {
+          "time": "2026-05-14",
+          "tvl_usd": 5199224549.0
+        },
+        {
+          "time": "2026-05-15",
+          "tvl_usd": 5336358399.0
+        },
+        {
+          "time": "2026-05-16",
+          "tvl_usd": 5227731029.0
+        },
+        {
+          "time": "2026-05-17",
+          "tvl_usd": 5169945368.0
+        },
+        {
+          "time": "2026-05-18",
+          "tvl_usd": 5104833304.0
+        },
+        {
+          "time": "2026-05-19",
+          "tvl_usd": 5087167680.0
+        },
+        {
+          "time": "2026-05-20",
+          "tvl_usd": 5067280763.0
+        },
+        {
+          "time": "2026-05-21",
+          "tvl_usd": 5119779092.0
+        },
+        {
+          "time": "2026-05-22",
+          "tvl_usd": 5105722618.0
+        },
+        {
+          "time": "2026-05-23",
+          "tvl_usd": 4970424680.0
+        },
+        {
+          "time": "2026-05-24",
+          "tvl_usd": 5046245411.0
+        },
+        {
+          "time": "2026-05-25",
+          "tvl_usd": 5081194253.0
+        },
+        {
+          "time": "2026-05-26",
+          "tvl_usd": 5071985410.0
+        },
+        {
+          "time": "2026-05-27",
+          "tvl_usd": 4994874986.0
+        },
+        {
+          "time": "2026-05-28",
+          "tvl_usd": 4895482128.0
+        },
+        {
+          "time": "2026-05-29",
+          "tvl_usd": 4808880031.0
+        },
+        {
+          "time": "2026-05-30",
+          "tvl_usd": 4788614409.0
+        },
+        {
+          "time": "2026-05-31",
+          "tvl_usd": 4819432918.0
+        },
+        {
+          "time": "2026-06-01",
+          "tvl_usd": 4815071778.0
+        },
+        {
+          "time": "2026-06-02",
+          "tvl_usd": 4645382277.0
+        },
+        {
+          "time": "2026-06-03",
+          "tvl_usd": 4374934453.0
+        },
+        {
+          "time": "2026-06-04",
+          "tvl_usd": 4212402805.0
+        },
+        {
+          "time": "2026-06-05",
+          "tvl_usd": 4177358061.0
+        },
+        {
+          "time": "2026-06-06",
+          "tvl_usd": 4022576749.0
+        },
+        {
+          "time": "2026-06-07",
+          "tvl_usd": 4005826600.0
+        },
+        {
+          "time": "2026-06-08",
+          "tvl_usd": 4188937755.0
+        },
+        {
+          "time": "2026-06-09",
+          "tvl_usd": 4120513795.0
+        },
+        {
+          "time": "2026-06-10",
+          "tvl_usd": 4051743339.0
+        },
+        {
+          "time": "2026-06-11",
+          "tvl_usd": 4060610453.0
+        },
+        {
+          "time": "2026-06-12",
+          "tvl_usd": 4188822365.0
+        },
+        {
+          "time": "2026-06-13",
+          "tvl_usd": 4184446945.0
+        },
+        {
+          "time": "2026-06-14",
+          "tvl_usd": 4245429360.0
+        },
+        {
+          "time": "2026-06-15",
+          "tvl_usd": 4321958431.0
+        },
+        {
+          "time": "2026-06-16",
+          "tvl_usd": 4363797894.0
+        },
+        {
+          "time": "2026-06-17",
+          "tvl_usd": 4322619787.0
+        },
+        {
+          "time": "2026-06-18",
+          "tvl_usd": 4241007639.0
+        },
+        {
+          "time": "2026-06-19",
+          "tvl_usd": 4126290824.0
+        },
+        {
+          "time": "2026-06-20",
+          "tvl_usd": 4172784990.0
+        },
+        {
+          "time": "2026-06-21",
+          "tvl_usd": 4215916438.0
+        },
+        {
+          "time": "2026-06-22",
+          "tvl_usd": 4186259407.0
+        },
+        {
+          "time": "2026-06-23",
+          "tvl_usd": 4195147464.0
+        },
+        {
+          "time": "2026-06-24",
+          "tvl_usd": 4110327891.0
+        },
+        {
+          "time": "2026-06-25",
+          "tvl_usd": 4001864252.0
+        },
+        {
+          "time": "2026-06-26",
+          "tvl_usd": 3905474793.0
+        },
+        {
+          "time": "2026-06-27",
+          "tvl_usd": 3925734815.0
+        },
+        {
+          "time": "2026-06-28",
+          "tvl_usd": 3938984399.0
+        },
+        {
+          "time": "2026-06-29",
+          "tvl_usd": 3900873557.0
+        },
+        {
+          "time": "2026-06-30",
+          "tvl_usd": 3936668257.0
+        },
+        {
+          "time": "2026-07-01",
+          "tvl_usd": 3798895170.0
+        },
+        {
+          "time": "2026-07-02",
+          "tvl_usd": 3900686763.0
+        },
+        {
+          "time": "2026-07-03",
+          "tvl_usd": 4019948345.0
+        },
+        {
+          "time": "2026-07-04",
+          "tvl_usd": 4109135005.0
+        },
+        {
+          "time": "2026-07-05",
+          "tvl_usd": 4126630679.0
+        },
+        {
+          "time": "2026-07-06",
+          "tvl_usd": 4128096966.0
+        },
+        {
+          "time": "2026-07-07",
+          "tvl_usd": 3681605785.0
+        },
+        {
+          "time": "2026-07-08",
+          "tvl_usd": 3497724306.0
+        },
+        {
+          "time": "2026-07-09",
+          "tvl_usd": 3423762675.0
+        },
+        {
+          "time": "2026-07-10",
+          "tvl_usd": 3497482845.0
+        },
+        {
+          "time": "2026-07-11",
+          "tvl_usd": 3556840255.0
+        },
+        {
+          "time": "2026-07-12",
+          "tvl_usd": 3537794375.0
+        },
+        {
+          "time": "2026-07-13",
+          "tvl_usd": 3494106115.0
+        },
+        {
+          "time": "2026-07-14",
+          "tvl_usd": 3570000364.0
+        },
+        {
+          "time": "2026-07-15",
+          "tvl_usd": 3726598621.0
+        },
+        {
+          "time": "2026-07-16",
+          "tvl_usd": 3710107132.0
+        },
+        {
+          "time": "2026-07-17",
+          "tvl_usd": 4160989463.0
+        },
+        {
+          "time": "2026-07-18",
+          "tvl_usd": 4154797647.0
+        },
+        {
+          "time": "2026-07-19",
+          "tvl_usd": 4231105452.0
+        },
+        {
+          "time": "2026-07-20",
+          "tvl_usd": 4226966904.0
+        },
+        {
+          "time": "2026-07-21",
+          "tvl_usd": 4296905611.0
+        },
+        {
+          "time": "2026-07-22",
+          "tvl_usd": 4370853312.0
+        },
+        {
+          "time": "2026-07-23",
+          "tvl_usd": 4329312144.0
+        },
+        {
+          "time": "2026-07-24",
+          "tvl_usd": 4262851570.0
+        },
+        {
+          "time": "2026-07-25",
+          "tvl_usd": 4202461237.0
+        },
+        {
+          "time": "2026-07-26",
+          "tvl_usd": 4216430419.0
+        },
+        {
+          "time": "2026-07-27",
+          "tvl_usd": 4270166000.0
+        },
+        {
+          "time": "2026-07-28",
+          "tvl_usd": 4148999254.0
+        },
+        {
+          "time": "2026-07-29",
+          "tvl_usd": 4179661917.0
+        },
+        {
+          "time": "2026-07-30",
+          "tvl_usd": 4072521730.0
+        },
+        {
+          "time": "2026-07-31",
+          "tvl_usd": 3615636205.0
+        },
+        {
+          "time": "2026-08-01",
+          "tvl_usd": 3503612665.0
+        }
+      ],
+      "tvl_usd": 3503612665.0,
+      "change_pct": -32.93,
+      "change_30d_pct": -10.18,
+      "direction": "contracting"
+    },
+    "reliability_score": 0.4875,
+    "content_reference": {
+      "endpoint": "https://api.llama.fi/v2/historicalChainTvl/Bitcoin",
+      "points": 90
+    },
+    "related_claim": "BTC chain TVL level and trend as an on-chain fundamentals signal",
+    "source_type": "market_api",
+    "published_at": null,
+    "event_time": "2026-08-01T00:00:00+00:00",
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:8ce7eca25232",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.4875,
+      "final_score": 0.4875,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.35,
+        "freshness": 1.0,
+        "method_transparency": 0.3,
+        "independence": 0.5
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "event_time",
+      "age_days": 0.4047,
+      "lineage_size": 1,
+      "source_type": "market_api",
+      "known_limitations": [
+        "來源類別未登錄，一律以保守基準計分"
+      ],
+      "notes": [
+        "registry 未登錄此 source_type，改用保守基準",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.75,
+      "registry_version": "unavailable",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T09:42:44.412929+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3"
+  }
+]

@@ -1,0 +1,75 @@
+{
+  "scoring_version": "claim-confidence-v1",
+  "confidence_type": "heuristic",
+  "confidence_note": "heuristic evidence score，不是校準過的市場正確機率。",
+  "claim_source": "llm",
+  "fallback_reason": "",
+  "claims": [
+    {
+      "claim_id": "CL-001",
+      "statement": "BTC 的價格下跌主要是由於市場恐慌情緒",
+      "claim_type": "causal",
+      "verdict": "insufficient_evidence",
+      "facts": [
+        {
+          "statement": "BTC 的價格在過去兩週內下跌了約 1.4%",
+          "evidence_ids": [
+            "EV-MARKET-001"
+          ]
+        },
+        {
+          "statement": "市場恐慌情緒指數顯示市場處於恐慌狀態",
+          "evidence_ids": [
+            "EV-MACRO-BTC-001"
+          ]
+        }
+      ],
+      "inference": "市場恐慌情緒指數顯示市場處於恐慌狀態，這可能導致投資者情緒低落，進而影響 BTC 的價格下跌。",
+      "conclusion": "根據市場恐慌情緒指數，BTC 的價格下跌可能與市場恐慌情緒有關聯。",
+      "supporting_evidence_ids": [
+        "EV-MARKET-001",
+        "EV-MACRO-BTC-001"
+      ],
+      "contradicting_evidence_ids": [],
+      "confidence": {
+        "score": 0.25,
+        "level": "low",
+        "type": "heuristic",
+        "components": {
+          "weighted_evidence_quality": 0.4875,
+          "domain_coverage": 0.0,
+          "source_diversity": 0.6667,
+          "signal_consistency": 1.0,
+          "counter_evidence_coverage": 0.5
+        },
+        "limiters": [
+          "domain_coverage_below_minimum",
+          "critic_confidence_reduction"
+        ]
+      },
+      "limitations": [
+        "市場恐慌情緒指數的質量和準確性可能有限"
+      ],
+      "invalidation_conditions": [
+        "如果市場恐慌情緒指數的數據不準確或存在偏差"
+      ],
+      "watchpoints": [
+        "市場恐慌情緒指數的變化情況",
+        "BTC 價格的未來走勢"
+      ]
+    }
+  ],
+  "hypothesis_assessments": [
+    {
+      "hypothesis_id": "hyp_1",
+      "claim_id": "CL-001",
+      "statement": "BTC 的價格下跌主要是由於市場恐慌情緒",
+      "support_strength": 0.4875,
+      "contradiction_strength": 0,
+      "verdict": "insufficient_evidence",
+      "confidence": 0.25,
+      "independent_support_chains": 2
+    }
+  ],
+  "rejected_evidence_ids": []
+}

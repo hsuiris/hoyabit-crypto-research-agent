@@ -1,0 +1,49 @@
+{
+  "coins": [
+    "BTC"
+  ],
+  "task_modes": [
+    "describe_market_state",
+    "test_hypothesis",
+    "explain_driver",
+    "identify_risks",
+    "identify_attention_conditions"
+  ],
+  "primary_question": "分析 BTC 近期市場狀況、主要驅動因素與下行風險",
+  "time_window": {
+    "days": 14,
+    "source": "default"
+  },
+  "hypotheses": [
+    {
+      "hypothesis_id": "hyp_1",
+      "statement": "BTC 的價格下跌主要是由於市場恐慌情緒",
+      "support_questions": [
+        "最近的市場恐慌情緒如何影響 BTC 的價格？",
+        "是否有其他因素導致市場恐慌情緒？"
+      ],
+      "contradiction_questions": [
+        "BTC 的價格下跌是否與市場恐慌情緒無關？",
+        "是否有其他因素導致 BTC 的價格下跌？"
+      ],
+      "falsification_conditions": [
+        "市場恐慌情緒消退但 BTC 價格仍持續下跌",
+        "BTC 價格下跌與市場恐慌情緒無關聯"
+      ]
+    }
+  ],
+  "required_domains": [
+    "market_data",
+    "news_events",
+    "social_sentiment",
+    "economic_indicators"
+  ],
+  "comparison_dimensions": [],
+  "assumptions": [
+    "市場恐慌情緒與 BTC 價格下跌之間存在因果關係"
+  ],
+  "stop_conditions": {
+    "max_evidence": 10,
+    "max_followup_rounds": 3
+  }
+}

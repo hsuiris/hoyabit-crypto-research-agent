@@ -417,7 +417,7 @@ tasks:
     started_at: 2026-08-01T14:30:00+08:00
     completed_at: 2026-08-01T14:43:00+08:00
     commit: 'test(T8): freeze competition-ready demo'
-    tag: null  # 不建立：唯一 live Bedrock smoke 未能實際呼叫模型
+    tag: null  # 尚未建立；live smoke 已於 D8 成功，是否建立 tag 由使用者決定
     test_summary: >-
       targeted：python3 -m unittest tests.test_competition_readiness -v → 6 tests OK；
       完整套件：python3 -m unittest discover -s tests → 541 tests, 541 passed, 0 failed, 0 errors；
@@ -425,7 +425,33 @@ tasks:
       comparison smoke：SOL vs BNB 共用時間窗、pair manifest hash PASS；Web smoke：HTTP 200。
       唯一 live BTC smoke：11 個 collector success、Citation Gate PASS、2.9 秒，但本機缺少 boto3，
       Bedrock 分析與 Critic 降級為 deterministic fallback，未保存為 live-success。
-    blockers: [B2]
+    blockers: []          # B2 已於 D8 解除，見 docs/COMPETITION_BLOCKERS.md
     known_limitations:
-      - 本機只含 Python 標準函式庫且無 boto3，無法實際呼叫 Bedrock；需在含 AWS SDK 與授權 credentials 的 Lambda／競賽環境只重做一次 live smoke
-      - 現場展示必須使用 demo-fixtures/competition-ready/offline-backup 或 comparison-backup，不得將此次降級 live run 宣稱為模型成功
+      - 現場展示可使用 demo-fixtures/competition-ready/live-success（D8 的成功 live run）或 offline-backup／comparison-backup 備案
+    live_smoke_resolved_by:
+      spec: .kiro/specs/hoyabit-aws-deployment
+      task: D8
+      resolved_at: 2026-08-01T17:45:00+08:00
+      run_id: RUN-20260801T094240Z-BTC-f3d916b3
+      environment: AWS Lambda Function URL，us-west-2，amazon.nova-lite-v1:0
+      result: >-
+        analyst 與 critic 的 stage status 皆為 success；六項提交物齊備；manifest 五個
+        SHA-256 全部相符（落地成 fixture 後重驗仍相符）；Citation Gate PASS_WITH_WARNINGS
+        （0 error、0 warning、10 個語意 finding）；耗時 31.2 秒。
+        產物保存於 demo-fixtures/competition-ready/live-success/。
+      root_cause_correction: >-
+        本 Task 原記錄「本機無 boto3」為 B2 根因，該描述不成立：實測本機 python3 已有
+        boto3／botocore 1.42.97 且含 Converse operation。當時真正的阻塞是缺少 AWS
+        credentials 與模型存取權。取得憑證並部署後模型仍失敗，根因是第三個問題——
+        amazon.nova-lite-v1:0 會把 JSON 包在 markdown code fence 裡，src/llm.py 直接
+        json.loads() 因此拋 Expecting value: line 1 column 1，且重試無效（模型行為一致）。
+        已由 src.llm.strip_json_fence() 修復，commit 3269142。
+      residual_degradation: >-
+        該 live run 的 run_status 為 COMPLETED_DEGRADED，但與模型無關：Binance 封鎖美國 IP，
+        us-west-2 是美國 region，因此 derivatives／vegas_channel／long_short_ratio 三個
+        collector 取不到資料（8 success + 3 fallback）。這是 region 固有限制，改程式碼無法
+        修復；已實測本機（台灣 IP）對同端點回 HTTP 200 作為對比。詳見 aws/README.md。
+      note: >-
+        T8 的 status 維持 PARTIAL 未改為 PASS：T8 的驗收範圍屬於 hoyabit-competition-ready
+        spec，本次只解除其 blocker 並補上 live smoke 證據，不追溯改寫該 spec 的驗收結論。
+        是否建立 competition-demo-ready tag 由使用者決定。

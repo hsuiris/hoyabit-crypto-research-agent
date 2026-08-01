@@ -6,12 +6,13 @@
 
 | ID | Task | Detected At | Symptom | Root Cause / Current Theory | Attempts | Time Spent | Safe Fallback | Owner | Status |
 |---|---|---|---|---|---|---:|---|---|---|
-| B2 | T8 | 2026-08-01 | 唯一 BTC live smoke 的 Bedrock 分析與 Critic 降級 | 本機依零第三方相依限制未安裝 boto3；`src.llm` 在本機明確拒絕 Bedrock Converse | 一次 live BTC run；11 個 collector 成功、Citation Gate PASS、runtime 2.9 秒 | < 5 分鐘 | 保留完整降級輸出；現場展示 `offline-backup`／`comparison-backup`；在含 AWS SDK 的競賽環境只重做一次 live smoke | T8 | OPEN |
+| — | — | — | 目前無 active blocker | — | — | — | — | — | — |
 
 ## Resolved Blockers
 
 | ID | Task | Resolution | Tests | Commit |
 |---|---|---|---|---|
+| B2 | T8 → D8 | 在 AWS Lambda（us-west-2）以 `amazon.nova-lite-v1:0` 執行唯一一次 BTC formal live smoke，analyst 與 critic 的 stage status 皆為 `success`；解除過程中發現原記錄的根因不成立，並修掉一個真正的 Bedrock JSON 缺陷 | `scripts/verify_live_smoke.py` 判定 B2 解除條件滿足；完整套件 581 tests OK | `fix(D5)` `3269142`（fence 修復）、`docs(D8)`（本次記錄） |
 | B1 | T2 | Track B 於 `85bc551` commit `src/planner.py`，Track A 隨即完成接線（Orchestrator 呼叫 planner、產出 `research_plan.json`、Execution Log 新增 `plan_research` step） | `tests/test_t2_planner_wiring.py` 16 tests OK；完整套件 326 tests OK | `feat(T2): add question-driven research planner` |
 
 ### B1（已解除）：T2 依賴的 Track B 模組尚未 commit
@@ -126,10 +127,66 @@
 - 本機 `python` 不存在，實際使用 `python3`，版本 `3.9.6`（低於專案要求的 3.10+）。目前 488 項測試全數通過，
   但新程式碼需避開 3.10+ 專屬語法。正式競賽環境應改用 Python 3.10 以上。
 
-## B2：T8 Bedrock live smoke 無法實際呼叫模型
+## B2（已解除）：Bedrock live smoke 無法實際呼叫模型
 
-- **實際執行**：以 `LLM_PROVIDER=bedrock`、`AWS_REGION=ap-northeast-1`、`BEDROCK_MODEL_ID=amazon.nova-lite-v1:0` 執行唯一一次 BTC live smoke。
-- **結果**：11 個外部 collector 都是 `success`；Citation Gate `PASS`；manifest 完整；runtime **2.9 秒**。Planner、分析、Critic 與 claim model 因 `RuntimeError: Amazon Bedrock requires boto3; install it locally or run in AWS Lambda` 改走 deterministic fallback，run 狀態為 `COMPLETED_DEGRADED`。
-- **判定**：這不是功能性 regression，也不允許為了本機 smoke 引入第三方套件；但它無法證明現場 Bedrock 模型成功，因此 T8 必須是 `PARTIAL`，不得建立 `competition-demo-ready` tag。
-- **安全 fallback**：固定展示 `demo-fixtures/competition-ready/offline-backup/`（ETH 假設題）與 `comparison-backup/`（SOL vs BNB），兩者各有可驗證 manifest。不得把此次 downgraded run 複製到 `live-success/` 或宣稱為模型成功。
-- **解除條件**：在已含 AWS SDK、具有可用 credentials／region／model access 的競賽環境中，**只執行一次** BTC 或 ETH live smoke，確認 analyst 與 critic 的 stage status 都是 `success`、六項 artifacts 與 manifest hash 均正確；再更新 T8 為 `PASS` 並建立 tag。
+**解除於 D8**（2026-08-01）。解除過程推翻了原本記錄的根因，並發現一個真正的程式缺陷。
+以下先記錄解除結果，再保留當時的原始記錄備查。
+
+### 解除結果
+
+在 AWS Lambda（`us-west-2`，Function URL）執行唯一一次 BTC `formal` live smoke：
+
+| 項目 | 結果 |
+|---|---|
+| run_id | `RUN-20260801T094240Z-BTC-f3d916b3` |
+| analyst | `provider=bedrock`，`status=success` |
+| critic | `provider=bedrock`，`status=success` |
+| 六項提交物 | 齊備 |
+| manifest | 五個 SHA-256 全部相符（落地成 fixture 後重驗仍相符） |
+| Citation Gate | `PASS_WITH_WARNINGS`（0 error、0 warning、10 個語意 finding） |
+| 耗時 | 31.2 秒 |
+| run_status | `COMPLETED_DEGRADED`（原因見下方，非模型失敗） |
+
+產物保存於 `demo-fixtures/competition-ready/live-success/`。
+
+### 原記錄的根因不成立（重要）
+
+原本寫的是「本機依零第三方相依限制未安裝 boto3」。**這個描述是錯的，不要照它去裝套件。**
+
+- 實測本機 `python3` 已有 `boto3`／`botocore` 1.42.97，且 `bedrock-runtime` 含
+  `Converse` operation（`botocore.session.get_service_model("bedrock-runtime").operation_names`）。
+- 當時真正的阻塞是**缺少 AWS credentials 與模型存取權**，在取得 Workshop Studio 憑證後即解除。
+
+### 解除過程發現的真正缺陷
+
+取得憑證並部署後，模型路徑**仍然**失敗，但根因是第三個、完全不同的問題：
+
+`amazon.nova-lite-v1:0` 在 Converse 下會把 JSON 包在 markdown code fence 裡
+（```json ... ```），而 `src/llm.py` 直接 `json.loads()`，因此拋
+`JSONDecodeError: Expecting value: line 1 column 1 (char 0)`。既有的單次重試**無效**——
+模型行為一致，重試只會拿到同一個 fence。結果是 planner／analyst／critic 三個階段全部
+降級成 deterministic fallback，而報告照樣產出，只有 stage status 記著 `fallback:ValueError`。
+
+更深層的原因：Converse 沒有等同 Gemini `response_mime_type` 或 OpenAI `response_format`
+的強制 JSON 模式，因此模型可自行決定輸出格式。
+
+修復：新增 `src.llm.strip_json_fence()`（只剝最外層 fence）並在 prompt 明確要求不要使用
+code fence。Gemini／OpenAI 走各自的結構化輸出模式，不經過此函式，行為完全未變。
+commit `3269142`，測試 `tests/test_d5_bedrock_json_fence.py`（15 tests）。
+
+### 為什麼 run_status 仍是 COMPLETED_DEGRADED
+
+與模型無關。Binance 封鎖美國 IP，而部署 region 是 `us-west-2`，因此 `derivatives`、
+`vegas_channel`、`long_short_ratio` 三個 collector 取不到資料（`HTTPError`），
+改用可靠度 0.20 的 fallback fixture，11 個 collector 為 8 success + 3 fallback。
+
+已實測對比：本機（台灣 IP）對 `api.binance.com` 與 `fapi.binance.com` 回 `HTTP 200`，
+雲端 `us-west-2` 回 `HTTPError`。這是 region 的固有限制，改程式碼無法修復，詳見
+`aws/README.md`。這個降級標示是誠實的，且 Citation Gate 仍 `PASS`。
+
+### 原始記錄（備查）
+
+- **當時執行**：以 `LLM_PROVIDER=bedrock`、`AWS_REGION=ap-northeast-1`、`BEDROCK_MODEL_ID=amazon.nova-lite-v1:0` 執行唯一一次 BTC live smoke。
+- **當時結果**：11 個外部 collector 都是 `success`；Citation Gate `PASS`；manifest 完整；runtime **2.9 秒**。Planner、分析、Critic 與 claim model 因 `RuntimeError: Amazon Bedrock requires boto3; install it locally or run in AWS Lambda` 改走 deterministic fallback，run 狀態為 `COMPLETED_DEGRADED`。
+- **當時判定**：這不是功能性 regression，也不允許為了本機 smoke 引入第三方套件；但它無法證明現場 Bedrock 模型成功，因此 T8 必須是 `PARTIAL`，不得建立 `competition-demo-ready` tag。
+- **當時的安全 fallback**：固定展示 `demo-fixtures/competition-ready/offline-backup/`（ETH 假設題）與 `comparison-backup/`（SOL vs BNB）。這兩份備案在 D8 後仍然保留，未刪除。
