@@ -9,12 +9,12 @@
 - 任務類型：describe_market_state、compare_assets、identify_risks
 
 ## 資料截止與分析區間
-- Run ID：RUN-20260801T143025Z-SOL-aad0053d
-- 執行開始：2026-08-01T14:30:25.102179+00:00
-- 執行完成：2026-08-01T14:30:25.117807+00:00
-- 資料截止（as-of）：2026-08-01T14:30:25.102179+00:00
+- Run ID：RUN-20260801T154304Z-SOL-8c894c19
+- 執行開始：2026-08-01T15:43:04.448560+00:00
+- 執行完成：2026-08-01T15:43:04.459309+00:00
+- 資料截止（as-of）：2026-08-01T15:43:04.448560+00:00
 - 研究時間窗：14 天（來源：default）
-- 證據取得時間範圍：2026-08-01T14:30:25.102442+00:00 → 2026-08-01T14:30:25.102442+00:00
+- 證據取得時間範圍：2026-08-01T15:43:04.448711+00:00 → 2026-08-01T15:43:04.448711+00:00
 - 執行模式：offline（live=False、use_llm=False）
 - 推理提供者：deterministic／N/A
 - 執行性質：N/A／狀態：COMPLETED_DEGRADED
@@ -125,15 +125,15 @@ _Claim 的 verdict 與信心由 deterministic Python 計算（claim-confidence-v
 - 推理模式｜LLM disabled，本結論由規則式訊號加總產生，未經 LLM 語意推理交叉檢驗。
 
 ## 證據來源
-- [#1] EV-001: [MockMarket](https://example.com/market) (reliability: 0.18) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T14:30:25.102442+00:00｜原始 0.18｜上限 0.2（fallback_fixture）｜新鮮度依 事件時間（199.6 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=0.1／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 CL-001
-- [#2] EV-002: [MockNews](https://example.com/news) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T14:30:25.102442+00:00｜原始 0.36｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
-- [#3] EV-003: [MockSocial](https://example.com/social) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T14:30:25.102442+00:00｜原始 0.36｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
-- [#4] EV-004: [MockDerivatives](https://example.com/derivatives) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T14:30:25.102442+00:00｜原始 0.36｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
-- [#5] EV-005: [MockWhaleWatch](https://example.com/whale) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T14:30:25.102442+00:00｜原始 0.36｜上限 0.2（fallback_fixture、unverifiable_entity_attribution）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
-- [#6] EV-006: [MockVegasChannel](https://example.com/vegas) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T14:30:25.102442+00:00｜原始 0.375｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.3／independence=0.2｜內容依據 summary、time_range｜使用於 CL-001
-- [#7] EV-007: [MockLongShortRatio](https://example.com/long_short_ratio) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T14:30:25.102442+00:00｜原始 0.375｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.3／independence=0.2｜內容依據 summary、time_range｜使用於 CL-001
-- [#8] EV-008: [MockMacro](https://example.com/macro) (reliability: 0.18) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T14:30:25.102442+00:00｜原始 0.18｜上限 0.2（fallback_fixture）｜新鮮度依 事件時間（199.6 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=0.1／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
-- [#9] EV-009: [MockOfficialAnnouncements](https://example.com/announcement) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T14:30:25.102442+00:00｜原始 0.36｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
+- [#1] EV-001: [MockMarket](https://example.com/market) (reliability: 0.18) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T15:43:04.448711+00:00｜原始 0.18｜上限 0.2（fallback_fixture）｜新鮮度依 事件時間（199.65 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=0.1／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 CL-001
+- [#2] EV-002: [MockNews](https://example.com/news) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T15:43:04.448711+00:00｜原始 0.36｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
+- [#3] EV-003: [MockSocial](https://example.com/social) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T15:43:04.448711+00:00｜原始 0.36｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
+- [#4] EV-004: [MockDerivatives](https://example.com/derivatives) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T15:43:04.448711+00:00｜原始 0.36｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
+- [#5] EV-005: [MockWhaleWatch](https://example.com/whale) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T15:43:04.448711+00:00｜原始 0.36｜上限 0.2（fallback_fixture、unverifiable_entity_attribution）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
+- [#6] EV-006: [MockVegasChannel](https://example.com/vegas) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T15:43:04.448711+00:00｜原始 0.375｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.3／independence=0.2｜內容依據 summary、time_range｜使用於 CL-001
+- [#7] EV-007: [MockLongShortRatio](https://example.com/long_short_ratio) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T15:43:04.448711+00:00｜原始 0.375｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.3／independence=0.2｜內容依據 summary、time_range｜使用於 CL-001
+- [#8] EV-008: [MockMacro](https://example.com/macro) (reliability: 0.18) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T15:43:04.448711+00:00｜原始 0.18｜上限 0.2（fallback_fixture）｜新鮮度依 事件時間（199.65 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=0.1／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
+- [#9] EV-009: [MockOfficialAnnouncements](https://example.com/announcement) (reliability: 0.2) ｜ 類別 fallback_fixture｜狀態 離線 fixture｜取得 2026-08-01T15:43:04.448711+00:00｜原始 0.36｜上限 0.2（fallback_fixture）｜新鮮度依 取得時間（無事件時間）（0.0 天前）｜分量 source_quality=0.2／traceability=0.2／freshness=1.0／method_transparency=0.2／independence=0.2｜內容依據 summary、time_range｜使用於 （無 Claim 引用）
 
 ## 後續觀察重點
 - 優先追蹤反向訊號是否強化：大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升（EV-007）。

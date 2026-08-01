@@ -3,7 +3,7 @@
     "evidence_id": "EV-001",
     "source": "MockMarket",
     "source_url": "https://example.com/market",
-    "fetched_at": "2026-08-01T14:30:25.121766+00:00",
+    "fetched_at": "2026-08-01T15:43:04.462324+00:00",
     "data_type": "market",
     "coin": "BNB",
     "time_range": "14d",
@@ -149,7 +149,7 @@
         "fallback_fixture"
       ],
       "freshness_basis": "event_time",
-      "age_days": 199.6045,
+      "age_days": 199.6549,
       "lineage_size": 1,
       "source_type": "fallback_fixture",
       "known_limitations": [
@@ -161,7 +161,7 @@
       "legacy_reliability_hint": 0.8,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:30:25.123242+00:00"
+      "scored_at": "2026-08-01T15:43:04.463812+00:00"
     },
     "score_limiters": [
       "fallback_fixture"
@@ -170,13 +170,13 @@
       "CL-001"
     ],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12"
+    "run_id": "RUN-20260801T154304Z-BNB-1f3a9e26"
   },
   {
     "evidence_id": "EV-002",
     "source": "MockNews",
     "source_url": "https://example.com/news",
-    "fetched_at": "2026-08-01T14:30:25.121766+00:00",
+    "fetched_at": "2026-08-01T15:43:04.462324+00:00",
     "data_type": "news",
     "coin": "BNB",
     "time_range": "14d",
@@ -286,20 +286,20 @@
       "legacy_reliability_hint": 0.6,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:30:25.123242+00:00"
+      "scored_at": "2026-08-01T15:43:04.463812+00:00"
     },
     "score_limiters": [
       "fallback_fixture"
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12"
+    "run_id": "RUN-20260801T154304Z-BNB-1f3a9e26"
   },
   {
     "evidence_id": "EV-003",
     "source": "MockSocial",
     "source_url": "https://example.com/social",
-    "fetched_at": "2026-08-01T14:30:25.121766+00:00",
+    "fetched_at": "2026-08-01T15:43:04.462324+00:00",
     "data_type": "social",
     "coin": "BNB",
     "time_range": "14d",
@@ -405,20 +405,20 @@
       "legacy_reliability_hint": 0.35,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:30:25.123242+00:00"
+      "scored_at": "2026-08-01T15:43:04.463812+00:00"
     },
     "score_limiters": [
       "fallback_fixture"
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12"
+    "run_id": "RUN-20260801T154304Z-BNB-1f3a9e26"
   },
   {
     "evidence_id": "EV-004",
     "source": "MockDerivatives",
     "source_url": "https://example.com/derivatives",
-    "fetched_at": "2026-08-01T14:30:25.121766+00:00",
+    "fetched_at": "2026-08-01T15:43:04.462324+00:00",
     "data_type": "derivatives",
     "coin": "BNB",
     "time_range": "current",
@@ -478,20 +478,20 @@
       "legacy_reliability_hint": 0.75,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:30:25.123242+00:00"
+      "scored_at": "2026-08-01T15:43:04.463812+00:00"
     },
     "score_limiters": [
       "fallback_fixture"
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12"
+    "run_id": "RUN-20260801T154304Z-BNB-1f3a9e26"
   },
   {
     "evidence_id": "EV-005",
     "source": "MockWhaleWatch",
     "source_url": "https://example.com/whale",
-    "fetched_at": "2026-08-01T14:30:25.121766+00:00",
+    "fetched_at": "2026-08-01T15:43:04.462324+00:00",
     "data_type": "whale",
     "coin": "BNB",
     "time_range": "current",
@@ -564,7 +564,7 @@
       "legacy_reliability_hint": 0.65,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:30:25.123242+00:00"
+      "scored_at": "2026-08-01T15:43:04.463812+00:00"
     },
     "score_limiters": [
       "fallback_fixture",
@@ -572,13 +572,13 @@
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12"
+    "run_id": "RUN-20260801T154304Z-BNB-1f3a9e26"
   },
   {
     "evidence_id": "EV-006",
     "source": "MockVegasChannel",
     "source_url": "https://example.com/vegas",
-    "fetched_at": "2026-08-01T14:30:25.121766+00:00",
+    "fetched_at": "2026-08-01T15:43:04.462324+00:00",
     "data_type": "vegas_channel",
     "coin": "BNB",
     "time_range": "4h trend / 1h execution",
@@ -688,7 +688,7 @@
       "legacy_reliability_hint": 0.7,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:30:25.123242+00:00"
+      "scored_at": "2026-08-01T15:43:04.463812+00:00"
     },
     "score_limiters": [
       "fallback_fixture"
@@ -697,13 +697,13 @@
       "CL-001"
     ],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12"
+    "run_id": "RUN-20260801T154304Z-BNB-1f3a9e26"
   },
   {
     "evidence_id": "EV-007",
     "source": "MockLongShortRatio",
     "source_url": "https://example.com/long_short_ratio",
-    "fetched_at": "2026-08-01T14:30:25.121766+00:00",
+    "fetched_at": "2026-08-01T15:43:04.462324+00:00",
     "data_type": "long_short_ratio",
     "coin": "BNB",
     "time_range": "last 24x1h",
@@ -712,14 +712,14 @@
       "period": "1h",
       "history": [
         {
-          "time": "2026-08-01T14:30:25.121766+00:00",
+          "time": "2026-08-01T15:43:04.462324+00:00",
           "long_pct": 55.0,
           "short_pct": 45.0,
           "ratio": 1.2222
         }
       ],
       "current": {
-        "time": "2026-08-01T14:30:25.121766+00:00",
+        "time": "2026-08-01T15:43:04.462324+00:00",
         "long_pct": 55.0,
         "short_pct": 45.0,
         "ratio": 1.2222
@@ -734,14 +734,14 @@
         "period": "1h",
         "history": [
           {
-            "time": "2026-08-01T14:30:25.121766+00:00",
+            "time": "2026-08-01T15:43:04.462324+00:00",
             "long_pct": 55.0,
             "short_pct": 45.0,
             "ratio": 1.2222
           }
         ],
         "current": {
-          "time": "2026-08-01T14:30:25.121766+00:00",
+          "time": "2026-08-01T15:43:04.462324+00:00",
           "long_pct": 55.0,
           "short_pct": 45.0,
           "ratio": 1.2222
@@ -791,7 +791,7 @@
       "legacy_reliability_hint": 0.7,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:30:25.123242+00:00"
+      "scored_at": "2026-08-01T15:43:04.463812+00:00"
     },
     "score_limiters": [
       "fallback_fixture"
@@ -800,13 +800,13 @@
       "CL-001"
     ],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12"
+    "run_id": "RUN-20260801T154304Z-BNB-1f3a9e26"
   },
   {
     "evidence_id": "EV-008",
     "source": "MockMacro",
     "source_url": "https://example.com/macro",
-    "fetched_at": "2026-08-01T14:30:25.121766+00:00",
+    "fetched_at": "2026-08-01T15:43:04.462324+00:00",
     "data_type": "macro",
     "coin": "BNB",
     "time_range": "14d",
@@ -908,7 +908,7 @@
         "fallback_fixture"
       ],
       "freshness_basis": "event_time",
-      "age_days": 199.6045,
+      "age_days": 199.6549,
       "lineage_size": 1,
       "source_type": "fallback_fixture",
       "known_limitations": [
@@ -920,20 +920,20 @@
       "legacy_reliability_hint": 0.8,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:30:25.123242+00:00"
+      "scored_at": "2026-08-01T15:43:04.463812+00:00"
     },
     "score_limiters": [
       "fallback_fixture"
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12"
+    "run_id": "RUN-20260801T154304Z-BNB-1f3a9e26"
   },
   {
     "evidence_id": "EV-009",
     "source": "MockOfficialAnnouncements",
     "source_url": "https://example.com/announcement",
-    "fetched_at": "2026-08-01T14:30:25.121766+00:00",
+    "fetched_at": "2026-08-01T15:43:04.462324+00:00",
     "data_type": "announcement",
     "coin": "BNB",
     "time_range": "recent",
@@ -1023,13 +1023,13 @@
       "legacy_reliability_hint": 0.85,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:30:25.123242+00:00"
+      "scored_at": "2026-08-01T15:43:04.463812+00:00"
     },
     "score_limiters": [
       "fallback_fixture"
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12"
+    "run_id": "RUN-20260801T154304Z-BNB-1f3a9e26"
   }
 ]

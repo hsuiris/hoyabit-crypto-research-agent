@@ -90,6 +90,20 @@ pass authorized_rerun=True with rerun_of='RUN-20260801T142232Z-BTC-bab828fd'
 python3 -c "import hashlib,json; from pathlib import Path; out=Path('demo-fixtures/competition-ready/live-success'); m=json.loads((out/'manifest.json').read_text()); [print(x['path'], hashlib.sha256((out/x['path']).read_bytes()).hexdigest()==x['sha256']) for x in m['files']]"
 ```
 
+## 這份 fixture 早於社群面修正（T8.6）
+
+本次執行時線上程式是 `f94acfb`，社群面還是「Reddit → Bluesky → HackerNews 第一個成功就停」
+的備援鏈，而 Reddit 與 Bluesky 當時都回 403，因此只有一筆 Hacker News 證據，且它的查詢字串
+是 `"{代號} crypto"` —— 那會匹配到 `Ethernet` 與 `cryptography`。本目錄
+`evidence.json` 裡的社群貼文因此包含與加密貨幣無關的科技討論。
+
+T8.6 已修正：三個平台各自成為獨立 collector、查詢改用幣種全名、並加上完整詞相關性過濾。
+**這份 fixture 沒有重新產生**，因為它是實際雲端執行的紀錄，不會為了看起來一致而改寫。
+下次部署後重跑即可更新（屆時應為 13 筆證據，其中三筆社群）。
+
+其餘三份備援（`../offline-backup/`、`../comparison-backup/`、上層 `demo-fixtures/`）已包含
+社群面修正。
+
 ## 展示用途
 
 現場可直接展示本目錄，或使用仍然保留的備案：

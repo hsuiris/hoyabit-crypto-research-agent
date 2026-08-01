@@ -133,12 +133,96 @@ DATA_TYPE_SOURCE_TYPES = {
     "macro": "macro_api",
     "onchain": "blockchain_raw",
     "whale": "blockchain_raw",
+    # 三個社群平台各自是獨立的 data_type，但都歸 social 領域與 social_public 來源類別。
+    # 拆開的理由見 `_SOURCE_LOADERS` 附近的說明。
     "social": "social_public",
+    "social_bluesky": "social_public",
+    "social_hackernews": "social_public",
     "derivatives": "derivatives_api",
     "long_short_ratio": "derivatives_api",
     "vegas_channel": "market_api",
     "tvl": "market_api",
 }
+
+# --------------------------------------------------------------------------------------
+# 社群面共用詞彙
+# --------------------------------------------------------------------------------------
+
+# 搜尋與相關性判定用的幣種名稱。**用全名而不是代號**：實測以 "ETH crypto" 查詢 Hacker News
+# 回來的是「Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio」與「Twenty-five years ago
+# it was cryptography」—— ETH 匹配到 Ethernet、crypto 匹配到 cryptography。那種內容進了證據
+# 清單，主辦方抽查「引用內容真實性」時無法解釋。
+COIN_SEARCH_NAMES = {
+    "BTC": ("Bitcoin",),
+    "ETH": ("Ethereum", "Ether"),
+    "SOL": ("Solana",),
+    "BNB": ("BNB Chain", "Binance Coin", "BNB"),
+    "XRP": ("XRP", "Ripple"),
+}
+
+# 各幣的官方／主要討論子版。Reddit 的搜尋 API（`/search.json`）對本專案的請求一律回 403，
+# 但子版的 `.rss` 仍可取得，因此改走 feed。
+COIN_SUBREDDITS = {
+    "BTC": "Bitcoin",
+    "ETH": "ethereum",
+    "SOL": "solana",
+    "BNB": "bnbchain",
+    "XRP": "Ripple",
+}
+
+SOCIAL_POSITIVE_WORDS = frozenset({
+    "bull", "bullish", "gain", "gains", "surge", "breakout", "adoption", "upgrade",
+    "rally", "accumulation", "inflow", "inflows", "support",
+})
+SOCIAL_NEGATIVE_WORDS = frozenset({
+    "bear", "bearish", "loss", "losses", "drop", "crash", "hack", "exploit",
+    "dump", "outflow", "outflows", "liquidation", "liquidations", "scam",
+})
+
+
+def coin_search_terms(coin: str) -> tuple[str, ...]:
+    """該幣在社群文本中可接受的指稱；查不到就退回代號本身。"""
+    return COIN_SEARCH_NAMES.get(coin.upper(), (coin.upper(),))
+
+
+def mentions_coin(text: str, coin: str) -> bool:
+    """文本是否真的在講這個幣。
+
+    一律用**完整詞**比對（`\\b` 邊界），這是整個相關性過濾的關鍵：`ETH` 不會匹配
+    `Ethernet`，`Ether` 也不會匹配 `Ethernet`（`Ether` 後面沒有詞邊界）。少了這道檢查，
+    社群證據會塞滿與加密貨幣無關的科技新聞，而 sentiment 仍會算出一個看似合理的數值。
+    """
+    haystack = str(text or "")
+    terms = (coin.upper(),) + coin_search_terms(coin)
+    return any(re.search(r"\b%s\b" % re.escape(term), haystack, re.IGNORECASE)
+               for term in terms)
+
+
+def score_social_text(text: str) -> tuple[list[str], list[str]]:
+    """以固定詞表計算單則貼文的正負向命中詞。詞表是啟發式，不是情緒模型。"""
+    words = {word.strip(".,!?():[]\"'`#*").lower() for word in str(text or "").split()}
+    return sorted(words & SOCIAL_POSITIVE_WORDS), sorted(words & SOCIAL_NEGATIVE_WORDS)
+
+
+def social_sentiment(positive: int, negative: int) -> str:
+    return "positive" if positive > negative else "negative" if negative > positive else "mixed"
+
+
+def social_content(posts: list[dict], positive: int, negative: int, *,
+                   platform: str, query: str, filtered_out: int) -> dict:
+    """社群證據的統一 content 形狀，含被相關性過濾掉的筆數（過濾必須可稽核）。"""
+    return {
+        "platform": platform,
+        "sentiment": social_sentiment(positive, negative),
+        "positive_terms": positive,
+        "negative_terms": negative,
+        "post_count": len(posts),
+        "query": query,
+        # 過濾掉幾則、為什麼過濾，讀者要能判斷這個情緒值代表多少樣本。
+        "irrelevant_filtered_out": filtered_out,
+        "relevance_rule": "貼文必須以完整詞提及幣種代號或全名，否則不計入",
+        "posts": posts,
+    }
 
 # A degraded record keeps its place in the evidence list so the reader can see what was missing, but
 # its status has to say so. "unavailable" = we expected this source and could not get it (here);
@@ -969,53 +1053,88 @@ def fetch_onchain(coin: str = "ETH") -> Evidence:
 
 
 def fetch_social_reddit(coin: str = "ETH") -> Evidence:
-    """Fetch recent public Reddit discussions and derive a transparent title-based signal."""
+    """Fetch the coin's main subreddit feed and derive a transparent title-based signal.
+
+    Reddit's search API (`/search.json`) answers 403 for this project's requests regardless of
+    User-Agent, and `old.reddit.com` does too, but the per-subreddit `.rss` feed still works. The
+    feed is also *better* targeted than a keyword search: everything in r/ethereum is about ETH,
+    so there is no "ETH matches Ethernet" class of false positive to begin with.
+
+    Reddit rate-limits hard: `x-ratelimit-remaining` is always 0 and there is no `Retry-After`, so
+    the same feed answers 200 or 429 depending on IP reputation. One short retry is worth it, but
+    Reddit is allowed to fail -- Bluesky and Hacker News are separate collectors precisely so a
+    Reddit 429 no longer takes the whole social domain down with it.
+    """
     coin = coin.upper()
-    url = f"https://www.reddit.com/search.json?q={quote(coin + ' crypto')}&sort=new&t=week&limit=25"
-    payload = _get_json(url)
+    subreddit = COIN_SUBREDDITS.get(coin)
+    if not subreddit:
+        raise NotImplementedError(f"No subreddit configured for {coin}")
+    url = f"https://www.reddit.com/r/{subreddit}/new/.rss?limit=25"
+
+    try:
+        body = _get_bytes(url)
+    except Exception:
+        # 單次短重試。不做指數退避：採集有時間預算，寧可讓 Reddit 失敗也不要拖垮整階段。
+        time.sleep(2)
+        body = _get_bytes(url)
+
     posts = []
-    positive_words = {"bull", "bullish", "gain", "gains", "surge", "breakout", "adoption", "upgrade"}
-    negative_words = {"bear", "bearish", "loss", "losses", "drop", "crash", "hack", "exploit"}
     positive = negative = 0
-    for child in payload.get("data", {}).get("children", []):
-        data = child.get("data", {})
-        title = data.get("title", "")
-        words = {word.strip(".,!?():[]\"").lower() for word in title.split()}
-        matched_positive, matched_negative = sorted(words & positive_words), sorted(words & negative_words)
+    filtered_out = 0
+    for entry in _parse_feed_entries(body, limit=25):
+        title = entry.get("title") or ""
+        if not mentions_coin(title, coin):
+            # 子版本身已經是該幣的討論區，但仍會有純閒聊或跨幣話題；沒有點名該幣的貼文
+            # 不計入情緒，以免用無關內容推高樣本數。
+            filtered_out += 1
+            continue
+        matched_positive, matched_negative = score_social_text(title)
         positive += len(matched_positive)
         negative += len(matched_negative)
         posts.append({
             "title": title,
-            "url": "https://www.reddit.com" + data.get("permalink", ""),
-            "created_utc": data.get("created_utc"),
-            "score": data.get("score", 0),
-            "comments": data.get("num_comments", 0),
+            "url": entry.get("url") or "",
+            "published": entry.get("published"),
             "matched_positive": matched_positive,
             "matched_negative": matched_negative,
         })
     if not posts:
-        raise ValueError("Reddit returned no public posts")
-    sentiment = "positive" if positive > negative else "negative" if negative > positive else "mixed"
+        raise ValueError(f"r/{subreddit} returned no posts mentioning {coin}")
+
+    query = f"r/{subreddit} new"
     return Evidence(
-        f"EV-SOCIAL-{coin}-001", "Reddit public search", url, datetime.now(timezone.utc).isoformat(),
-        "social", coin, "7d", {"sentiment": sentiment, "positive_terms": positive, "negative_terms": negative, "posts": posts}, 0.45,
-        {"endpoint": url, "query": f"{coin} crypto", "post_count": len(posts), "posts": posts}, f"Public discussion tone and attention for {coin}"
+        f"EV-SOCIAL-{coin}-001", f"Reddit r/{subreddit} feed", url,
+        datetime.now(timezone.utc).isoformat(), "social", coin, "recent",
+        social_content(posts, positive, negative, platform="reddit", query=query,
+                       filtered_out=filtered_out),
+        0.45,
+        {"endpoint": url, "subreddit": subreddit, "query": query,
+         "post_count": len(posts), "irrelevant_filtered_out": filtered_out, "posts": posts},
+        f"Public discussion tone and attention for {coin}"
     )
 
 
 def fetch_social_bluesky(coin: str = "ETH") -> Evidence:
-    """Fetch public Bluesky posts without an API key."""
+    """Fetch public Bluesky posts without an API key.
+
+    The host is `api.bsky.app`: `public.api.bsky.app` now answers 403 for this endpoint, which is
+    why the social signal silently collapsed onto Hacker News. Verified 2026-08-01 -- three
+    consecutive requests to `api.bsky.app` all returned 200.
+    """
     coin = coin.upper()
-    url = f"https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q={quote(coin + ' crypto')}&sort=latest&limit=25"
+    query = coin_search_terms(coin)[0]
+    url = ("https://api.bsky.app/xrpc/app.bsky.feed.searchPosts"
+           f"?q={quote(query)}&sort=latest&limit=25")
     payload = _get_json(url)
     posts = []
-    positive_words = {"bull", "bullish", "gain", "gains", "surge", "breakout", "adoption", "upgrade"}
-    negative_words = {"bear", "bearish", "loss", "losses", "drop", "crash", "hack", "exploit"}
     positive = negative = 0
+    filtered_out = 0
     for item in payload.get("posts", []):
         text = item.get("record", {}).get("text", "")
-        words = {word.strip(".,!?():[]\"").lower() for word in text.split()}
-        matched_positive, matched_negative = sorted(words & positive_words), sorted(words & negative_words)
+        if not mentions_coin(text, coin):
+            filtered_out += 1
+            continue
+        matched_positive, matched_negative = score_social_text(text)
         positive += len(matched_positive)
         negative += len(matched_negative)
         handle = item.get("author", {}).get("handle", "")
@@ -1031,28 +1150,43 @@ def fetch_social_bluesky(coin: str = "ETH") -> Evidence:
             "matched_negative": matched_negative,
         })
     if not posts:
-        raise ValueError("Bluesky returned no public posts")
-    sentiment = "positive" if positive > negative else "negative" if negative > positive else "mixed"
+        raise ValueError(f"Bluesky returned no posts mentioning {coin}")
     return Evidence(
-        f"EV-SOCIAL-{coin}-BSKY-001", "Bluesky public search", url, datetime.now(timezone.utc).isoformat(),
-        "social", coin, "recent", {"sentiment": sentiment, "positive_terms": positive, "negative_terms": negative, "posts": posts}, 0.45,
-        {"endpoint": url, "query": f"{coin} crypto", "post_count": len(posts), "posts": posts}, f"Public discussion tone and attention for {coin}"
+        f"EV-SOCIAL-{coin}-BSKY-001", "Bluesky public search", url,
+        datetime.now(timezone.utc).isoformat(), "social_bluesky", coin, "recent",
+        social_content(posts, positive, negative, platform="bluesky", query=query,
+                       filtered_out=filtered_out),
+        0.45,
+        {"endpoint": url, "query": query, "post_count": len(posts),
+         "irrelevant_filtered_out": filtered_out, "posts": posts},
+        f"Public discussion tone and attention for {coin}"
     )
 
 
 def fetch_social_hackernews(coin: str = "ETH") -> Evidence:
-    """Fetch recent Hacker News stories/comments as a public discussion signal."""
+    """Fetch recent Hacker News stories as a technical-community discussion signal.
+
+    Two changes from the original query, both because it was returning irrelevant results:
+
+    - Search by the coin's **full name**, not the ticker. `"ETH crypto"` matched `Ethernet` and
+      `cryptography`; `"Ethereum"` returns actual Ethereum discussion.
+    - `tags=story` only. Including `comment` pulled hits whose `title` is null, so the adapter fell
+      back to the parent story's title -- attributing a general tech headline to crypto sentiment.
+    """
     coin = coin.upper()
-    url = f"https://hn.algolia.com/api/v1/search_by_date?query={quote(coin + ' crypto')}&tags=(story,comment)&hitsPerPage=25"
+    query = coin_search_terms(coin)[0]
+    url = ("https://hn.algolia.com/api/v1/search_by_date"
+           f"?query={quote(query)}&tags=story&hitsPerPage=25")
     payload = _get_json(url)
     posts = []
-    positive_words = {"bull", "bullish", "gain", "gains", "surge", "breakout", "adoption", "upgrade"}
-    negative_words = {"bear", "bearish", "loss", "losses", "drop", "crash", "hack", "exploit"}
     positive = negative = 0
+    filtered_out = 0
     for hit in payload.get("hits", []):
-        text = hit.get("title") or hit.get("story_title") or hit.get("comment_text") or ""
-        words = {word.strip(".,!?():[]\"").lower() for word in text.split()}
-        matched_positive, matched_negative = sorted(words & positive_words), sorted(words & negative_words)
+        text = hit.get("title") or ""
+        if not mentions_coin(text, coin):
+            filtered_out += 1
+            continue
+        matched_positive, matched_negative = score_social_text(text)
         positive += len(matched_positive)
         negative += len(matched_negative)
         object_id = hit.get("objectID", "")
@@ -1066,24 +1200,32 @@ def fetch_social_hackernews(coin: str = "ETH") -> Evidence:
             "matched_negative": matched_negative,
         })
     if not posts:
-        raise ValueError("Hacker News returned no public discussions")
-    sentiment = "positive" if positive > negative else "negative" if negative > positive else "mixed"
+        raise ValueError(f"Hacker News returned no stories mentioning {coin}")
     return Evidence(
-        f"EV-SOCIAL-{coin}-HN-001", "Hacker News Algolia search", url, datetime.now(timezone.utc).isoformat(),
-        "social", coin, "recent", {"sentiment": sentiment, "positive_terms": positive, "negative_terms": negative, "posts": posts}, 0.50,
-        {"endpoint": url, "query": f"{coin} crypto", "post_count": len(posts), "posts": posts}, f"Public technical-community discussion tone for {coin}"
+        f"EV-SOCIAL-{coin}-HN-001", "Hacker News Algolia search", url,
+        datetime.now(timezone.utc).isoformat(), "social_hackernews", coin, "recent",
+        social_content(posts, positive, negative, platform="hackernews", query=query,
+                       filtered_out=filtered_out),
+        0.50,
+        {"endpoint": url, "query": query, "post_count": len(posts),
+         "irrelevant_filtered_out": filtered_out, "posts": posts},
+        f"Public technical-community discussion tone for {coin}"
     )
 
 
 def fetch_social(coin: str = "ETH") -> Evidence:
-    """Try independent public social providers before allowing the orchestrator to fallback."""
-    try:
-        return fetch_social_reddit(coin)
-    except Exception:
+    """First social platform that answers.
+
+    No longer used by `_SOURCE_LOADERS`: the three platforms are now separate collectors so that
+    each one's failure is reported on its own and the three form three independent source chains.
+    Kept for callers that just want one social reading.
+    """
+    for fetcher in (fetch_social_reddit, fetch_social_bluesky, fetch_social_hackernews):
         try:
-            return fetch_social_bluesky(coin)
+            return fetcher(coin)
         except Exception:
-            return fetch_social_hackernews(coin)
+            continue
+    raise ValueError(f"No social platform returned posts mentioning {coin}")
 
 
 # Explicit degraded-evidence fixtures, keyed by label: (id_prefix, source, url, time_range, extra_content).
@@ -1091,6 +1233,10 @@ def fetch_social(coin: str = "ETH") -> Evidence:
 # be mistaken for a real observation. Where a label has an entry here it takes precedence over the
 # Day-1 mock fixture, which is presentation-grade and would otherwise overstate reliability.
 _FALLBACK_SPECS = {
+    # `social` 沒有列在這裡：它沿用 Day-1 的 mock fixture（見 `_fallback_evidence`），與
+    # market／news 一樣。另兩個社群平台是後來拆出來的，沒有對應的 mock，因此明確列出。
+    "social_bluesky": ("EV-SOCIAL-BSKY", "Offline Bluesky fixture", "https://example.com/social_bluesky", "recent", {"platform": "bluesky", "sentiment": "unknown", "positive_terms": 0, "negative_terms": 0, "post_count": 0, "posts": []}),
+    "social_hackernews": ("EV-SOCIAL-HN", "Offline Hacker News fixture", "https://example.com/social_hackernews", "recent", {"platform": "hackernews", "sentiment": "unknown", "positive_terms": 0, "negative_terms": 0, "post_count": 0, "posts": []}),
     "onchain": ("EV-ONCHAIN", "Offline chain fixture", "https://example.com/onchain", "current", {}),
     "derivatives": ("EV-DERIV", "Offline funding-rate fixture", "https://example.com/derivatives", "current", {"bias": "unknown"}),
     "whale": ("EV-WHALE", "Offline whale-wallet fixture", "https://example.com/whale", "current", {"wallets": []}),
@@ -1107,7 +1253,14 @@ _SOURCE_LOADERS = (
     ("macro", fetch_macro),
     ("announcement", fetch_official_announcements),
     ("onchain", fetch_onchain),
-    ("social", fetch_social),
+    # 三個社群平台各自是一個 collector，而不是「第一個成功就停」的備援鏈。兩個理由：
+    # (1) 獨立性：命題明說「避免單一來源」，三個平台是三條獨立來源鏈，claim confidence 的
+    #     source_diversity 才算得到 3 個 lineage group，而不是把三個合併成 1 個。
+    # (2) 失敗隔離：Reddit 對本專案的請求極易被限流（見 `fetch_social_reddit`）。合併成一筆
+    #     時 Reddit 掛掉會讓整個社群面只剩一個平台且無從得知；拆開後每個平台各自回報。
+    ("social", fetch_social_reddit),
+    ("social_bluesky", fetch_social_bluesky),
+    ("social_hackernews", fetch_social_hackernews),
     ("derivatives", fetch_funding_rate),
     ("whale", fetch_whale_wallets),
     ("vegas_channel", fetch_vegas_signal),
@@ -1155,7 +1308,7 @@ def _fallback_evidence(label: str, coin: str, error: Exception) -> Evidence | No
 # three simultaneous requests is how free endpoints start rate-limiting.
 COLLECTION_AGENTS = (
     ("news_agent", "新聞面", ("news",)),
-    ("social_agent", "社群面", ("social",)),
+    ("social_agent", "社群面", ("social", "social_bluesky", "social_hackernews")),
     ("market_agent", "市場價格", ("market",)),
     ("technical_agent", "技術與衍生品", ("vegas_channel", "long_short_ratio", "derivatives")),
     ("onchain_agent", "鏈上面", ("onchain", "whale", "tvl")),

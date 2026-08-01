@@ -778,3 +778,103 @@ class PlanScopeFloorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MixedDirectionEvidenceTests(unittest.TestCase):
+    """一筆證據同時產生多空訊號時，不得同時進入支持側與反對側。
+
+    背景（實測崩潰）：訊號比證據細，同一筆證據可以給出方向相反的多個訊號。live BNB 的
+    `EV-VEGAS-BNB-001` 就同時產生「4H 通道空頭排列」（bear, 1.2）與「1H RSI 17.76 超賣，
+    具技術性反彈條件」（bull, 1.0）—— 中期看空、短期超賣，正常市況。
+
+    舊的 `fallback_claims()` 把兩側的 evidence_id 直接各自送進 supporting／contradicting，
+    於是同一個 ID 出現在兩邊，`evaluate_claim()` 的互斥檢查拋 ValueError，**整個 live run
+    產不出任何報告**。這不是降級，是硬失敗。
+    """
+
+    def _signals(self, *specs):
+        return [{"evidence_id": evidence_id, "side": side, "weight": weight, "text": text}
+                for evidence_id, side, weight, text in specs]
+
+    def _evidence(self):
+        return [
+            make_evidence("EV-VEGAS", "vegas_channel", lineage="binance-klines"),
+            make_evidence("EV-M1", "market", lineage="market-api"),
+            make_evidence("EV-N1", "news", lineage="major-media"),
+        ]
+
+    def test_a_two_sided_evidence_no_longer_crashes_the_run(self):
+        """這組訊號複現 live BNB 的形狀；修法前這裡會拋 ValueError。"""
+        signals = self._signals(
+            ("EV-VEGAS", "bear", 1.2, "4H Vegas 通道為空頭排列"),
+            ("EV-VEGAS", "bull", 1.0, "1H RSI 超賣，具技術性反彈條件"),
+            ("EV-N1", "bear", 0.9, "新聞面偏空"),
+        )
+        graph = build_claim_graph("BNB", "近期市場狀況？", self._evidence(), signals=signals)
+
+        self.assertTrue(graph["claims"])
+        claim = graph["claims"][0]
+        overlap = set(claim["supporting_evidence_ids"]) & set(claim["contradicting_evidence_ids"])
+        self.assertFalse(overlap, "同一筆證據不得同時支持與反對同一個 Claim")
+
+    def test_the_evidence_is_assigned_to_its_heavier_side(self):
+        signals = self._signals(
+            ("EV-VEGAS", "bear", 1.2, "4H 空頭排列"),
+            ("EV-VEGAS", "bull", 1.0, "1H 超賣反彈"),
+            ("EV-N1", "bear", 0.9, "新聞面偏空"),
+        )
+        claim = build_claim_graph("BNB", "q", self._evidence(), signals=signals)["claims"][0]
+
+        # 空方權重（1.2 + 0.9）較大，因此支持側是空方；EV-VEGAS 的淨權重也偏空。
+        self.assertIn("EV-VEGAS", claim["supporting_evidence_ids"])
+        self.assertNotIn("EV-VEGAS", claim["contradicting_evidence_ids"])
+
+    def test_an_evenly_split_evidence_is_claimed_by_neither_side(self):
+        """兩側權重相同時無法判斷它偏哪一側，宣稱它支持任一側都不誠實。"""
+        signals = self._signals(
+            ("EV-VEGAS", "bear", 1.0, "4H 空頭排列"),
+            ("EV-VEGAS", "bull", 1.0, "1H 超賣反彈"),
+            ("EV-M1", "bear", 1.5, "價格動能轉弱"),
+        )
+        claim = build_claim_graph("BNB", "q", self._evidence(), signals=signals)["claims"][0]
+
+        self.assertNotIn("EV-VEGAS", claim["supporting_evidence_ids"])
+        self.assertNotIn("EV-VEGAS", claim["contradicting_evidence_ids"])
+
+    def test_the_internal_disagreement_is_disclosed_not_hidden(self):
+        """歸邊不能靜靜發生：讀者要知道那筆證據本身就不一致。"""
+        signals = self._signals(
+            ("EV-VEGAS", "bear", 1.2, "4H 空頭排列"),
+            ("EV-VEGAS", "bull", 1.0, "1H 超賣反彈"),
+            ("EV-N1", "bear", 0.9, "新聞面偏空"),
+        )
+        claim = build_claim_graph("BNB", "q", self._evidence(), signals=signals)["claims"][0]
+
+        limitations = " ".join(claim["limitations"])
+        self.assertIn("EV-VEGAS", limitations)
+        self.assertIn("同時產生多空兩側訊號", limitations)
+        # 反向訊號的內容仍必須出現在觀察重點，不得因為歸邊就消失。
+        self.assertIn("1H 超賣反彈", " ".join(claim["watchpoints"]))
+
+    def test_single_sided_evidence_behaviour_is_unchanged(self):
+        signals = self._signals(
+            ("EV-M1", "bull", 1.0, "價格動能為正"),
+            ("EV-N1", "bear", 0.6, "新聞面偏空"),
+        )
+        claim = build_claim_graph("ETH", "q", self._evidence(), signals=signals)["claims"][0]
+
+        self.assertEqual(claim["supporting_evidence_ids"], ["EV-M1"])
+        self.assertEqual(claim["contradicting_evidence_ids"], ["EV-N1"])
+        self.assertNotIn("同時產生多空兩側訊號", " ".join(claim["limitations"]))
+
+    def test_assignment_is_deterministic(self):
+        signals = self._signals(
+            ("EV-VEGAS", "bear", 1.2, "4H 空頭排列"),
+            ("EV-VEGAS", "bull", 1.0, "1H 超賣反彈"),
+            ("EV-N1", "bear", 0.9, "新聞面偏空"),
+        )
+        first = build_claim_graph("BNB", "q", self._evidence(), signals=signals)["claims"][0]
+        second = build_claim_graph("BNB", "q", self._evidence(), signals=signals)["claims"][0]
+
+        self.assertEqual(first["supporting_evidence_ids"], second["supporting_evidence_ids"])
+        self.assertEqual(first["contradicting_evidence_ids"], second["contradicting_evidence_ids"])

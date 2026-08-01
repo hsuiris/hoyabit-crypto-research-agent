@@ -1,8 +1,17 @@
 # T8 固定展示產物
 
-此目錄是已凍結的展示備援，不是執行時輸出目錄。**全部三份已於 2026-08-01 重新產生**，
-報告一律繁體中文，並包含 T8.1–T8.4 的修正（domain coverage、繁中輸出、Claim 貼題、
-資金費率備援鏈）。
+此目錄是已凍結的展示備援，不是執行時輸出目錄。報告一律繁體中文。
+
+**各份的程式基準不同，這一點對照時很重要：**
+
+| 目錄 | 產生於 | 社群面 | 證據筆數（live） |
+|---|---|---|---|
+| `offline-backup/`、`comparison-backup/`、上層 `demo-fixtures/` | T8.6 之後 | 三個獨立平台 | 13 |
+| `live-success/` | `f94acfb`（T8.4，**早於社群面修正**） | 單一 Hacker News | 11 |
+
+`live-success` 是實際雲端執行的紀錄，不會為了看起來一致而改寫。它產生時 Function URL 上的
+程式還是 T8.4，社群面仍是「第一個成功就停」的備援鏈，因此只有一筆 Hacker News 證據。
+下次部署後重跑即可更新（屆時應為 13 筆、三筆社群證據）。
 
 - `offline-backup/`：ETH 假設驗證題的六項離線產物（`live=False, use_llm=False`）。
   不需網路或憑證，Citation Gate `PASS`。所有 Claim 均誠實標為 `insufficient_evidence`——

@@ -13,16 +13,23 @@ from src.orchestrator import run
 
 
 class ProductionReadinessTest(unittest.TestCase):
-    @patch("src.day2_sources._get_json")
+    @patch("src.day2_sources._get_bytes")
     def test_real_social_adapter_schema(self, mock_get):
-        mock_get.return_value = {"data": {"children": [
-            {"data": {"title": "ETH adoption upgrade looks bullish", "permalink": "/r/crypto/1", "created_utc": 1, "score": 12, "num_comments": 3}},
-            {"data": {"title": "ETH risks remain mixed", "permalink": "/r/crypto/2", "created_utc": 2, "score": 4, "num_comments": 1}},
-        ]}}
+        """Reddit 改走子版 `.rss`：搜尋 API 對本專案一律 403，feed 仍可取得。"""
+        mock_get.return_value = b"""<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<entry><title>ETH adoption upgrade looks bullish</title>
+<link href="https://www.reddit.com/r/ethereum/1"/><updated>2026-07-25T00:00:00Z</updated></entry>
+<entry><title>Ethereum risks remain mixed</title>
+<link href="https://www.reddit.com/r/ethereum/2"/><updated>2026-07-24T00:00:00Z</updated></entry>
+</feed>"""
         evidence = fetch_social_reddit("ETH")
+
         self.assertEqual(evidence.data_type, "social")
+        self.assertEqual(evidence.content["platform"], "reddit")
         self.assertEqual(evidence.content["sentiment"], "positive")
         self.assertEqual(evidence.content_reference["post_count"], 2)
+        self.assertEqual(evidence.content_reference["subreddit"], "ethereum")
         self.assertTrue(evidence.related_claim)
 
     @patch("src.day2_sources._get_json")

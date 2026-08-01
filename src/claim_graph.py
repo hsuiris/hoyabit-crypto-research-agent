@@ -72,7 +72,11 @@ DOMAIN_BY_DATA_TYPE = MappingProxyType({
     "long_short_ratio": "derivatives",
     "news": "news",
     "announcement": "news",
+    # 三個社群平台是獨立的來源鏈（各自一個 collector），但同屬一個研究領域：
+    # 三個平台都有貼文不代表跨領域確認，只代表社群面這一個領域有三條獨立證據。
     "social": "social",
+    "social_bluesky": "social",
+    "social_hackernews": "social",
     "onchain": "onchain",
     "whale": "onchain",
     "tvl": "onchain",
@@ -861,6 +865,45 @@ def _insufficient_claim(pool: EvidencePool, claim_id: str, coin_label: str, reas
     )
 
 
+def _split_sides_by_evidence(support_side: list, oppose_side: list) -> tuple[list, list, list]:
+    """把訊號層的多空分組收斂成**互斥**的證據層清單。
+
+    訊號比證據細：同一筆證據可以同時產生多空兩側訊號。實測 `EV-VEGAS-BNB-001` 就同時給出
+    「4H 通道空頭排列」（bear, 1.2）與「1H RSI 17.76 超賣，具技術性反彈條件」（bull, 1.0）——
+    中期看空但短期超賣，是完全正常的市況。
+
+    直接把兩側的 evidence_id 各自送進 `supporting_ids` 與 `contradicting_ids`，會讓同一個 ID
+    同時出現在兩邊，`evaluate_claim()` 的互斥檢查就會拋 ValueError，整個 live run 產不出報告。
+    這裡按每筆證據在兩側的**權重總和**歸邊；兩側相等時兩邊都不列 —— 無法判斷它偏哪一側時，
+    宣稱它支持任一側都是不誠實的。
+
+    回傳 `(supporting_ids, contradicting_ids, mixed_ids)`，`mixed_ids` 供呼叫端寫進 limitations。
+    """
+    support_weight: dict[str, float] = {}
+    oppose_weight: dict[str, float] = {}
+    for items, bucket in ((support_side, support_weight), (oppose_side, oppose_weight)):
+        for item in items:
+            evidence_id = item["evidence_id"]
+            bucket[evidence_id] = bucket.get(evidence_id, 0.0) + float(item.get("weight") or 0.0)
+
+    supporting, contradicting, mixed = [], [], []
+    # 保持首次出現的順序，讓同一批證據每次執行都得到同一份清單。
+    for evidence_id in list(dict.fromkeys(
+            [item["evidence_id"] for item in support_side]
+            + [item["evidence_id"] for item in oppose_side])):
+        on_support = support_weight.get(evidence_id, 0.0)
+        on_oppose = oppose_weight.get(evidence_id, 0.0)
+        if on_support and on_oppose:
+            mixed.append(evidence_id)
+            if on_support == on_oppose:
+                continue
+        if on_support > on_oppose:
+            supporting.append(evidence_id)
+        elif on_oppose > on_support:
+            contradicting.append(evidence_id)
+    return supporting, contradicting, mixed
+
+
 def fallback_claims(pool: EvidencePool, coins, question: str, signals=None, stance=None,
                     hypotheses=(), required_domains=None, critic_adjustment: float = 0.0) -> tuple:
     """LLM 不可用或提案不合法時的保守 Claim：只用既有訊號盤點與有效 Evidence。"""
@@ -894,10 +937,17 @@ def fallback_claims(pool: EvidencePool, coins, question: str, signals=None, stan
     if isinstance(stance, dict):
         stance_basis = str(stance.get("basis") or "")
 
+    supporting_ids, contradicting_ids, mixed_ids = _split_sides_by_evidence(support_side, oppose_side)
+
     facts = [{"statement": item["text"], "evidence_ids": [item["evidence_id"]]} for item in support_side]
     limitations = ["本 Claim 由 deterministic fallback 產生，未經模型敘事分層。"]
     if bull_weight == bear_weight:
         limitations.append("多空權重相同（各 %.2f），支持側以多方為預設，方向不具決定性。" % bull_weight)
+    if mixed_ids:
+        # 不能只是靜靜歸邊：讀者要知道這筆證據內部本身就不一致。
+        limitations.append(
+            "以下證據同時產生多空兩側訊號，已按其淨權重歸入單一側，反向訊號列在觀察重點："
+            + "、".join(mixed_ids))
     if stance_basis:
         limitations.append("立場判定依據：%s" % stance_basis)
 
@@ -908,8 +958,8 @@ def fallback_claims(pool: EvidencePool, coins, question: str, signals=None, stan
         facts=facts,
         inference="支持側與反向側的權重差距構成本次方向判讀；權重來自既有訊號盤點，非模型自由生成。",
         conclusion="針對「%s」，本次證據%s，但仍保留反向側證據供讀者檢視。" % (question or "研究問題", side_text),
-        supporting_ids=[item["evidence_id"] for item in support_side],
-        contradicting_ids=[item["evidence_id"] for item in oppose_side],
+        supporting_ids=supporting_ids,
+        contradicting_ids=contradicting_ids,
         limitations=limitations,
         invalidation_conditions=["反向側權重超過支持側時，本判斷即被推翻。"],
         watchpoints=[item["text"] for item in oppose_side] or ["持續追蹤反向訊號是否出現。"],
@@ -932,8 +982,8 @@ def fallback_claims(pool: EvidencePool, coins, question: str, signals=None, stan
             facts=facts,
             inference="以本次訊號盤點的淨方向近似假設方向，支持與反對強度分別計算。",
             conclusion="假設的檢驗結果由支持／反對強度比決定，未由模型指定。",
-            supporting_ids=[item["evidence_id"] for item in support_side],
-            contradicting_ids=[item["evidence_id"] for item in oppose_side],
+            supporting_ids=supporting_ids,
+            contradicting_ids=contradicting_ids,
             limitations=["deterministic fallback 以整體訊號淨方向近似假設方向，未做語意分類。"],
             invalidation_conditions=_clean_texts(record.get("falsification_conditions"))
             or ["反向側強度超過支持側時，假設即被推翻。"],

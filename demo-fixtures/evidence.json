@@ -3,16 +3,15 @@
     "evidence_id": "EV-MARKET-001",
     "source": "CoinGecko",
     "source_url": "https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=14",
-    "fetched_at": "2026-08-01T14:29:17.881090+00:00",
+    "fetched_at": "2026-08-01T15:43:04.848217+00:00",
     "data_type": "market",
     "coin": "ETH",
     "time_range": "14d",
     "content": {
-      "start_price": 1844.7415112609306,
-      "end_price": 1870.697705010294,
-      "return_pct": 1.41,
+      "start_price": 1843.2350583406615,
+      "end_price": 1870.4094398936647,
+      "return_pct": 1.47,
       "prices": [
-        1844.7415112609306,
         1843.2350583406615,
         1844.7697273812487,
         1851.298203477006,
@@ -344,11 +343,12 @@
         1867.762660186393,
         1867.3628102559064,
         1864.3753127405016,
-        1865.5263187689707,
+        1865.3558219409072,
         1865.223010580646,
         1867.3475919840275,
         1867.6281235403412,
-        1870.697705010294
+        1872.2550878805896,
+        1870.4094398936647
       ],
       "dates": [
         "2026-07-18",
@@ -359,7 +359,6 @@
         "2026-07-18",
         "2026-07-18",
         "2026-07-18",
-        "2026-07-18",
         "2026-07-19",
         "2026-07-19",
         "2026-07-19",
@@ -672,6 +671,7 @@
         "2026-07-31",
         "2026-07-31",
         "2026-07-31",
+        "2026-08-01",
         "2026-08-01",
         "2026-08-01",
         "2026-08-01",
@@ -690,7 +690,6 @@
         "2026-08-01"
       ],
       "volumes": [
-        5727096161.407173,
         5357060396.929903,
         5054048204.403157,
         4799212345.229415,
@@ -1022,11 +1021,12 @@
         7338932089.433076,
         7119901176.670609,
         6746026376.447472,
-        6691887587.67131,
+        6703275146.8523445,
         6610021893.647877,
         6329501975.520196,
         5802920062.9629755,
-        5023180481.546841
+        4621987361.500657,
+        4254954364.355592
       ]
     },
     "reliability_score": 0.8775,
@@ -1066,7 +1066,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "event_time",
-      "age_days": 0.6037,
+      "age_days": 0.655,
       "lineage_size": 1,
       "source_type": "market_api",
       "known_limitations": [
@@ -1079,18 +1079,18 @@
       "legacy_reliability_hint": 0.9,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
     "evidence_id": "EV-NEWS-001",
     "source": "Google News RSS + publisher feeds",
     "source_url": "https://news.google.com/rss/search?q=ETH%20crypto",
-    "fetched_at": "2026-08-01T14:29:20.995140+00:00",
+    "fetched_at": "2026-08-01T15:43:05.880744+00:00",
     "data_type": "news",
     "coin": "ETH",
     "time_range": "14d",
@@ -1256,7 +1256,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "published_at",
-      "age_days": 0.8879,
+      "age_days": 0.9392,
       "lineage_size": 1,
       "source_type": "secondary_media",
       "known_limitations": [
@@ -1269,18 +1269,18 @@
       "legacy_reliability_hint": 0.6,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
     "evidence_id": "EV-MACRO-ETH-001",
     "source": "Alternative.me Fear & Greed + Federal Reserve press releases",
     "source_url": "https://api.alternative.me/fng/?limit=14",
-    "fetched_at": "2026-08-01T14:29:18.835158+00:00",
+    "fetched_at": "2026-08-01T15:43:05.841681+00:00",
     "data_type": "macro",
     "coin": "ETH",
     "time_range": "14d",
@@ -1437,7 +1437,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "event_time",
-      "age_days": 0.6037,
+      "age_days": 0.655,
       "lineage_size": 1,
       "source_type": "macro_api",
       "known_limitations": [
@@ -1449,18 +1449,18 @@
       "legacy_reliability_hint": 0.8,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
     "evidence_id": "EV-ANNOUNCE-ETH-001",
     "source": "Ethereum Foundation Blog",
     "source_url": "https://blog.ethereum.org/en/feed.xml",
-    "fetched_at": "2026-08-01T14:29:21.094217+00:00",
+    "fetched_at": "2026-08-01T15:43:06.145582+00:00",
     "data_type": "announcement",
     "coin": "ETH",
     "time_range": "recent",
@@ -1530,7 +1530,7 @@
       "independent_story_count": 5,
       "duplicate_item_count": 0
     },
-    "reliability_score": 0.8081,
+    "reliability_score": 0.8079,
     "content_reference": {
       "feed_url": "https://blog.ethereum.org/en/feed.xml",
       "entry_count": 5,
@@ -1545,12 +1545,12 @@
     "claim_relevance": 0.0,
     "independence_factor": 1.0,
     "score_breakdown": {
-      "raw_score": 0.8081,
-      "final_score": 0.8081,
+      "raw_score": 0.8079,
+      "final_score": 0.8079,
       "components": {
         "source_quality": 0.85,
         "traceability": 0.85,
-        "freshness": 0.9905,
+        "freshness": 0.9897,
         "method_transparency": 0.55,
         "independence": 0.6
       },
@@ -1564,7 +1564,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "published_at",
-      "age_days": 3.6037,
+      "age_days": 3.655,
       "lineage_size": 1,
       "source_type": "official_announcement",
       "known_limitations": [
@@ -1577,24 +1577,24 @@
       "legacy_reliability_hint": 0.85,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
     "evidence_id": "EV-ONCHAIN-ETH-001",
     "source": "Ethereum",
     "source_url": "https://ethereum.publicnode.com",
-    "fetched_at": "2026-08-01T14:29:14.655080+00:00",
+    "fetched_at": "2026-08-01T15:43:04.699921+00:00",
     "data_type": "onchain",
     "coin": "ETH",
     "time_range": "current",
     "content": {
       "chain": "Ethereum",
-      "latest_block_hex": "0x1878cd3"
+      "latest_block_hex": "0x1878e44"
     },
     "reliability_score": 0.925,
     "content_reference": {
@@ -1642,248 +1642,58 @@
       "legacy_reliability_hint": 0.7,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
-    "evidence_id": "EV-SOCIAL-ETH-HN-001",
-    "source": "Hacker News Algolia search",
-    "source_url": "https://hn.algolia.com/api/v1/search_by_date?query=ETH%20crypto&tags=(story,comment)&hitsPerPage=25",
-    "fetched_at": "2026-08-01T14:29:19.083239+00:00",
+    "evidence_id": "EV-SOCIAL-ETH-001",
+    "source": "Reddit r/ethereum feed",
+    "source_url": "https://www.reddit.com/r/ethereum/new/.rss?limit=25",
+    "fetched_at": "2026-08-01T15:43:08.689135+00:00",
     "data_type": "social",
     "coin": "ETH",
     "time_range": "recent",
     "content": {
-      "sentiment": "mixed",
+      "platform": "reddit",
+      "sentiment": "negative",
       "positive_terms": 0,
-      "negative_terms": 0,
+      "negative_terms": 1,
+      "post_count": 4,
+      "query": "r/ethereum new",
+      "irrelevant_filtered_out": 21,
+      "relevance_rule": "貼文必須以完整詞提及幣種代號或全名，否則不計入",
       "posts": [
         {
-          "text": "Twenty-five years ago it was cryptography, today it's model weights",
-          "url": "https://news.ycombinator.com/item?id=49130315",
-          "created_at": "2026-08-01T01:39:54Z",
-          "points": 0,
-          "comments": 0,
+          "title": "Can't unstake stETH but can swap stETH to ETH. What's the difference?",
+          "url": "https://www.reddit.com/r/ethereum/comments/1vcn9dg/cant_unstake_steth_but_can_swap_steth_to_eth/",
+          "published": "2026-08-01T13:19:37+00:00",
           "matched_positive": [],
           "matched_negative": []
         },
         {
-          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
-          "url": "https://news.ycombinator.com/item?id=49130200",
-          "created_at": "2026-08-01T01:12:58Z",
-          "points": 0,
-          "comments": 0,
+          "title": "Ethereal news weekly #33 | Ethereum 11 years since genesis, pcaversaccio joined EF board, Polar bear selected as Glamsterdam mascot",
+          "url": "https://www.reddit.com/r/ethereum/comments/1vbtfy9/ethereal_news_weekly_33_ethereum_11_years_since/",
+          "published": "2026-07-31T15:02:47+00:00",
+          "matched_positive": [],
+          "matched_negative": [
+            "bear"
+          ]
+        },
+        {
+          "title": "Happy Birthday, Ethereum!",
+          "url": "https://www.reddit.com/r/ethereum/comments/1vau0oj/happy_birthday_ethereum/",
+          "published": "2026-07-30T13:42:15+00:00",
           "matched_positive": [],
           "matched_negative": []
         },
         {
-          "text": "Tailscale didn't stop the Hugging Face intrusion",
-          "url": "https://news.ycombinator.com/item?id=49129849",
-          "created_at": "2026-08-01T00:00:12Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
-          "url": "https://news.ycombinator.com/item?id=49127673",
-          "created_at": "2026-07-31T19:38:14Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "DeepSeek V4 Flash 0731 Intelligence, Performance and Price Analysis",
-          "url": "https://news.ycombinator.com/item?id=49127445",
-          "created_at": "2026-07-31T19:19:02Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "GCC steering committee announces AI policy",
-          "url": "https://news.ycombinator.com/item?id=49118605",
-          "created_at": "2026-07-31T03:17:36Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Google will expand age checks on Android worldwide till the end of the year",
-          "url": "https://news.ycombinator.com/item?id=49110546",
-          "created_at": "2026-07-30T14:29:20Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "A missing underscore sent innocent man to prison for 18 months",
-          "url": "https://news.ycombinator.com/item?id=49091000",
-          "created_at": "2026-07-28T22:45:15Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Show HN: Flashpaper – Self-destructing secret sharing with no database",
-          "url": "https://news.ycombinator.com/item?id=49088385",
-          "created_at": "2026-07-28T19:01:40Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "GrapheneOS protections against data extraction from locked devices",
-          "url": "https://news.ycombinator.com/item?id=49087898",
-          "created_at": "2026-07-28T18:23:40Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Bitcoin trail, Google cookies and Uber Eats orders help tie man to Steam malware",
-          "url": "https://news.ycombinator.com/item?id=49085182",
-          "created_at": "2026-07-28T15:14:20Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "US citizen charged after GrapheneOS phone wipes during airport search",
-          "url": "https://news.ycombinator.com/item?id=49077888",
-          "created_at": "2026-07-28T00:58:21Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Modern email can be built from borrowed parts",
-          "url": "https://news.ycombinator.com/item?id=49076880",
-          "created_at": "2026-07-27T23:17:57Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Show HN: Let's Seal – Let's Encrypt for document signing, free and self-hosted",
-          "url": "https://news.ycombinator.com/item?id=49076063",
-          "created_at": "2026-07-27T22:04:24Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "The computer that helped win World War II",
-          "url": "https://news.ycombinator.com/item?id=49075800",
-          "created_at": "2026-07-27T21:33:18Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "US citizen charged after GrapheneOS phone wipes during airport search",
-          "url": "https://news.ycombinator.com/item?id=49071562",
-          "created_at": "2026-07-27T16:04:59Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "US citizen charged after GrapheneOS phone wipes during airport search",
-          "url": "https://news.ycombinator.com/item?id=49065923",
-          "created_at": "2026-07-27T06:47:48Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Kill The Cookie Banner",
-          "url": "https://news.ycombinator.com/item?id=49063624",
-          "created_at": "2026-07-26T23:58:37Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "We have proof automation now",
-          "url": "https://news.ycombinator.com/item?id=49063504",
-          "created_at": "2026-07-26T23:42:38Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Terence Tao: Mathematics in the Age of AI [pdf]",
-          "url": "https://news.ycombinator.com/item?id=49061799",
-          "created_at": "2026-07-26T19:53:43Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "PyPI Blog: Releases now reject new files after 14 days",
-          "url": "https://news.ycombinator.com/item?id=49050470",
-          "created_at": "2026-07-25T18:55:14Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Codeberg Bans Cryptocurrency Projects",
-          "url": "https://news.ycombinator.com/item?id=49044407",
-          "created_at": "2026-07-25T04:02:18Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Fields Medals 2026",
-          "url": "https://news.ycombinator.com/item?id=49043374",
-          "created_at": "2026-07-25T00:40:24Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Show HN: I rebuilt Microsoft Comic Chat's layout engine in one HTML file",
-          "url": "https://arcade.pirillo.com/comic-chatter.html",
-          "created_at": "2026-07-24T23:28:27Z",
-          "points": 3,
-          "comments": 2,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Proving a human wrote something",
-          "url": "https://news.ycombinator.com/item?id=49040132",
-          "created_at": "2026-07-24T18:55:17Z",
-          "points": 0,
-          "comments": 0,
+          "title": "pcaversaccio (pc) has joined the Ethereum Foundation Board",
+          "url": "https://www.reddit.com/r/ethereum/comments/1va3pwz/pcaversaccio_pc_has_joined_the_ethereum/",
+          "published": "2026-07-29T17:56:15+00:00",
           "matched_positive": [],
           "matched_negative": []
         }
@@ -1891,243 +1701,50 @@
     },
     "reliability_score": 0.35,
     "content_reference": {
-      "endpoint": "https://hn.algolia.com/api/v1/search_by_date?query=ETH%20crypto&tags=(story,comment)&hitsPerPage=25",
-      "query": "ETH crypto",
-      "post_count": 25,
+      "endpoint": "https://www.reddit.com/r/ethereum/new/.rss?limit=25",
+      "subreddit": "ethereum",
+      "query": "r/ethereum new",
+      "post_count": 4,
+      "irrelevant_filtered_out": 21,
       "posts": [
         {
-          "text": "Twenty-five years ago it was cryptography, today it's model weights",
-          "url": "https://news.ycombinator.com/item?id=49130315",
-          "created_at": "2026-08-01T01:39:54Z",
-          "points": 0,
-          "comments": 0,
+          "title": "Can't unstake stETH but can swap stETH to ETH. What's the difference?",
+          "url": "https://www.reddit.com/r/ethereum/comments/1vcn9dg/cant_unstake_steth_but_can_swap_steth_to_eth/",
+          "published": "2026-08-01T13:19:37+00:00",
           "matched_positive": [],
           "matched_negative": []
         },
         {
-          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
-          "url": "https://news.ycombinator.com/item?id=49130200",
-          "created_at": "2026-08-01T01:12:58Z",
-          "points": 0,
-          "comments": 0,
+          "title": "Ethereal news weekly #33 | Ethereum 11 years since genesis, pcaversaccio joined EF board, Polar bear selected as Glamsterdam mascot",
+          "url": "https://www.reddit.com/r/ethereum/comments/1vbtfy9/ethereal_news_weekly_33_ethereum_11_years_since/",
+          "published": "2026-07-31T15:02:47+00:00",
+          "matched_positive": [],
+          "matched_negative": [
+            "bear"
+          ]
+        },
+        {
+          "title": "Happy Birthday, Ethereum!",
+          "url": "https://www.reddit.com/r/ethereum/comments/1vau0oj/happy_birthday_ethereum/",
+          "published": "2026-07-30T13:42:15+00:00",
           "matched_positive": [],
           "matched_negative": []
         },
         {
-          "text": "Tailscale didn't stop the Hugging Face intrusion",
-          "url": "https://news.ycombinator.com/item?id=49129849",
-          "created_at": "2026-08-01T00:00:12Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
-          "url": "https://news.ycombinator.com/item?id=49127673",
-          "created_at": "2026-07-31T19:38:14Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "DeepSeek V4 Flash 0731 Intelligence, Performance and Price Analysis",
-          "url": "https://news.ycombinator.com/item?id=49127445",
-          "created_at": "2026-07-31T19:19:02Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "GCC steering committee announces AI policy",
-          "url": "https://news.ycombinator.com/item?id=49118605",
-          "created_at": "2026-07-31T03:17:36Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Google will expand age checks on Android worldwide till the end of the year",
-          "url": "https://news.ycombinator.com/item?id=49110546",
-          "created_at": "2026-07-30T14:29:20Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "A missing underscore sent innocent man to prison for 18 months",
-          "url": "https://news.ycombinator.com/item?id=49091000",
-          "created_at": "2026-07-28T22:45:15Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Show HN: Flashpaper – Self-destructing secret sharing with no database",
-          "url": "https://news.ycombinator.com/item?id=49088385",
-          "created_at": "2026-07-28T19:01:40Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "GrapheneOS protections against data extraction from locked devices",
-          "url": "https://news.ycombinator.com/item?id=49087898",
-          "created_at": "2026-07-28T18:23:40Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Bitcoin trail, Google cookies and Uber Eats orders help tie man to Steam malware",
-          "url": "https://news.ycombinator.com/item?id=49085182",
-          "created_at": "2026-07-28T15:14:20Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "US citizen charged after GrapheneOS phone wipes during airport search",
-          "url": "https://news.ycombinator.com/item?id=49077888",
-          "created_at": "2026-07-28T00:58:21Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Modern email can be built from borrowed parts",
-          "url": "https://news.ycombinator.com/item?id=49076880",
-          "created_at": "2026-07-27T23:17:57Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Show HN: Let's Seal – Let's Encrypt for document signing, free and self-hosted",
-          "url": "https://news.ycombinator.com/item?id=49076063",
-          "created_at": "2026-07-27T22:04:24Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "The computer that helped win World War II",
-          "url": "https://news.ycombinator.com/item?id=49075800",
-          "created_at": "2026-07-27T21:33:18Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "US citizen charged after GrapheneOS phone wipes during airport search",
-          "url": "https://news.ycombinator.com/item?id=49071562",
-          "created_at": "2026-07-27T16:04:59Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "US citizen charged after GrapheneOS phone wipes during airport search",
-          "url": "https://news.ycombinator.com/item?id=49065923",
-          "created_at": "2026-07-27T06:47:48Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Kill The Cookie Banner",
-          "url": "https://news.ycombinator.com/item?id=49063624",
-          "created_at": "2026-07-26T23:58:37Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "We have proof automation now",
-          "url": "https://news.ycombinator.com/item?id=49063504",
-          "created_at": "2026-07-26T23:42:38Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Terence Tao: Mathematics in the Age of AI [pdf]",
-          "url": "https://news.ycombinator.com/item?id=49061799",
-          "created_at": "2026-07-26T19:53:43Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "PyPI Blog: Releases now reject new files after 14 days",
-          "url": "https://news.ycombinator.com/item?id=49050470",
-          "created_at": "2026-07-25T18:55:14Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Codeberg Bans Cryptocurrency Projects",
-          "url": "https://news.ycombinator.com/item?id=49044407",
-          "created_at": "2026-07-25T04:02:18Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Fields Medals 2026",
-          "url": "https://news.ycombinator.com/item?id=49043374",
-          "created_at": "2026-07-25T00:40:24Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Show HN: I rebuilt Microsoft Comic Chat's layout engine in one HTML file",
-          "url": "https://arcade.pirillo.com/comic-chatter.html",
-          "created_at": "2026-07-24T23:28:27Z",
-          "points": 3,
-          "comments": 2,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Proving a human wrote something",
-          "url": "https://news.ycombinator.com/item?id=49040132",
-          "created_at": "2026-07-24T18:55:17Z",
-          "points": 0,
-          "comments": 0,
+          "title": "pcaversaccio (pc) has joined the Ethereum Foundation Board",
+          "url": "https://www.reddit.com/r/ethereum/comments/1va3pwz/pcaversaccio_pc_has_joined_the_ethereum/",
+          "published": "2026-07-29T17:56:15+00:00",
           "matched_positive": [],
           "matched_negative": []
         }
       ]
     },
-    "related_claim": "Public technical-community discussion tone for ETH",
+    "related_claim": "Public discussion tone and attention for ETH",
     "source_type": "social_public",
     "published_at": null,
-    "event_time": "2026-08-01T01:39:54+00:00",
+    "event_time": null,
     "verification_status": "unverified",
-    "source_lineage_id": "lin:source_domain:410ba4667fec",
+    "source_lineage_id": "lin:normalized_title:290aac263e3d",
     "claim_relevance": 0.0,
     "independence_factor": 1.0,
     "score_breakdown": {
@@ -2151,8 +1768,8 @@
       "score_limiters": [
         "anonymous_or_low_trace_social"
       ],
-      "freshness_basis": "event_time",
-      "age_days": 0.5343,
+      "freshness_basis": "published_at",
+      "age_days": 0.0997,
       "lineage_size": 1,
       "source_type": "social_public",
       "known_limitations": [
@@ -2162,31 +1779,1003 @@
       "notes": [
         "未提供計算方法或參數，method_transparency 未加分"
       ],
-      "legacy_reliability_hint": 0.5,
+      "legacy_reliability_hint": 0.45,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
+    },
+    "score_limiters": [
+      "anonymous_or_low_trace_social"
+    ],
+    "related_claim_ids": [
+      "CL-001"
+    ],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
+  },
+  {
+    "evidence_id": "EV-SOCIAL-ETH-BSKY-001",
+    "source": "Bluesky public search",
+    "source_url": "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=Ethereum&sort=latest&limit=25",
+    "fetched_at": "2026-08-01T15:43:13.930929+00:00",
+    "data_type": "social_bluesky",
+    "coin": "ETH",
+    "time_range": "recent",
+    "content": {
+      "platform": "bluesky",
+      "sentiment": "positive",
+      "positive_terms": 3,
+      "negative_terms": 0,
+      "post_count": 22,
+      "query": "Ethereum",
+      "irrelevant_filtered_out": 3,
+      "relevance_rule": "貼文必須以完整詞提及幣種代號或全名，否則不計入",
+      "posts": [
+        {
+          "text": "🐳 107.09M USDT (Ethereum) wallet-to-wallet\n0x1601…347e → 0xe2e7…c372. Off-exchange transfer.\n\n💵 https://swisswhaleintelligence.com/usdt/ #Ethereum #USDT #Crypto",
+          "url": "https://bsky.app/profile/btcwhalealerts.com/post/3mrzsjcgfup2s",
+          "indexed_at": "2026-08-01T15:40:06.263Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin: $63,001.00 (-0.20% 📉) | 7d: -1.60%\nEthereum: $1,869.80 (0.40% 📈) | 7d: 0.40%\nTether: $1.00 (0.00% 📈) | 7d: 0.00%\n\nTop Gainer: Audiera +15.30% 📈\nBiggest Loser: MemeCore -16.20% 📉",
+          "url": "https://bsky.app/profile/cryptochime.bsky.social/post/3mrzsauujk42h",
+          "indexed_at": "2026-08-01T15:35:23.171Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "📈 Accumulation Signal ⬛ Ethereum\n\n🔁 Coinbase 44: Deposit Collection bought ETH 53× in 24h\n💰 Total: $34.8M · Avg/tx: $656.5K\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd\n#ETH #SmartMoney #OnChain",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzqxubodo25",
+          "indexed_at": "2026-08-01T15:12:26.866Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [
+            "accumulation"
+          ],
+          "matched_negative": []
+        },
+        {
+          "text": "A big chance in a million! #Ethereum price: $1874.66 (2026/08/02 00:06)",
+          "url": "https://bsky.app/profile/eth-ism.bsky.social/post/3mrzqowjdo22p",
+          "indexed_at": "2026-08-01T15:07:27.764Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto Prices:\r\n\r\nBitcoin $63,064.80\r\n#Ethereum $1,872.57\r\n#XRP $1.06\r\nSolana $72.94\r\nSui $0.68\r\n\r\n\r\n",
+          "url": "https://bsky.app/profile/pandacrypto.bsky.social/post/3mrzqisu67r27",
+          "indexed_at": "2026-08-01T15:04:02.078Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "#Ethereum hourly net stats.\n2pm - 3pm UTC\n\nblocks : 299\navgSize : 13.00 KB\navgGasUsed : 2.53 M gas/s\navgBFPGas : 3.70 M wei/gas\ntxns : 74848\nethSent : 26661.12 eth\ntopSender : \n address : 0x559432e18b281731c054cd703d4b49872be4ed53\n  txnsSent : 1053\n\n#ETH #BTC #crypto",
+          "url": "https://bsky.app/profile/eth-sky-flyer.bsky.social/post/3mrzqfahhpi2w",
+          "indexed_at": "2026-08-01T15:02:02.672Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "🐋 Whale Alert ⬛ Ethereum\n\n➡️ SEND · ETH · $54.4K\n📦 29.09 ETH\n👤 Jump Trading moved ➜ 0xc7d3…e668\n🔗 https://etherscan.io/tx/0x8e06cf92a2052b35e4160a98c9d463d0e8f0d069bb2fab96480b1349b4542e43\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzpztjhsv2t",
+          "indexed_at": "2026-08-01T14:55:39.383Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "📈 Accumulation Signal ⬛ Ethereum\n\n🔁 Jump Trading/Capital bought ETH 20× in 24h\n💰 Total: $3.2M · Avg/tx: $159.5K\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd\n#ETH #SmartMoney #OnChain",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzp2avvhx2l",
+          "indexed_at": "2026-08-01T14:37:59.767Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [
+            "accumulation"
+          ],
+          "matched_negative": []
+        },
+        {
+          "text": "LATEST: 📈 Michael Saylor says \"Bitcoin has won\" and that no one seriously thinks Solana or Ethereum will ever flip it.",
+          "url": "https://bsky.app/profile/coinmarketcap.bsky.social/post/3mrzo26ui5z2h",
+          "indexed_at": "2026-08-01T14:20:04.067Z",
+          "likes": 1,
+          "replies": 0,
+          "reposts": 2,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "🐋 Whale Alert ⬛ Ethereum\n\n➡️ SEND · ETH · $32.3K\n📦 17.30 ETH\n👤 Binance Hot Wallet 14 moved ➜ 0xacc2…9931\n🔗 https://etherscan.io/tx/0x24bdd301284e8d92c0e85b96a91be14e74f348d281cf7286a74bdacd7d55efa3\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrznfvm5y62s",
+          "indexed_at": "2026-08-01T14:08:43.066Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin: $63,022.00 (-1.10% 📉) | 7d: -1.60%\nEthereum: $1,868.89 (-0.80% 📉) | 7d: 0.40%\nTether: $1.00 (0.00% 📈) | 7d: 0.00%\n\nTop Gainer: Audiera +12.40% 📈\nBiggest Loser: MemeCore -16.20% 📉",
+          "url": "https://bsky.app/profile/cryptochime.bsky.social/post/3mrzn7fhjpm2v",
+          "indexed_at": "2026-08-01T14:05:05.072Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "The L1 wars are over. Nobody won.\n\nEthereum anchors institutional settlement; Solana owns retail speed. 2026's split is strategy, not rivalry.\n\nhttps://analytickit.com/product/?utm_source=bluesky&utm_medium=social&utm_campaign=layer1-layer2&utm_content=sp-1565\n\n#web3 #defi",
+          "url": "https://bsky.app/profile/analytickit.bsky.social/post/3mrzn6xbtcv2a",
+          "indexed_at": "2026-08-01T14:04:49.874Z",
+          "likes": 2,
+          "replies": 1,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "The latest #cryptocurrency prices:\r\n\r\nBitcoin $63,011.80\r\n#Ethereum $1,867.67\r\nXRP $1.06\r\nSolana $72.89\r\nSui $0.68\r\n\r\n\r\n",
+          "url": "https://bsky.app/profile/pandacrypto.bsky.social/post/3mrzn5kelzh2l",
+          "indexed_at": "2026-08-01T14:04:03.064Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "JUST IN: 11 years of Ethereum: How a white paper became Wall Street's blockchain\n\nvia ๑web3 on webpunk.com",
+          "url": "https://bsky.app/profile/web-punk.bsky.social/post/3mrzn2zd3yk2z",
+          "indexed_at": "2026-08-01T14:02:38.266Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "We built a small Ethereum gas timing dashboard.\n\nInstead of only showing current gwei, it compares the latest gas level with the past 24h distribution and tells you whether now is a good time to send.\n\nWould this help you avoid overpaying gas?\nWhat would you change?\n\nhttps://ethgasinsight.info",
+          "url": "https://bsky.app/profile/eth-sky-flyer.bsky.social/post/3mrzmz6l3ru2r",
+          "indexed_at": "2026-08-01T14:01:36.193Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "#Ethereum hourly net stats.\n1pm - 2pm UTC\n\nblocks : 300\navgSize : 13.36 KB\navgGasUsed : 2.53 M gas/s\navgBFPGas : 3.94 M wei/gas\ntxns : 77705\nethSent : 13888.29 eth\ntopSender : \n address : 0x559432e18b281731c054cd703d4b49872be4ed53\n  txnsSent : 1102\n\n#ETH #BTC #crypto",
+          "url": "https://bsky.app/profile/eth-sky-flyer.bsky.social/post/3mrzmz6ggdh2w",
+          "indexed_at": "2026-08-01T14:01:36.167Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereal Reach\r\n\r\nMinted on Manifold.\r\n\r\nListed on Transient Labs\r\n\r\n https://www.transient.xyz/nfts/ethereum/0x7e0cd7e40a452e0c6830db0ff94a792cced86d6b",
+          "url": "https://bsky.app/profile/carlos28355.art/post/3mrzmy7v5lv23",
+          "indexed_at": "2026-08-01T14:01:04.882Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "A day late and a few Ethereum coins short ... Ubisoft is ending support for Champions Tactics: Grimoria Chronicles, its NFT game. - https://www.engadget.com/2228041/ubisoft-is-shutting-down-its-weird-nft-game/",
+          "url": "https://bsky.app/profile/lon.tv/post/3mrzm4y3zek22",
+          "indexed_at": "2026-08-01T13:45:50.272Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [
+            "support"
+          ],
+          "matched_negative": []
+        },
+        {
+          "text": "🚨 Whale Alert ⬛ Ethereum\n\n📥 BUY · ETH · $516.8K\n📦 276.77 ETH\n👤 0xed89…60e7 bought ➜ Binance Hot Wallet 14\n🔗 https://etherscan.io/tx/0xdd63b7b379e47089102d5b6a57a7b0801b0330115b3eb04a548b52cbf3f18923\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzlybuw3a2t",
+          "indexed_at": "2026-08-01T13:43:12.463Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "🐋 Whale Alert ⬛ Ethereum\n\n📥 BUY · ETH · $88.3K\n📦 47.27 ETH\n👤 0x4d9a…0d3f bought ➜ Binance Hot Wallet 14\n🔗 https://etherscan.io/tx/0x3c7ac57cc681ed29821dd0bf6c8d9d5c5d438123a41ffdd48b4082ecdde60b96\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzly7sowg24",
+          "indexed_at": "2026-08-01T13:43:10.270Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "NEW: Coinbase relies on Ethereum to power Base, its own blockchain network.\n\nWhen investing its own money, however, the exchange increasingly favors BTC.\n\nRead the full story on The Coinformer.\n\n#crypto #coinbase #bitcoin #ethereum #news",
+          "url": "https://bsky.app/profile/thecoinformer.com/post/3mrzkntwy622l",
+          "indexed_at": "2026-08-01T13:19:42.573Z",
+          "likes": 0,
+          "replies": 1,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Current crypto prices:\r\n\r\nBitcoin $63,036.50\r\nEthereum $1,866.96\r\nXRP $1.06\r\nSolana $72.86\r\nSui $0.68\r\n\r\n\r\n",
+          "url": "https://bsky.app/profile/pandacrypto.bsky.social/post/3mrzjsartrq2q",
+          "indexed_at": "2026-08-01T13:04:02.866Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        }
+      ]
+    },
+    "reliability_score": 0.35,
+    "content_reference": {
+      "endpoint": "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=Ethereum&sort=latest&limit=25",
+      "query": "Ethereum",
+      "post_count": 22,
+      "irrelevant_filtered_out": 3,
+      "posts": [
+        {
+          "text": "🐳 107.09M USDT (Ethereum) wallet-to-wallet\n0x1601…347e → 0xe2e7…c372. Off-exchange transfer.\n\n💵 https://swisswhaleintelligence.com/usdt/ #Ethereum #USDT #Crypto",
+          "url": "https://bsky.app/profile/btcwhalealerts.com/post/3mrzsjcgfup2s",
+          "indexed_at": "2026-08-01T15:40:06.263Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin: $63,001.00 (-0.20% 📉) | 7d: -1.60%\nEthereum: $1,869.80 (0.40% 📈) | 7d: 0.40%\nTether: $1.00 (0.00% 📈) | 7d: 0.00%\n\nTop Gainer: Audiera +15.30% 📈\nBiggest Loser: MemeCore -16.20% 📉",
+          "url": "https://bsky.app/profile/cryptochime.bsky.social/post/3mrzsauujk42h",
+          "indexed_at": "2026-08-01T15:35:23.171Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "📈 Accumulation Signal ⬛ Ethereum\n\n🔁 Coinbase 44: Deposit Collection bought ETH 53× in 24h\n💰 Total: $34.8M · Avg/tx: $656.5K\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd\n#ETH #SmartMoney #OnChain",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzqxubodo25",
+          "indexed_at": "2026-08-01T15:12:26.866Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [
+            "accumulation"
+          ],
+          "matched_negative": []
+        },
+        {
+          "text": "A big chance in a million! #Ethereum price: $1874.66 (2026/08/02 00:06)",
+          "url": "https://bsky.app/profile/eth-ism.bsky.social/post/3mrzqowjdo22p",
+          "indexed_at": "2026-08-01T15:07:27.764Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Crypto Prices:\r\n\r\nBitcoin $63,064.80\r\n#Ethereum $1,872.57\r\n#XRP $1.06\r\nSolana $72.94\r\nSui $0.68\r\n\r\n\r\n",
+          "url": "https://bsky.app/profile/pandacrypto.bsky.social/post/3mrzqisu67r27",
+          "indexed_at": "2026-08-01T15:04:02.078Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "#Ethereum hourly net stats.\n2pm - 3pm UTC\n\nblocks : 299\navgSize : 13.00 KB\navgGasUsed : 2.53 M gas/s\navgBFPGas : 3.70 M wei/gas\ntxns : 74848\nethSent : 26661.12 eth\ntopSender : \n address : 0x559432e18b281731c054cd703d4b49872be4ed53\n  txnsSent : 1053\n\n#ETH #BTC #crypto",
+          "url": "https://bsky.app/profile/eth-sky-flyer.bsky.social/post/3mrzqfahhpi2w",
+          "indexed_at": "2026-08-01T15:02:02.672Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "🐋 Whale Alert ⬛ Ethereum\n\n➡️ SEND · ETH · $54.4K\n📦 29.09 ETH\n👤 Jump Trading moved ➜ 0xc7d3…e668\n🔗 https://etherscan.io/tx/0x8e06cf92a2052b35e4160a98c9d463d0e8f0d069bb2fab96480b1349b4542e43\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzpztjhsv2t",
+          "indexed_at": "2026-08-01T14:55:39.383Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "📈 Accumulation Signal ⬛ Ethereum\n\n🔁 Jump Trading/Capital bought ETH 20× in 24h\n💰 Total: $3.2M · Avg/tx: $159.5K\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd\n#ETH #SmartMoney #OnChain",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzp2avvhx2l",
+          "indexed_at": "2026-08-01T14:37:59.767Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [
+            "accumulation"
+          ],
+          "matched_negative": []
+        },
+        {
+          "text": "LATEST: 📈 Michael Saylor says \"Bitcoin has won\" and that no one seriously thinks Solana or Ethereum will ever flip it.",
+          "url": "https://bsky.app/profile/coinmarketcap.bsky.social/post/3mrzo26ui5z2h",
+          "indexed_at": "2026-08-01T14:20:04.067Z",
+          "likes": 1,
+          "replies": 0,
+          "reposts": 2,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "🐋 Whale Alert ⬛ Ethereum\n\n➡️ SEND · ETH · $32.3K\n📦 17.30 ETH\n👤 Binance Hot Wallet 14 moved ➜ 0xacc2…9931\n🔗 https://etherscan.io/tx/0x24bdd301284e8d92c0e85b96a91be14e74f348d281cf7286a74bdacd7d55efa3\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrznfvm5y62s",
+          "indexed_at": "2026-08-01T14:08:43.066Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitcoin: $63,022.00 (-1.10% 📉) | 7d: -1.60%\nEthereum: $1,868.89 (-0.80% 📉) | 7d: 0.40%\nTether: $1.00 (0.00% 📈) | 7d: 0.00%\n\nTop Gainer: Audiera +12.40% 📈\nBiggest Loser: MemeCore -16.20% 📉",
+          "url": "https://bsky.app/profile/cryptochime.bsky.social/post/3mrzn7fhjpm2v",
+          "indexed_at": "2026-08-01T14:05:05.072Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "The L1 wars are over. Nobody won.\n\nEthereum anchors institutional settlement; Solana owns retail speed. 2026's split is strategy, not rivalry.\n\nhttps://analytickit.com/product/?utm_source=bluesky&utm_medium=social&utm_campaign=layer1-layer2&utm_content=sp-1565\n\n#web3 #defi",
+          "url": "https://bsky.app/profile/analytickit.bsky.social/post/3mrzn6xbtcv2a",
+          "indexed_at": "2026-08-01T14:04:49.874Z",
+          "likes": 2,
+          "replies": 1,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "The latest #cryptocurrency prices:\r\n\r\nBitcoin $63,011.80\r\n#Ethereum $1,867.67\r\nXRP $1.06\r\nSolana $72.89\r\nSui $0.68\r\n\r\n\r\n",
+          "url": "https://bsky.app/profile/pandacrypto.bsky.social/post/3mrzn5kelzh2l",
+          "indexed_at": "2026-08-01T14:04:03.064Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "JUST IN: 11 years of Ethereum: How a white paper became Wall Street's blockchain\n\nvia ๑web3 on webpunk.com",
+          "url": "https://bsky.app/profile/web-punk.bsky.social/post/3mrzn2zd3yk2z",
+          "indexed_at": "2026-08-01T14:02:38.266Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "We built a small Ethereum gas timing dashboard.\n\nInstead of only showing current gwei, it compares the latest gas level with the past 24h distribution and tells you whether now is a good time to send.\n\nWould this help you avoid overpaying gas?\nWhat would you change?\n\nhttps://ethgasinsight.info",
+          "url": "https://bsky.app/profile/eth-sky-flyer.bsky.social/post/3mrzmz6l3ru2r",
+          "indexed_at": "2026-08-01T14:01:36.193Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "#Ethereum hourly net stats.\n1pm - 2pm UTC\n\nblocks : 300\navgSize : 13.36 KB\navgGasUsed : 2.53 M gas/s\navgBFPGas : 3.94 M wei/gas\ntxns : 77705\nethSent : 13888.29 eth\ntopSender : \n address : 0x559432e18b281731c054cd703d4b49872be4ed53\n  txnsSent : 1102\n\n#ETH #BTC #crypto",
+          "url": "https://bsky.app/profile/eth-sky-flyer.bsky.social/post/3mrzmz6ggdh2w",
+          "indexed_at": "2026-08-01T14:01:36.167Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereal Reach\r\n\r\nMinted on Manifold.\r\n\r\nListed on Transient Labs\r\n\r\n https://www.transient.xyz/nfts/ethereum/0x7e0cd7e40a452e0c6830db0ff94a792cced86d6b",
+          "url": "https://bsky.app/profile/carlos28355.art/post/3mrzmy7v5lv23",
+          "indexed_at": "2026-08-01T14:01:04.882Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "A day late and a few Ethereum coins short ... Ubisoft is ending support for Champions Tactics: Grimoria Chronicles, its NFT game. - https://www.engadget.com/2228041/ubisoft-is-shutting-down-its-weird-nft-game/",
+          "url": "https://bsky.app/profile/lon.tv/post/3mrzm4y3zek22",
+          "indexed_at": "2026-08-01T13:45:50.272Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [
+            "support"
+          ],
+          "matched_negative": []
+        },
+        {
+          "text": "🚨 Whale Alert ⬛ Ethereum\n\n📥 BUY · ETH · $516.8K\n📦 276.77 ETH\n👤 0xed89…60e7 bought ➜ Binance Hot Wallet 14\n🔗 https://etherscan.io/tx/0xdd63b7b379e47089102d5b6a57a7b0801b0330115b3eb04a548b52cbf3f18923\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzlybuw3a2t",
+          "indexed_at": "2026-08-01T13:43:12.463Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "🐋 Whale Alert ⬛ Ethereum\n\n📥 BUY · ETH · $88.3K\n📦 47.27 ETH\n👤 0x4d9a…0d3f bought ➜ Binance Hot Wallet 14\n🔗 https://etherscan.io/tx/0x3c7ac57cc681ed29821dd0bf6c8d9d5c5d438123a41ffdd48b4082ecdde60b96\n\n📡 Smart Money Tracker | github.com/ArgosSystems/Smart-Money-Tracker | discord.gg/g6GH6Xkd",
+          "url": "https://bsky.app/profile/argossystems.bsky.social/post/3mrzly7sowg24",
+          "indexed_at": "2026-08-01T13:43:10.270Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "NEW: Coinbase relies on Ethereum to power Base, its own blockchain network.\n\nWhen investing its own money, however, the exchange increasingly favors BTC.\n\nRead the full story on The Coinformer.\n\n#crypto #coinbase #bitcoin #ethereum #news",
+          "url": "https://bsky.app/profile/thecoinformer.com/post/3mrzkntwy622l",
+          "indexed_at": "2026-08-01T13:19:42.573Z",
+          "likes": 0,
+          "replies": 1,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Current crypto prices:\r\n\r\nBitcoin $63,036.50\r\nEthereum $1,866.96\r\nXRP $1.06\r\nSolana $72.86\r\nSui $0.68\r\n\r\n\r\n",
+          "url": "https://bsky.app/profile/pandacrypto.bsky.social/post/3mrzjsartrq2q",
+          "indexed_at": "2026-08-01T13:04:02.866Z",
+          "likes": 0,
+          "replies": 0,
+          "reposts": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        }
+      ]
+    },
+    "related_claim": "Public discussion tone and attention for ETH",
+    "source_type": "social_public",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:9d23a89ba47d",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.3875,
+      "final_score": 0.35,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.4,
+        "freshness": 0.5,
+        "method_transparency": 0.25,
+        "independence": 0.45
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.35,
+      "score_limiters": [
+        "anonymous_or_low_trace_social"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "social_public",
+      "known_limitations": [
+        "可描述討論度與情緒，不能單獨確認外部事件",
+        "匿名或低可追溯帳號的可信度另有上限"
+      ],
+      "notes": [
+        "缺少 event_time／published_at，freshness 以 fetched_at 推估並設上限",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.45,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [
       "anonymous_or_low_trace_social"
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
+  },
+  {
+    "evidence_id": "EV-SOCIAL-ETH-HN-001",
+    "source": "Hacker News Algolia search",
+    "source_url": "https://hn.algolia.com/api/v1/search_by_date?query=Ethereum&tags=story&hitsPerPage=25",
+    "fetched_at": "2026-08-01T15:43:14.434443+00:00",
+    "data_type": "social_hackernews",
+    "coin": "ETH",
+    "time_range": "recent",
+    "content": {
+      "platform": "hackernews",
+      "sentiment": "negative",
+      "positive_terms": 1,
+      "negative_terms": 2,
+      "post_count": 19,
+      "query": "Ethereum",
+      "irrelevant_filtered_out": 6,
+      "relevance_rule": "貼文必須以完整詞提及幣種代號或全名，否則不計入",
+      "posts": [
+        {
+          "text": "Quantum-secure open-source hardware wallet for EVM/Ethereum",
+          "url": "https://github.com/EthereumPhone/PQ1",
+          "created_at": "2026-08-01T11:48:30Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Sharden is live. An autonomous proof-of-work protocol on Ethereum",
+          "url": "https://sharden.website",
+          "created_at": "2026-07-21T08:43:08Z",
+          "points": 1,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Show HN: DroneWorld – Earth with multiplayer drones and Ethereum real estate",
+          "url": "https://droneworld.app/",
+          "created_at": "2026-07-21T04:19:34Z",
+          "points": 5,
+          "comments": 2,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereum deploys AI agents to hunt bugs, discovers libp2p vulnerability",
+          "url": "https://thecoinheadlines.com/tech-and-ai/ethereum-deploys-ai-agents-to-hunt-bugs-discovers-libp2p-vulnerability/article-25686/",
+          "created_at": "2026-07-10T23:09:01Z",
+          "points": 2,
+          "comments": 1,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "The triage is the product: running AI agents against Ethereum's protocol code",
+          "url": "https://blog.ethereum.org/2026/07/09/triage-is-the-product",
+          "created_at": "2026-07-10T07:52:35Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Can BitMine's $213M Ethereum Bet Spark the Next Rally?",
+          "url": "https://coinmarketcap.com/community/post/377612382/",
+          "created_at": "2026-07-08T18:56:23Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [
+            "rally"
+          ],
+          "matched_negative": []
+        },
+        {
+          "text": "Show HN: Explore Ethereum by the Shape of a Transaction",
+          "url": "https://www.chaingenius.ai",
+          "created_at": "2026-07-01T00:25:02Z",
+          "points": 3,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitmine, Sharplink and Joe Lubin back Ethereum R&D nonprofit",
+          "url": "https://www.techsentiments.com/article/2026/06/22/bitmine-sharplink-and-joe-lubin-back-ethereum-rd-nonprofit-d0cf",
+          "created_at": "2026-06-23T05:09:58Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereum's biggest 'sandwich' bot drained of $7.5M in ironic exploit",
+          "url": "https://www.techsentiments.com/article/2026/06/21/ethereums-biggest-sandwich-bot-drained-of-75-million-in-ironic-exploit-d65f",
+          "created_at": "2026-06-21T09:23:41Z",
+          "points": 5,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": [
+            "exploit"
+          ]
+        },
+        {
+          "text": "Ethereum: Still Chasing Sovereignty",
+          "url": "https://twitter.com/i/status/2068429073429287373",
+          "created_at": "2026-06-21T06:03:57Z",
+          "points": 3,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "DeFi Labelling in Argos: How We Classify Every Transaction on Ethereum",
+          "url": "https://argosint.com/blog/argos-arbitrage-detection",
+          "created_at": "2026-06-18T11:20:36Z",
+          "points": 2,
+          "comments": 2,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Quantum Horizon: Quantum Computing as a Threat to Bitcoin and Ethereum",
+          "url": "https://arxiv.org/abs/2606.14484",
+          "created_at": "2026-06-15T04:35:58Z",
+          "points": 3,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereum can quantum-proof accounts for just 7 cents, says Kohaku project leader",
+          "url": "https://cointelegraph.com/news/ethereum-quantum-proof-accounts-7-cents-researcher",
+          "created_at": "2026-06-14T21:21:08Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "An Ethereum custody model with delayed ownership and revocable transfers",
+          "url": "https://ind.finance/",
+          "created_at": "2026-06-09T13:25:28Z",
+          "points": 1,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Show HN: NEP – Ethereum JSON-RPC transform that beats ZSTD by 12%",
+          "url": "https://github.com/Louw115/nep-ethereum-compression",
+          "created_at": "2026-06-06T03:00:30Z",
+          "points": 6,
+          "comments": 1,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "EtherHiding: Malware uses Ethereum blockchain as uncensorable C2 resolver",
+          "url": "https://www.mcafee.com/blogs/other-blogs/mcafee-labs/weedhack-minecraft-malware-as-a-service-campaign-research/",
+          "created_at": "2026-06-04T08:48:47Z",
+          "points": 1,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Vitalik Buterin on the future of the Ethereum Foundation",
+          "url": "https://twitter.com/VitalikButerin/status/2058583593102844111",
+          "created_at": "2026-05-25T14:24:24Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereum plans to move from BLS signatures to post quantum secure signatures",
+          "url": "https://hashcloak.com/blog/how-ethereum-plans-to-replace-bls-with-post-quantum-signatures",
+          "created_at": "2026-05-20T16:24:40Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "THORChain exploit hits Bitcoin, Ethereum, and BSC: Hackers steal over $10M",
+          "url": "https://ambcrypto.com/thorchain-exploit-hits-bitcoin-ethereum-and-bsc-hackers-steal-over-10-mln/",
+          "created_at": "2026-05-15T19:11:33Z",
+          "points": 6,
+          "comments": 1,
+          "matched_positive": [],
+          "matched_negative": [
+            "exploit"
+          ]
+        }
+      ]
+    },
+    "reliability_score": 0.35,
+    "content_reference": {
+      "endpoint": "https://hn.algolia.com/api/v1/search_by_date?query=Ethereum&tags=story&hitsPerPage=25",
+      "query": "Ethereum",
+      "post_count": 19,
+      "irrelevant_filtered_out": 6,
+      "posts": [
+        {
+          "text": "Quantum-secure open-source hardware wallet for EVM/Ethereum",
+          "url": "https://github.com/EthereumPhone/PQ1",
+          "created_at": "2026-08-01T11:48:30Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Sharden is live. An autonomous proof-of-work protocol on Ethereum",
+          "url": "https://sharden.website",
+          "created_at": "2026-07-21T08:43:08Z",
+          "points": 1,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Show HN: DroneWorld – Earth with multiplayer drones and Ethereum real estate",
+          "url": "https://droneworld.app/",
+          "created_at": "2026-07-21T04:19:34Z",
+          "points": 5,
+          "comments": 2,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereum deploys AI agents to hunt bugs, discovers libp2p vulnerability",
+          "url": "https://thecoinheadlines.com/tech-and-ai/ethereum-deploys-ai-agents-to-hunt-bugs-discovers-libp2p-vulnerability/article-25686/",
+          "created_at": "2026-07-10T23:09:01Z",
+          "points": 2,
+          "comments": 1,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "The triage is the product: running AI agents against Ethereum's protocol code",
+          "url": "https://blog.ethereum.org/2026/07/09/triage-is-the-product",
+          "created_at": "2026-07-10T07:52:35Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Can BitMine's $213M Ethereum Bet Spark the Next Rally?",
+          "url": "https://coinmarketcap.com/community/post/377612382/",
+          "created_at": "2026-07-08T18:56:23Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [
+            "rally"
+          ],
+          "matched_negative": []
+        },
+        {
+          "text": "Show HN: Explore Ethereum by the Shape of a Transaction",
+          "url": "https://www.chaingenius.ai",
+          "created_at": "2026-07-01T00:25:02Z",
+          "points": 3,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Bitmine, Sharplink and Joe Lubin back Ethereum R&D nonprofit",
+          "url": "https://www.techsentiments.com/article/2026/06/22/bitmine-sharplink-and-joe-lubin-back-ethereum-rd-nonprofit-d0cf",
+          "created_at": "2026-06-23T05:09:58Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereum's biggest 'sandwich' bot drained of $7.5M in ironic exploit",
+          "url": "https://www.techsentiments.com/article/2026/06/21/ethereums-biggest-sandwich-bot-drained-of-75-million-in-ironic-exploit-d65f",
+          "created_at": "2026-06-21T09:23:41Z",
+          "points": 5,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": [
+            "exploit"
+          ]
+        },
+        {
+          "text": "Ethereum: Still Chasing Sovereignty",
+          "url": "https://twitter.com/i/status/2068429073429287373",
+          "created_at": "2026-06-21T06:03:57Z",
+          "points": 3,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "DeFi Labelling in Argos: How We Classify Every Transaction on Ethereum",
+          "url": "https://argosint.com/blog/argos-arbitrage-detection",
+          "created_at": "2026-06-18T11:20:36Z",
+          "points": 2,
+          "comments": 2,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Quantum Horizon: Quantum Computing as a Threat to Bitcoin and Ethereum",
+          "url": "https://arxiv.org/abs/2606.14484",
+          "created_at": "2026-06-15T04:35:58Z",
+          "points": 3,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereum can quantum-proof accounts for just 7 cents, says Kohaku project leader",
+          "url": "https://cointelegraph.com/news/ethereum-quantum-proof-accounts-7-cents-researcher",
+          "created_at": "2026-06-14T21:21:08Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "An Ethereum custody model with delayed ownership and revocable transfers",
+          "url": "https://ind.finance/",
+          "created_at": "2026-06-09T13:25:28Z",
+          "points": 1,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Show HN: NEP – Ethereum JSON-RPC transform that beats ZSTD by 12%",
+          "url": "https://github.com/Louw115/nep-ethereum-compression",
+          "created_at": "2026-06-06T03:00:30Z",
+          "points": 6,
+          "comments": 1,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "EtherHiding: Malware uses Ethereum blockchain as uncensorable C2 resolver",
+          "url": "https://www.mcafee.com/blogs/other-blogs/mcafee-labs/weedhack-minecraft-malware-as-a-service-campaign-research/",
+          "created_at": "2026-06-04T08:48:47Z",
+          "points": 1,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Vitalik Buterin on the future of the Ethereum Foundation",
+          "url": "https://twitter.com/VitalikButerin/status/2058583593102844111",
+          "created_at": "2026-05-25T14:24:24Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Ethereum plans to move from BLS signatures to post quantum secure signatures",
+          "url": "https://hashcloak.com/blog/how-ethereum-plans-to-replace-bls-with-post-quantum-signatures",
+          "created_at": "2026-05-20T16:24:40Z",
+          "points": 2,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "THORChain exploit hits Bitcoin, Ethereum, and BSC: Hackers steal over $10M",
+          "url": "https://ambcrypto.com/thorchain-exploit-hits-bitcoin-ethereum-and-bsc-hackers-steal-over-10-mln/",
+          "created_at": "2026-05-15T19:11:33Z",
+          "points": 6,
+          "comments": 1,
+          "matched_positive": [],
+          "matched_negative": [
+            "exploit"
+          ]
+        }
+      ]
+    },
+    "related_claim": "Public technical-community discussion tone for ETH",
+    "source_type": "social_public",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:b9ac7c30c1c9",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.3875,
+      "final_score": 0.35,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.4,
+        "freshness": 0.5,
+        "method_transparency": 0.25,
+        "independence": 0.45
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.35,
+      "score_limiters": [
+        "anonymous_or_low_trace_social"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "social_public",
+      "known_limitations": [
+        "可描述討論度與情緒，不能單獨確認外部事件",
+        "匿名或低可追溯帳號的可信度另有上限"
+      ],
+      "notes": [
+        "缺少 event_time／published_at，freshness 以 fetched_at 推估並設上限",
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.5,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
+    },
+    "score_limiters": [
+      "anonymous_or_low_trace_social"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
     "evidence_id": "EV-DERIV-ETH-001",
     "source": "Binance Futures",
     "source_url": "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=ETHUSDT",
-    "fetched_at": "2026-08-01T14:29:15.424190+00:00",
+    "fetched_at": "2026-08-01T15:43:05.251669+00:00",
     "data_type": "derivatives",
     "coin": "ETH",
     "time_range": "current",
     "content": {
       "symbol": "ETHUSDT",
-      "funding_rate_pct": 0.0067,
+      "funding_rate_pct": 0.0062,
       "bias": "balanced",
-      "mark_price": "1872.19298450",
+      "mark_price": "1870.30000000",
       "next_funding_time": 1785600000000,
       "provider": "Binance Futures",
       "funding_interval_hours": 8,
@@ -2198,7 +2787,7 @@
     "content_reference": {
       "endpoint": "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=ETHUSDT",
       "symbol": "ETHUSDT",
-      "raw_funding_rate": "0.00006682",
+      "raw_funding_rate": "0.00006205",
       "provider": "Binance Futures",
       "normalised_to_hours": 8,
       "provider_native_interval_hours": 8
@@ -2244,18 +2833,18 @@
       "legacy_reliability_hint": 0.75,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
     "evidence_id": "EV-WHALE-ETH-001",
     "source": "Public balance check (curated known addresses)",
     "source_url": "https://ethereum.publicnode.com",
-    "fetched_at": "2026-08-01T14:29:14.975731+00:00",
+    "fetched_at": "2026-08-01T15:43:05.010362+00:00",
     "data_type": "whale",
     "coin": "ETH",
     "time_range": "current",
@@ -2327,20 +2916,20 @@
       "legacy_reliability_hint": 0.65,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [
       "unverifiable_entity_attribution"
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
     "evidence_id": "EV-VEGAS-ETH-001",
     "source": "Binance Klines (Vegas Channel + RSI strategy)",
     "source_url": "https://api.binance.com/api/v3/klines?symbol=ETHUSDT",
-    "fetched_at": "2026-08-01T14:29:14.988787+00:00",
+    "fetched_at": "2026-08-01T15:43:04.981627+00:00",
     "data_type": "vegas_channel",
     "coin": "ETH",
     "time_range": "4h trend / 1h execution",
@@ -2350,23 +2939,23 @@
       "execution_timeframe": "1h",
       "4h": {
         "trend": "mixed",
-        "tunnel_top": 2005.8742,
-        "tunnel_bottom": 1861.2808,
+        "tunnel_top": 2005.87,
+        "tunnel_bottom": 1861.2524,
         "in_tunnel": true,
-        "rsi": 42.1953,
+        "rsi": 39.2674,
         "volume_spike": false,
         "last_signal": "take_profit_bull",
         "bars_since_signal": 66
       },
       "1h": {
         "trend": "bullish_aligned",
-        "tunnel_top": 1893.9589,
-        "tunnel_bottom": 1784.3759,
+        "tunnel_top": 1893.671,
+        "tunnel_bottom": 1784.5112,
         "in_tunnel": true,
-        "rsi": 72.737,
+        "rsi": 55.1323,
         "volume_spike": false,
         "last_signal": "take_profit_bear",
-        "bars_since_signal": 22
+        "bars_since_signal": 23
       },
       "alignment": {
         "passed": false,
@@ -2419,18 +3008,18 @@
       "legacy_reliability_hint": 0.7,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
     "evidence_id": "EV-LSRATIO-ETH-001",
     "source": "Binance Futures Data (top-trader position ratio)",
     "source_url": "https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=ETHUSDT&period=1h&limit=24",
-    "fetched_at": "2026-08-01T14:29:15.230927+00:00",
+    "fetched_at": "2026-08-01T15:43:05.147904+00:00",
     "data_type": "long_short_ratio",
     "coin": "ETH",
     "time_range": "last 24x1h",
@@ -2438,12 +3027,6 @@
       "symbol": "ETHUSDT",
       "period": "1h",
       "history": [
-        {
-          "time": "2026-07-31T15:00:00+00:00",
-          "long_pct": 57.93,
-          "short_pct": 42.07,
-          "ratio": 1.3768
-        },
         {
           "time": "2026-07-31T16:00:00+00:00",
           "long_pct": 57.77,
@@ -2581,13 +3164,19 @@
           "long_pct": 57.6,
           "short_pct": 42.4,
           "ratio": 1.3584
+        },
+        {
+          "time": "2026-08-01T15:00:00+00:00",
+          "long_pct": 57.46,
+          "short_pct": 42.54,
+          "ratio": 1.3508
         }
       ],
       "current": {
-        "time": "2026-08-01T14:00:00+00:00",
-        "long_pct": 57.6,
-        "short_pct": 42.4,
-        "ratio": 1.3584
+        "time": "2026-08-01T15:00:00+00:00",
+        "long_pct": 57.46,
+        "short_pct": 42.54,
+        "ratio": 1.3508
       },
       "bias": "long_dominant",
       "consistency_pct": 100.0
@@ -2636,20 +3225,20 @@
       "legacy_reliability_hint": 0.7,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [
       "CL-001"
     ],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   },
   {
     "evidence_id": "EV-TVL-ETH-001",
     "source": "DefiLlama chain TVL (Ethereum)",
     "source_url": "https://api.llama.fi/v2/historicalChainTvl/Ethereum",
-    "fetched_at": "2026-08-01T14:29:16.514359+00:00",
+    "fetched_at": "2026-08-01T15:43:05.143786+00:00",
     "data_type": "tvl",
     "coin": "ETH",
     "time_range": "last 90d",
@@ -3002,11 +3591,11 @@
         },
         {
           "time": "2026-07-29",
-          "tvl_usd": 41384434546.0
+          "tvl_usd": 41384434547.0
         },
         {
           "time": "2026-07-30",
-          "tvl_usd": 41112699511.0
+          "tvl_usd": 41112699512.0
         },
         {
           "time": "2026-07-31",
@@ -3014,12 +3603,12 @@
         },
         {
           "time": "2026-08-01",
-          "tvl_usd": 40669841677.0
+          "tvl_usd": 40685274611.0
         }
       ],
-      "tvl_usd": 40669841677.0,
-      "change_pct": -10.9,
-      "change_30d_pct": 9.93,
+      "tvl_usd": 40685274611.0,
+      "change_pct": -10.87,
+      "change_30d_pct": 9.97,
       "direction": "expanding"
     },
     "reliability_score": 0.8775,
@@ -3055,7 +3644,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "event_time",
-      "age_days": 0.6037,
+      "age_days": 0.655,
       "lineage_size": 1,
       "source_type": "market_api",
       "known_limitations": [
@@ -3068,13 +3657,13 @@
       "legacy_reliability_hint": 0.75,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+      "scored_at": "2026-08-01T15:43:14.452573+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [
       "CL-001"
     ],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
+    "run_id": "RUN-20260801T154304Z-ETH-532f9ef3"
   }
 ]

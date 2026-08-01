@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T8.5
-last_updated_at: 2026-08-02T02:40:00+08:00
+current_task: T8.6
+last_updated_at: 2026-08-02T04:10:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 656 tests, 656 passed, 0 failed, 0 errors
+full_suite_latest: 683 tests, 683 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -917,3 +917,101 @@ tasks:
         任何只加在其中一側的端點都會在另一側靜默失效。新增測試已涵蓋現有兩條路由，
         但沒有機制強制未來新增的路由也同步
       - 未執行真實 Bedrock 呼叫的 targeted test（延續既有慣例，模型端一律 mock）
+
+  T8.6:
+    title: Repair the social sources and fix a crash when one evidence argues both ways
+    status: PARTIAL
+    depends_on: [T8.5]
+    target_minutes: 120
+    started_at: 2026-08-02T03:00:00+08:00
+    completed_at: 2026-08-02T04:10:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "fix(T8.6)"`。
+    commit: 'fix(T8.6): repair the social sources and stop two-sided evidence crashing the run'
+    partial_reason: >-
+      程式、測試與三份 fixture 全部完成，但**未部署**（本機無 AWS credentials）。雲端目前仍是
+      f94acfb，社群面還是單一 Hacker News。下次部署後應確認 live 證據為 13 筆、含三筆社群。
+    note: >-
+      原始計畫沒有這個 Task。起因是使用者問「我有爬取社群網站的資料嗎」，查證時發現社群面
+      實質上是壞的；修的過程又暴露一個會讓 live run 硬失敗的既有崩潰。
+    root_cause: >-
+      (1) 社群面靜默崩塌成單一來源：`fetch_social()` 是「第一個成功就停」的備援鏈，而
+          Reddit 的 `/search.json` 對本專案一律 403（換瀏覽器 UA、描述式 UA、old.reddit
+          都一樣），Bluesky 的 `public.api.bsky.app` 也回 403，因此每次都由 Hacker News 回答。
+          備援鏈設計讓這件事完全沒有痕跡 —— 沒有降級紀錄，因為「有一個成功了」。
+      (2) 抓回來的內容與加密貨幣無關：HN 查詢字串是 `"{代號} crypto"`，實測匹配到
+          「Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio」（ETH → Ethernet）與
+          「Twenty-five years ago it was cryptography」（crypto → cryptography）。
+          且 `tags=(story,comment)` 會抓到 title 為 null 的留言，於是改用母文標題，把一般
+          科技新聞標題掛成加密貨幣情緒。這些內容曾實際出現在 demo-fixtures 的證據清單裡。
+          情緒統計因此是 positive_terms=0／negative_terms=0，sentiment 只是預設的 mixed。
+      (3) **既有崩潰（非本次引入）**：訊號比證據細，同一筆證據可以同時產生多空訊號。live BNB
+          的 `EV-VEGAS-BNB-001` 同時給出「4H 通道空頭排列」（bear 1.2）與「1H RSI 17.76
+          超賣，具技術性反彈條件」（bull 1.0）。`fallback_claims()` 把兩側的 evidence_id 直接
+          各自送進 supporting／contradicting，同一個 ID 出現在兩邊，`evaluate_claim()` 的
+          互斥檢查拋 ValueError，**整個 live run 產不出任何報告**。以 git stash 反向確認過
+          這在本次社群改動之前就會發生。中期看空、短期超賣是正常市況，任何幣種都可能踩到。
+    fix: >-
+      1. 三個社群平台改為三個獨立 collector（`social`／`social_bluesky`／`social_hackernews`），
+         不再是備援鏈。兩個理由：命題明說「避免單一來源」，三個平台是三條獨立來源鏈，
+         claim confidence 的 source_diversity 才算得到 3 個 lineage group；以及失敗隔離 ——
+         Reddit 掛掉時會誠實出現 `collector_fallback:social`，而不是無聲無息。
+         連帶更新 DATA_TYPE_SOURCE_TYPES、DOMAIN_BY_DATA_TYPE（三者同屬 social 領域）、
+         _FALLBACK_SPECS、COLLECTION_AGENTS。live 證據由 11 筆變 13 筆。
+      2. Reddit 改走子版 `.rss`（搜尋 API 403，feed 仍可取得）。子版本身就是該幣的討論區，
+         比關鍵字搜尋更精準。Reddit 限流極兇（`x-ratelimit-remaining` 恆為 0、無
+         `Retry-After`、同一個 feed 隨機回 200 或 429），因此只做一次短重試就放棄。
+      3. Bluesky 主機改為 `api.bsky.app`（`public.api.bsky.app` 回 403）。
+      4. HN 查詢改用幣種全名、`tags=story` only。
+      5. 新增確定性相關性過濾 `mentions_coin()`：貼文必須以**完整詞**提及代號或全名
+         （`\\b` 邊界），因此 `ETH` 不匹配 `Ethernet`、`Ether` 也不匹配 `Ethernet`。
+         過濾筆數寫進 `irrelevant_filtered_out` 與 `relevance_rule`，讓讀者知道情緒值代表
+         多少樣本。全部貼文都不相關時拋錯讓 collector 誠實降級，不回報空樣本的情緒。
+      6. `_split_sides_by_evidence()`：把訊號層的多空分組收斂成互斥的證據層清單，按每筆
+         證據在兩側的權重總和歸邊；兩側相等時兩邊都不列（無法判斷偏哪側時，宣稱它支持
+         任一側都不誠實）。歸邊不靜默：mixed 證據寫進 limitations，反向訊號仍列在觀察重點。
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_social_sources → 21 tests OK
+      （相關性完整詞比對含 Ethernet／cryptography 反例、五幣皆有查詢詞與子版、查詢用全名、
+      三平台皆註冊為 collector 且同屬 social 領域、social_agent 擁有三者、兩個新 label 有
+      fallback 規格、Reddit 子版 feed 與 429 單次重試、Bluesky 主機正確、HN tags=story、
+      原始誤判內容現在被濾掉、全部不相關時拋錯）。
+      python3 -m unittest tests.test_claim_graph.MixedDirectionEvidenceTests → 6 tests OK
+      （兩側證據不再崩潰、按淨權重歸邊、權重相等時兩邊都不列、內部不一致必須揭露、
+      單側行為不變、歸邊具決定性）。
+      反向驗證：git stash 掉 src/claim_graph.py 後同一組測試 3 ERROR，訊息為
+      `ValueError: evidence cannot support and contradict the same claim: EV-VEGAS`。
+      完整套件：python3 -m unittest discover -s tests → 683 tests, 683 passed, 0 failed
+      （T8.5 後為 656）。
+      本機五幣 live E2E：五幣皆 13 筆證據、六檔齊備、Citation Gate 皆 PASS、六個領域都有
+      真實證據。**BNB 修法前直接崩潰、現在正常產出報告**。社群面有效來源鏈 BTC 3/3、
+      其餘因 Reddit 限流為 1–2/3 並誠實標示降級。
+      過濾實際效果（live）：Reddit r/Bitcoin 濾掉 20/25（一般閒聊）、HN ETH 濾掉 8/25、
+      HN BNB 濾掉 24/25、Bluesky 濾掉 1–3/25。
+    fixtures_refreshed: >-
+      offline-backup、comparison-backup（含 SOL／BNB 兩腳）、上層 demo-fixtures 皆重新產生，
+      manifest hash 全部相符。`live-success` **刻意不重新產生**：它是 f94acfb 的實際雲端執行
+      紀錄，早於本次修正，不會為了看起來一致而改寫；兩份 README 已註明程式基準差異。
+    artifacts:
+      - src/day2_sources.py
+      - src/claim_graph.py
+      - tests/test_social_sources.py
+      - tests/test_claim_graph.py
+      - tests/test_production_readiness.py
+      - demo-fixtures/
+    blockers:
+      - >-
+        未部署。取得憑證後執行 ./aws/deploy.sh，並確認雲端 live 證據為 13 筆、含
+        social／social_bluesky／social_hackernews 三筆。
+    known_limitations:
+      - >-
+        Reddit 極不可靠：限流以 IP 信譽為準，Lambda 的出口 IP 是共用的 AWS 範圍，雲端成功率
+        可能比本機更低。這是拆成三個獨立 collector 的直接理由 —— Reddit 失敗不再拖垮社群面
+      - >-
+        情緒分析是固定詞表的啟發式，不是情緒模型；`sentiment` 只反映詞表命中數，不應被當成
+        校準過的情緒強度
+      - >-
+        相關性過濾只看是否提及幣種，不判斷語意相關。提及幣種但實際在講別的事情的貼文仍會
+        通過（例如把幣價當背景資訊的自動化貼文）
+      - X／Twitter 仍未納入（需付費 API）；社群面因此偏向開發者與自動化帳號，不代表散戶情緒
+      - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）

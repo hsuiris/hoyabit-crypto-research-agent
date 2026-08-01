@@ -7,9 +7,9 @@
     "all_evidence_is_fallback_fixture"
   ],
   "run_lifecycle": null,
-  "run_id": "RUN-20260801T143025Z-SOL-aad0053d",
-  "started_at": "2026-08-01T14:30:25.102179+00:00",
-  "completed_at": "2026-08-01T14:30:25.117807+00:00",
+  "run_id": "RUN-20260801T154304Z-SOL-8c894c19",
+  "started_at": "2026-08-01T15:43:04.448560+00:00",
+  "completed_at": "2026-08-01T15:43:04.459309+00:00",
   "mode": "offline",
   "collection": [
     "mock_mode"
@@ -24,8 +24,8 @@
       "critic": 120.0
     },
     "phase_actual_ms": {
-      "collection_ms": 2.2,
-      "reasoning_ms": 5.7,
+      "collection_ms": 1.5,
+      "reasoning_ms": 1.5,
       "critic_ms": 0.0
     },
     "deadline": {
@@ -67,7 +67,7 @@
   "citation_gate": {
     "gate_version": "citation-gate-v1",
     "status": "PASS",
-    "run_id": "RUN-20260801T143025Z-SOL-aad0053d",
+    "run_id": "RUN-20260801T154304Z-SOL-8c894c19",
     "claim_count": 1,
     "evidence_count": 9,
     "cited_evidence_count": 9,
@@ -100,8 +100,8 @@
       "name": "parse_input",
       "status": "success",
       "tool": "src.errors.validate_request",
-      "started_at": "2026-08-01T14:30:25.102414+00:00",
-      "completed_at": "2026-08-01T14:30:25.102418+00:00",
+      "started_at": "2026-08-01T15:43:04.448691+00:00",
+      "completed_at": "2026-08-01T15:43:04.448694+00:00",
       "duration_ms": 0.0
     },
     {
@@ -132,8 +132,8 @@
         "macro",
         "derivatives"
       ],
-      "started_at": "2026-08-01T14:30:25.102425+00:00",
-      "completed_at": "2026-08-01T14:30:25.102428+00:00",
+      "started_at": "2026-08-01T15:43:04.448699+00:00",
+      "completed_at": "2026-08-01T15:43:04.448701+00:00",
       "tool": "src.planner.build_research_plan"
     },
     {
@@ -154,7 +154,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T14:30:25.102442+00:00",
+          "fetched_at": "2026-08-01T15:43:04.448711+00:00",
           "reliability_score": 0.18
         },
         {
@@ -167,7 +167,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T14:30:25.102442+00:00",
+          "fetched_at": "2026-08-01T15:43:04.448711+00:00",
           "reliability_score": 0.2
         },
         {
@@ -180,7 +180,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T14:30:25.102442+00:00",
+          "fetched_at": "2026-08-01T15:43:04.448711+00:00",
           "reliability_score": 0.2
         },
         {
@@ -193,7 +193,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T14:30:25.102442+00:00",
+          "fetched_at": "2026-08-01T15:43:04.448711+00:00",
           "reliability_score": 0.2
         },
         {
@@ -206,7 +206,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T14:30:25.102442+00:00",
+          "fetched_at": "2026-08-01T15:43:04.448711+00:00",
           "reliability_score": 0.2
         },
         {
@@ -219,7 +219,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T14:30:25.102442+00:00",
+          "fetched_at": "2026-08-01T15:43:04.448711+00:00",
           "reliability_score": 0.2
         },
         {
@@ -232,7 +232,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T14:30:25.102442+00:00",
+          "fetched_at": "2026-08-01T15:43:04.448711+00:00",
           "reliability_score": 0.2
         },
         {
@@ -245,7 +245,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T14:30:25.102442+00:00",
+          "fetched_at": "2026-08-01T15:43:04.448711+00:00",
           "reliability_score": 0.18
         },
         {
@@ -258,7 +258,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T14:30:25.102442+00:00",
+          "fetched_at": "2026-08-01T15:43:04.448711+00:00",
           "reliability_score": 0.2
         }
       ],
@@ -274,18 +274,18 @@
         "EV-009"
       ],
       "fallback_reason": null,
-      "started_at": "2026-08-01T14:30:25.102431+00:00",
-      "completed_at": "2026-08-01T14:30:25.104676+00:00",
-      "duration_ms": 2.2
+      "started_at": "2026-08-01T15:43:04.448704+00:00",
+      "completed_at": "2026-08-01T15:43:04.450185+00:00",
+      "duration_ms": 1.5
     },
     {
       "name": "score_evidence",
       "status": "degraded",
       "scored_by": "deterministic_rules",
       "tool": "src.credibility.score_evidence_batch",
-      "started_at": "2026-08-01T14:30:25.104682+00:00",
-      "completed_at": "2026-08-01T14:30:25.110237+00:00",
-      "duration_ms": 5.6,
+      "started_at": "2026-08-01T15:43:04.450188+00:00",
+      "completed_at": "2026-08-01T15:43:04.451569+00:00",
+      "duration_ms": 1.4,
       "scoring_version": "credibility-v1",
       "registry_version": "source-registry-v1",
       "evidence_count": 9,
@@ -328,8 +328,8 @@
       "name": "calculate_indicators",
       "status": "success",
       "tool": "src.orchestrator._signal_inventory",
-      "started_at": "2026-08-01T14:30:25.110269+00:00",
-      "completed_at": "2026-08-01T14:30:25.110272+00:00",
+      "started_at": "2026-08-01T15:43:04.451599+00:00",
+      "completed_at": "2026-08-01T15:43:04.451601+00:00",
       "duration_ms": 0.0
     },
     {
@@ -337,8 +337,8 @@
       "status": "success",
       "error_count": 0,
       "tool": "src.validation.validate_evidence",
-      "started_at": "2026-08-01T14:30:25.115776+00:00",
-      "completed_at": "2026-08-01T14:30:25.116779+00:00",
+      "started_at": "2026-08-01T15:43:04.456932+00:00",
+      "completed_at": "2026-08-01T15:43:04.457931+00:00",
       "duration_ms": 1.0
     },
     {
@@ -350,9 +350,9 @@
       "tool": "src.llm.analyze_with_llm",
       "fallback_reason": "offline_fallback",
       "observation_points_source": "deterministic_fallback",
-      "started_at": "2026-08-01T14:30:25.110322+00:00",
-      "completed_at": "2026-08-01T14:30:25.110384+00:00",
-      "duration_ms": 0.1
+      "started_at": "2026-08-01T15:43:04.451645+00:00",
+      "completed_at": "2026-08-01T15:43:04.451693+00:00",
+      "duration_ms": 0.0
     },
     {
       "name": "critic_review",
@@ -363,8 +363,8 @@
       "tool": "src.llm.critique_with_llm",
       "fallback_reason": "skipped:disabled",
       "semantic_categories": [],
-      "started_at": "2026-08-01T14:30:25.110386+00:00",
-      "completed_at": "2026-08-01T14:30:25.110392+00:00",
+      "started_at": "2026-08-01T15:43:04.451696+00:00",
+      "completed_at": "2026-08-01T15:43:04.451701+00:00",
       "duration_ms": 0.0
     },
     {
@@ -376,7 +376,7 @@
       "provider": "deterministic",
       "model": null,
       "client_selection": "llm_disabled",
-      "duration_ms": 5.4,
+      "duration_ms": 5.2,
       "fallback_reason": "no llm client supplied",
       "claim_count": 1,
       "verdicts": {
@@ -405,8 +405,8 @@
         "counter_evidence_coverage": 0.1
       },
       "scoring_version": "claim-confidence-v1",
-      "started_at": "2026-08-01T14:30:25.110394+00:00",
-      "completed_at": "2026-08-01T14:30:25.115774+00:00",
+      "started_at": "2026-08-01T15:43:04.451703+00:00",
+      "completed_at": "2026-08-01T15:43:04.456929+00:00",
       "tool": "src.claim_graph.build_claim_graph"
     },
     {
@@ -432,9 +432,9 @@
       "errors": [],
       "warnings": [],
       "semantic_finding_count": 0,
-      "started_at": "2026-08-01T14:30:25.112562+00:00",
-      "completed_at": "2026-08-01T14:30:25.115766+00:00",
-      "duration_ms": 3.2
+      "started_at": "2026-08-01T15:43:04.453810+00:00",
+      "completed_at": "2026-08-01T15:43:04.456923+00:00",
+      "duration_ms": 3.1
     },
     {
       "name": "generate_report",
@@ -448,10 +448,10 @@
         "report.md",
         "research_plan.json"
       ],
-      "started_at": "2026-08-01T14:30:25.116789+00:00",
-      "completed_at": "2026-08-01T14:30:25.120182+00:00",
-      "duration_ms": 3.4
+      "started_at": "2026-08-01T15:43:04.457941+00:00",
+      "completed_at": "2026-08-01T15:43:04.461015+00:00",
+      "duration_ms": 3.1
     }
   ],
-  "duration_ms": 18.05
+  "duration_ms": 12.49
 }
