@@ -7,55 +7,58 @@
   "claims": [
     {
       "claim_id": "CL-001",
-      "statement": "BTC 的價格下跌主要是由於市場恐慌情緒",
-      "claim_type": "causal",
+      "statement": "BTC 的價格將在未來兩週內繼續上漲",
+      "claim_type": "prediction",
       "verdict": "insufficient_evidence",
       "facts": [
         {
-          "statement": "BTC 的價格在過去兩週內下跌了約 1.4%",
+          "statement": "根據 CoinGecko 的數據，BTC 在過去兩週內的價格有所下跌。",
           "evidence_ids": [
             "EV-MARKET-001"
           ]
         },
         {
-          "statement": "市場恐慌情緒指數顯示市場處於恐慌狀態",
+          "statement": "根據 Alternative.me 的數據，當前市場的恐懼指數處於恐懼狀態。",
           "evidence_ids": [
             "EV-MACRO-BTC-001"
           ]
         }
       ],
-      "inference": "市場恐慌情緒指數顯示市場處於恐慌狀態，這可能導致投資者情緒低落，進而影響 BTC 的價格下跌。",
-      "conclusion": "根據市場恐慌情緒指數，BTC 的價格下跌可能與市場恐慌情緒有關聯。",
+      "inference": "雖然市場恐懼指數處於恐懼狀態，但 BTC 的價格在過去兩週內已經出現下跌。",
+      "conclusion": "根據目前的市場數據，BTC 的價格在未來兩週內繼續上漲的可能性不大。",
       "supporting_evidence_ids": [
-        "EV-MARKET-001",
+        "EV-MARKET-001"
+      ],
+      "contradicting_evidence_ids": [
         "EV-MACRO-BTC-001"
       ],
-      "contradicting_evidence_ids": [],
       "confidence": {
         "score": 0.25,
         "level": "low",
         "type": "heuristic",
         "components": {
-          "weighted_evidence_quality": 0.4875,
+          "weighted_evidence_quality": 0.8775,
           "domain_coverage": 0.0,
-          "source_diversity": 0.6667,
-          "signal_consistency": 1.0,
-          "counter_evidence_coverage": 0.5
+          "source_diversity": 0.3333,
+          "signal_consistency": 0.5132,
+          "counter_evidence_coverage": 1.0
         },
         "limiters": [
+          "single_supporting_domain",
+          "high_quality_conflict",
           "domain_coverage_below_minimum",
           "critic_confidence_reduction"
         ]
       },
       "limitations": [
-        "市場恐慌情緒指數的質量和準確性可能有限"
+        "數據來源的質量和準確性可能會影響分析結果。"
       ],
       "invalidation_conditions": [
-        "如果市場恐慌情緒指數的數據不準確或存在偏差"
+        "如果 BTC 的價格在未來兩週內出現顯著上漲，則該結論可能需要重新評估。"
       ],
       "watchpoints": [
-        "市場恐慌情緒指數的變化情況",
-        "BTC 價格的未來走勢"
+        "BTC 的價格變動情況",
+        "市場恐懼指數的變化"
       ]
     }
   ],
@@ -63,12 +66,12 @@
     {
       "hypothesis_id": "hyp_1",
       "claim_id": "CL-001",
-      "statement": "BTC 的價格下跌主要是由於市場恐慌情緒",
-      "support_strength": 0.4875,
-      "contradiction_strength": 0,
+      "statement": "BTC 的價格將在未來兩週內繼續上漲",
+      "support_strength": 0.4387,
+      "contradiction_strength": 0.4163,
       "verdict": "insufficient_evidence",
       "confidence": 0.25,
-      "independent_support_chains": 2
+      "independent_support_chains": 1
     }
   ],
   "rejected_evidence_ids": []

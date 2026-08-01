@@ -173,3 +173,93 @@ Lambda 受管 runtime 內建的 boto3 版本常落後於 runtime 發布時點。
 
 因此 `deploy.sh` 提供 `--bundle-sdk`，會把 pin 版 boto3／botocore 打包進部署包。
 它預設關閉：先用內建版本部署並檢查 log，確認不支援才開啟，避免不必要的套件體積。
+
+## 修改程式後要重新部署
+
+Lambda 執行的是**部署時打包的程式碼快照**，不會自動跟著本機的檔案變動。
+
+### 需要重新部署
+
+改動這些路徑後，雲端行為不會變，必須重跑 `deploy.sh`：
+
+| 路徑 | 說明 |
+|---|---|
+| `src/**` | 所有研究邏輯：orchestrator、llm、collector、credibility、claim_graph… |
+| `lambda_handler.py` | Function URL 進入點 |
+| `data/*.csv` | OHLCV 基準資料 |
+| `config/source_registry.json` | credibility 計分基準 |
+| `aws/template.yaml` | 基礎設施（timeout、記憶體、IAM、護欄） |
+
+### 不需要重新部署
+
+| 路徑 | 原因 |
+|---|---|
+| `tests/**` | 不進部署包 |
+| `docs/**`、`.kiro/**` | 不進部署包 |
+| `demo-fixtures/**` | 本機展示用 |
+| `src/app.py` 的純 UI 調整 | 雲端走 `lambda_handler.py`，不使用 `app.py` 的頁面 |
+
+`src/app.py` 要注意：它雖然不被雲端使用，但**仍在部署包內**（整個 `src/` 都會複製）。
+如果你改的是 `app.py` 裡被其他模組共用的函式，那還是要重新部署。
+
+### 重新部署的指令
+
+```bash
+export AWS_PROFILE=hoyabit
+
+# 1. 先確認本機測試沒壞
+python3 -m unittest discover -s tests
+
+# 2. 確認打包內容正確（不呼叫 AWS）
+bash aws/deploy.sh --dry-run
+
+# 3. 部署
+bash aws/deploy.sh --region us-west-2 --provider bedrock --model-id amazon.nova-lite-v1:0
+```
+
+CloudFormation 只會更新有變動的資源，通常 30–60 秒完成。Function URL **不會改變**。
+
+### 部署後要驗證什麼
+
+「命令沒報錯」不等於部署成功。至少確認：
+
+```bash
+URL=$(aws cloudformation describe-stacks --region us-west-2 \
+  --stack-name hoyabit-agent-mvp \
+  --query "Stacks[0].Outputs[?OutputKey=='PublicUrl'].OutputValue" --output text)
+
+# 首頁會顯示執行環境的 SDK 能力
+curl -sS "$URL" | tail -3
+
+# 跑一次並檢查模型路徑與計分基準是否正常
+curl -sS -X POST "$URL" -H 'content-type: application/json' \
+  -d '{"coin":"ETH","question":"部署後驗證","mode":"test"}' -o /tmp/check.json
+python3 scripts/verify_live_smoke.py /tmp/check.json
+```
+
+`scripts/verify_live_smoke.py` 會判定模型路徑、六項提交物、manifest hash 與 Citation Gate。
+
+**特別留意這兩個容易靜默降級的欄位**，它們不會讓執行失敗，報告也照樣產出：
+
+| 欄位 | 正常值 | 異常代表 |
+|---|---|---|
+| `stage_providers.analyst.status` | `success` | `fallback:*` 表示模型沒跑，走了離線推理 |
+| `score_evidence.registry_version` | `source-registry-v1` | `unavailable` 表示 `config/` 沒進部署包 |
+
+這兩個問題都真的發生過（見 `.kiro/specs/hoyabit-aws-deployment/status.yaml` 的 D5 與
+`demo-fixtures/competition-ready/live-success/README.md`），所以值得每次部署後看一眼。
+
+### Lambda 版本與回滾
+
+每次部署會上傳一個帶時間戳的新 zip（`releases/agent-<UTC>.zip`），舊的仍保留在 S3。
+要回滾就用舊的 key 重新指定：
+
+```bash
+aws s3 ls s3://hoyabit-agent-deploy-<ACCOUNT_ID>-us-west-2/releases/
+aws cloudformation deploy --template-file aws/template.yaml \
+  --stack-name hoyabit-agent-mvp --region us-west-2 \
+  --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset \
+  --parameter-overrides CodeBucket=hoyabit-agent-deploy-<ACCOUNT_ID>-us-west-2 \
+    CodeKey=releases/agent-<舊的時間戳>.zip LLMProvider=bedrock \
+    BedrockModelId=amazon.nova-lite-v1:0
+```

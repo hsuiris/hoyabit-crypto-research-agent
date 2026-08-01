@@ -1,12 +1,12 @@
 {
   "manifest_version": "competition-manifest-v1",
-  "run_id": "RUN-20260801T094240Z-BTC-f3d916b3",
-  "started_at": "2026-08-01T09:42:40.101027+00:00",
-  "completed_at": "2026-08-01T09:43:11.312134+00:00",
-  "as_of": "2026-08-01T09:42:40.101027+00:00",
-  "duration_ms": 31215.76,
-  "question": "分析 BTC 近期市場狀況、主要驅動因素與下行風險",
-  "question_hash": "a5562dfac2e6a7ee3b7ac1cb383cad8f0412fa37125318a20342dd1a5a17fdb4",
+  "run_id": "RUN-20260801T095907Z-BTC-5c13147c",
+  "started_at": "2026-08-01T09:59:07.222933+00:00",
+  "completed_at": "2026-08-01T09:59:23.367813+00:00",
+  "as_of": "2026-08-01T09:59:07.222933+00:00",
+  "duration_ms": 16153.76,
+  "question": "評估 BTC 當前市場狀況、關鍵驅動因素與主要下行風險",
+  "question_hash": "fa5ef7954d080d51f4e4ed7d3d7651c226f7c8c641684f94adb38f6db323daa6",
   "coins": [
     "BTC"
   ],
@@ -19,12 +19,12 @@
     "collector_fallback:long_short_ratio"
   ],
   "run_lifecycle": {
-    "run_id": "RUN-20260801T094240Z-BTC-f3d916b3",
+    "run_id": "RUN-20260801T095907Z-BTC-5c13147c",
     "run_mode": "formal",
-    "question_hash": "a5562dfac2e6a7ee3b7ac1cb383cad8f0412fa37125318a20342dd1a5a17fdb4",
+    "question_hash": "fa5ef7954d080d51f4e4ed7d3d7651c226f7c8c641684f94adb38f6db323daa6",
     "status": "COMPLETED_DEGRADED",
-    "started_at": "2026-08-01T09:42:40.101027+00:00",
-    "completed_at": "2026-08-01T09:43:11.312134+00:00",
+    "started_at": "2026-08-01T09:59:07.222933+00:00",
+    "completed_at": "2026-08-01T09:59:23.367813+00:00",
     "code_commit": "unknown",
     "provider": "bedrock",
     "model": "amazon.nova-lite-v1:0",
@@ -48,8 +48,8 @@
     "finalization_deadline_seconds": 672.0,
     "competition_hard_ceiling_seconds": 900.0,
     "competition_finalization_ceiling_seconds": 840.0,
-    "elapsed_seconds_at_finalization": 31.2,
-    "remaining_seconds_at_finalization": 688.8,
+    "elapsed_seconds_at_finalization": 16.1,
+    "remaining_seconds_at_finalization": 703.9,
     "reason": "within_budget",
     "follow_up_collection_skipped": false,
     "critic_skipped_for_deadline": false,
@@ -93,7 +93,7 @@
     "credibility_scoring": "credibility-v1",
     "claim_confidence_scoring": "claim-confidence-v1",
     "citation_gate": "citation-gate-v1",
-    "source_registry": "unavailable"
+    "source_registry": "source-registry-v1"
   },
   "artifact_filenames": {
     "report": "report.md",
@@ -103,42 +103,42 @@
     "claims": "claims.json",
     "manifest": "manifest.json"
   },
-  "artifact_root": "/tmp/runs/RUN-20260801T094240Z-BTC-f3d916b3",
+  "artifact_root": "/tmp/runs/RUN-20260801T095907Z-BTC-5c13147c",
   "files": [
     {
       "path": "claims.json",
-      "uri": "file:///tmp/runs/RUN-20260801T094240Z-BTC-f3d916b3/claims.json",
-      "bytes": 2375,
-      "sha256": "956e331c922705130ee30379ced2b102b3c60258c96d29f76c667d048d3c9730",
-      "written_at": "2026-08-01T09:43:11.316510+00:00"
+      "uri": "file:///tmp/runs/RUN-20260801T095907Z-BTC-5c13147c/claims.json",
+      "bytes": 2511,
+      "sha256": "abdd5f7732d9114571c853e76e18436c273fbc46f997145c5d7bc200869b2e18",
+      "written_at": "2026-08-01T09:59:23.372149+00:00"
     },
     {
       "path": "evidence.json",
-      "uri": "file:///tmp/runs/RUN-20260801T094240Z-BTC-f3d916b3/evidence.json",
-      "bytes": 65931,
-      "sha256": "fb5fc2afedef7dcfd63c995d7a114b0be1e7c9330c750652d34c197be211c831",
-      "written_at": "2026-08-01T09:43:11.315959+00:00"
+      "uri": "file:///tmp/runs/RUN-20260801T095907Z-BTC-5c13147c/evidence.json",
+      "bytes": 65304,
+      "sha256": "4fba0d89639743098932c9926b11f092fb80631c8f97d2b0ff65674bcde0f984",
+      "written_at": "2026-08-01T09:59:23.371526+00:00"
     },
     {
       "path": "execution_log.json",
-      "uri": "file:///tmp/runs/RUN-20260801T094240Z-BTC-f3d916b3/execution_log.json",
-      "bytes": 24745,
-      "sha256": "f894690dbd486c93c4168cfd53bb0ce845e4f602e614f0d04dfcb1fbebfdd83d",
-      "written_at": "2026-08-01T09:43:11.317785+00:00"
+      "uri": "file:///tmp/runs/RUN-20260801T095907Z-BTC-5c13147c/execution_log.json",
+      "bytes": 22420,
+      "sha256": "8d955cc80a40e7fceeffec247785561b78dc22c76f0b1ba15ff6e7e45f700202",
+      "written_at": "2026-08-01T09:59:23.377613+00:00"
     },
     {
       "path": "report.md",
-      "uri": "file:///tmp/runs/RUN-20260801T094240Z-BTC-f3d916b3/report.md",
-      "bytes": 16524,
-      "sha256": "5a14b50bfde7fc2628bcc92716e3449958213cf6dcc0619a21938e1a5c7fa2f5",
-      "written_at": "2026-08-01T09:43:11.312996+00:00"
+      "uri": "file:///tmp/runs/RUN-20260801T095907Z-BTC-5c13147c/report.md",
+      "bytes": 15888,
+      "sha256": "9a85bbb703c9b8cdd7bf267e961941d68f62fb554e6f4eac34cdf7d7abcfbd4a",
+      "written_at": "2026-08-01T09:59:23.368605+00:00"
     },
     {
       "path": "research_plan.json",
-      "uri": "file:///tmp/runs/RUN-20260801T094240Z-BTC-f3d916b3/research_plan.json",
-      "bytes": 1308,
-      "sha256": "6ab8c4079eee439cd1f97a87d7731b978b9f157dcd5801fc08fb0eb64f4b8c64",
-      "written_at": "2026-08-01T09:43:11.316224+00:00"
+      "uri": "file:///tmp/runs/RUN-20260801T095907Z-BTC-5c13147c/research_plan.json",
+      "bytes": 1524,
+      "sha256": "54da221de40e524072f5a4150c994451cf2e269af1c790ab7b58a27484c904ee",
+      "written_at": "2026-08-01T09:59:23.371854+00:00"
     }
   ],
   "manifest_file": "manifest.json",
@@ -160,7 +160,7 @@
       "related_claim_ids_consistent": "pass",
       "no_cross_run_citation": "pass"
     },
-    "semantic_finding_count": 10
+    "semantic_finding_count": 4
   },
   "rerun_of": null,
   "rerun_reason": null,

@@ -2,23 +2,45 @@
 
 此目錄只保留唯一一次成功的 Bedrock live smoke 六項產物；絕不放入模擬或離線輸出。
 
-## 實際結果（2026-08-01，D8）
+## 實際結果（2026-08-01）
 
 **模型路徑成功，B2 已解除。**
 
 | 項目 | 值 |
 |---|---|
-| run_id | `RUN-20260801T094240Z-BTC-f3d916b3` |
+| run_id | `RUN-20260801T095907Z-BTC-5c13147c` |
 | 執行性質 | `formal`（正式，不可覆寫） |
-| 題目 | 分析 BTC 近期市場狀況、主要驅動因素與下行風險 |
+| 題目 | 評估 BTC 當前市場狀況、關鍵驅動因素與主要下行風險 |
 | 執行環境 | AWS Lambda，us-west-2，Function URL |
 | 模型 | `amazon.nova-lite-v1:0`（botocore 1.42.97，Converse 可用） |
-| 耗時 | 31.2 秒 |
+| 耗時 | 17.4 秒 |
 | analyst | `provider=bedrock`，**status=success** |
 | critic | `provider=bedrock`，**status=success** |
-| Citation Gate | `PASS_WITH_WARNINGS`（0 error、0 warning、10 個語意 finding） |
-| manifest | 五個 SHA-256 全部相符，落地後重新驗證仍相符 |
-| run_status | `COMPLETED_DEGRADED` |
+| Citation Gate | `PASS_WITH_WARNINGS`（0 error、0 warning、4 個語意 finding） |
+| credibility | `registry_version=source-registry-v1`，`mean_final_score=0.5866` |
+| manifest | 五個 SHA-256 全部相符，落地後重新從磁碟計算仍相符 |
+| run_status | `COMPLETED_DEGRADED`（原因見下方，非模型失敗） |
+
+### 為什麼換過一次 fixture
+
+D8 最初的 live run（`RUN-20260801T094240Z-BTC-f3d916b3`）模型路徑同樣成功，但它的
+**證據可信度分數是用錯誤的基準算出來的**：當時的部署包漏了 `config/`，因此
+`src/credibility.py` 的 `load_source_registry()` 找不到 `config/source_registry.json`，
+靜默退回保守預設——所有 `source_type` 都變成 `source_quality=0.35`，高品質來源被大幅
+低估（`blockchain_raw` 0.90 → 0.35），而 `fallback_fixture` 反被高估（0.20 → 0.35）。
+
+| | 修復前 | 修復後 |
+|---|---|---|
+| `registry_version` | `unavailable` | `source-registry-v1` |
+| `mean_final_score` | 0.3898 | 0.5866 |
+
+證據筆數相同（11 筆，8 筆實質），差異純粹來自計分基準。由於
+`weighted_evidence_quality` 佔 claim confidence 公式的 30%，這會傳導到最終信心分數，
+因此舊 fixture 不適合作為展示基準，已由修復後的 run 取代。
+
+修復內容：`aws/deploy.sh` 與 `aws/deploy.ps1` 加入 `config/` 的複製，並在打包階段就
+驗證 `config/source_registry.json` 在位——不要等部署後才從 `registry_version=unavailable`
+發現，那是靜默降級，很容易被當成正常。
 
 ## 為什麼 run_status 是 COMPLETED_DEGRADED
 

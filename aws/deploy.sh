@@ -137,9 +137,23 @@ mkdir -p "$STAGE_ROOT"
 
 # 只複製 Lambda 執行時真正需要的東西。tests/、docs/、demo-fixtures/、outputs-*/、
 # .kiro/ 與 .env 一律不進部署包：前者是體積，後者是憑證外洩風險。
+#
+# config/ 是必要的，不是可選的：src/credibility.py 的 DEFAULT_REGISTRY_PATH 指向
+# config/source_registry.json，缺少它時 load_source_registry() 會靜默退回保守預設
+# （所有 source_type 都變成 source_quality=0.35），因此高品質來源被大幅低估
+# （blockchain_raw 0.90 -> 0.35）而 fallback fixture 反被高估（0.20 -> 0.35）。
+# 這會經由 weighted_evidence_quality（佔 claim confidence 30%）傳導到最終信心分數，
+# 使雲端與本機對同一批證據算出不同結果。
 cp lambda_handler.py "$STAGE_ROOT/"
 cp -R src "$STAGE_ROOT/"
 [ -d data ] && cp -R data "$STAGE_ROOT/"
+[ -d config ] && cp -R config "$STAGE_ROOT/"
+
+# 打包前就確認關鍵設定檔在位，不要等部署後才從 execution_log 的
+# registry_version=unavailable 發現——那是靜默降級，很容易被當成正常。
+if [ -f config/source_registry.json ] && [ ! -f "$STAGE_ROOT/config/source_registry.json" ]; then
+  die "config/source_registry.json 未進入部署包；credibility 計分會退回保守預設"
+fi
 
 find "$STAGE_ROOT" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null
 find "$STAGE_ROOT" -name '*.pyc' -delete 2>/dev/null

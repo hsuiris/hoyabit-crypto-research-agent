@@ -23,6 +23,13 @@ New-Item -ItemType Directory -Path $StageRoot | Out-Null
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "lambda_handler.py") -Destination $StageRoot
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "src") -Destination $StageRoot -Recurse
 if (Test-Path -LiteralPath (Join-Path $ProjectRoot "data")) { Copy-Item -LiteralPath (Join-Path $ProjectRoot "data") -Destination $StageRoot -Recurse }
+# config/ 是必要的：src/credibility.py 需要 config/source_registry.json，缺少它會靜默
+# 退回保守預設，使雲端與本機對同一批證據算出不同的可信度分數。
+if (Test-Path -LiteralPath (Join-Path $ProjectRoot "config")) { Copy-Item -LiteralPath (Join-Path $ProjectRoot "config") -Destination $StageRoot -Recurse }
+if ((Test-Path -LiteralPath (Join-Path $ProjectRoot "config/source_registry.json")) -and
+    -not (Test-Path -LiteralPath (Join-Path $StageRoot "config/source_registry.json"))) {
+    throw "config/source_registry.json 未進入部署包；credibility 計分會退回保守預設"
+}
 Get-ChildItem -LiteralPath $StageRoot -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
 Compress-Archive -Path (Join-Path $StageRoot "*") -DestinationPath $ZipPath
 

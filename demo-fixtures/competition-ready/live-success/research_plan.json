@@ -5,11 +5,10 @@
   "task_modes": [
     "describe_market_state",
     "test_hypothesis",
-    "explain_driver",
     "identify_risks",
     "identify_attention_conditions"
   ],
-  "primary_question": "分析 BTC 近期市場狀況、主要驅動因素與下行風險",
+  "primary_question": "評估 BTC 當前市場狀況、關鍵驅動因素與主要下行風險",
   "time_window": {
     "days": 14,
     "source": "default"
@@ -17,30 +16,33 @@
   "hypotheses": [
     {
       "hypothesis_id": "hyp_1",
-      "statement": "BTC 的價格下跌主要是由於市場恐慌情緒",
+      "statement": "BTC 的價格將在未來兩週內繼續上漲",
       "support_questions": [
-        "最近的市場恐慌情緒如何影響 BTC 的價格？",
-        "是否有其他因素導致市場恐慌情緒？"
+        "BTC 的交易量在過去一週內有無顯著增加？",
+        "BTC 的價格是否受到了任何積極的新聞或事件的推動？",
+        "BTC 的技術分析指標（如移動平均線、RSI）是否顯示出看漲趨勢？"
       ],
       "contradiction_questions": [
-        "BTC 的價格下跌是否與市場恐慌情緒無關？",
-        "是否有其他因素導致 BTC 的價格下跌？"
+        "BTC 的交易量在過去一週內有無顯著下降？",
+        "BTC 是否受到了任何消極的新聞或事件的影響？",
+        "BTC 的技術分析指標是否顯示出看跌趨勢？"
       ],
       "falsification_conditions": [
-        "市場恐慌情緒消退但 BTC 價格仍持續下跌",
-        "BTC 價格下跌與市場恐慌情緒無關聯"
+        "BTC 的價格在未來兩週內持續下跌",
+        "BTC 的交易量顯著下降",
+        "BTC 受到了重大的負面新聞或事件影響"
       ]
     }
   ],
   "required_domains": [
     "market_data",
     "news_events",
-    "social_sentiment",
-    "economic_indicators"
+    "technical_analysis",
+    "trading_volume"
   ],
   "comparison_dimensions": [],
   "assumptions": [
-    "市場恐慌情緒與 BTC 價格下跌之間存在因果關係"
+    "市場數據和技術分析指標將基於過去14天的數據進行評估"
   ],
   "stop_conditions": {
     "max_evidence": 10,
