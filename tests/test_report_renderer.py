@@ -141,7 +141,7 @@ _EXPECTED_HEADER_ORDER = [
     "## 判斷 1：",
     "## 假設檢驗",
     "## 稽核（Critic）",
-    "## Evidence Sources",
+    "## 證據來源",
     "## 免責聲明",
 ]
 
@@ -160,7 +160,7 @@ class RenderReportStructureTests(unittest.TestCase):
 
     def test_full_input_starts_with_h1_title(self):
         markdown = render_report(make_full_input())
-        self.assertTrue(markdown.startswith("# ETH Market Research"))
+        self.assertTrue(markdown.startswith("# ETH 市場研究報告"))
 
     def test_full_input_cites_evidence_with_footnote_numbers(self):
         markdown = render_report(make_full_input())
@@ -213,7 +213,7 @@ class RenderReportComparisonTests(unittest.TestCase):
         data["plan"]["task_modes"] = ["compare_assets"]
         data["plan"]["comparison_dimensions"] = ["price_performance", "volatility"]
         markdown = render_report(data)
-        self.assertIn("# ETH vs BTC Market Research", markdown)
+        self.assertIn("# ETH vs BTC 市場研究報告", markdown)
         self.assertIn("price_performance", markdown)
 
 
@@ -281,7 +281,7 @@ class RenderReportRejectedEvidenceTests(unittest.TestCase):
         data["claims_document"]["claims"][0]["supporting_evidence_ids"].append("EV-REJECTED")
         markdown = render_report(data)
 
-        self.assertNotIn("EV-REJECTED", markdown.split("## Evidence Sources", 1)[1].split("## 免責聲明")[0])
+        self.assertNotIn("EV-REJECTED", markdown.split("## 證據來源", 1)[1].split("## 免責聲明")[0])
         claim_section = markdown.split("## 判斷 1：", 1)[1].split("## 假設檢驗", 1)[0]
         self.assertNotIn("EV-REJECTED", claim_section)
 
@@ -315,7 +315,7 @@ class RenderReportLegacyFixtureTests(unittest.TestCase):
         except Exception as error:  # noqa: BLE001
             self.fail("render_report raised on legacy fixture: %r" % error)
         self.assertIn("EV-LEGACY-001[#1]", markdown)
-        self.assertIn("EV-LEGACY-001", markdown.split("## Evidence Sources", 1)[1])
+        self.assertIn("EV-LEGACY-001", markdown.split("## 證據來源", 1)[1])
 
     def test_legacy_claim_without_confidence_field_renders(self):
         legacy_claim = {

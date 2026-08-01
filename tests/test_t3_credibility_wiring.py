@@ -322,7 +322,7 @@ class OrchestratorWiringTest(unittest.TestCase):
                 self.assertIn("scored_at", breakdown)
 
             report = (output / "report.md").read_text(encoding="utf-8")
-            sources_section = report.split("## Evidence Sources", 1)[1]
+            sources_section = report.split("## 證據來源", 1)[1]
             self.assertIn("原始", sources_section)
             self.assertIn("分量 source_quality=", sources_section)
             self.assertIn("類別 fallback_fixture", sources_section)
@@ -331,7 +331,7 @@ class OrchestratorWiringTest(unittest.TestCase):
             self.assertEqual(result["credibility"]["evidence_count"], len(records))
 
             # 離線執行的證據全是 fixture，報告必須自己講出這件事。
-            limitations = report.split("## Risks and Limitations", 1)[1]
+            limitations = report.split("## 風險與限制", 1)[1]
             self.assertIn("離線 fixture 或降級來源", limitations)
             self.assertIn("不足以支撐方向性結論", limitations)
 

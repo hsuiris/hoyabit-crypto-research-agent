@@ -39,9 +39,20 @@ class RealInputUpgradeTest(unittest.TestCase):
 
     def test_llm_prompt_requires_reasoning_and_citations(self):
         prompt = build_prompt("ETH", "分析市場狀況", [item.__dict__ for item in mock_evidence("ETH")])
-        self.assertIn("Separate facts from inferences and conclusion", prompt)
+        # 三層分離仍是硬要求，只是敘述改成繁體中文（報告讀者是中文使用者）。
+        self.assertIn("facts 只寫資料直接顯示的觀察", prompt)
+        self.assertIn("解釋寫在 inferences", prompt)
+        self.assertIn("對研究問題的回答寫在 conclusion", prompt)
+        self.assertIn("繁體中文", prompt)
         self.assertIn("evidence", prompt)
         self.assertIn("cited_evidence_ids", json.dumps(ANALYSIS_SCHEMA))
+
+    def test_llm_prompt_constrains_judgment_and_observations(self):
+        """題目沒問就不要預測價格；觀察重點不得只是把 facts 再列一次。"""
+        prompt = build_prompt("ETH", "分析市場狀況", [item.__dict__ for item in mock_evidence("ETH")])
+        self.assertIn("都必須直接回答上面的 question", prompt)
+        self.assertIn("不要在題目沒有要求時給出價格預測", prompt)
+        self.assertIn("不要把 facts 的內容或主語再列一次", prompt)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T8.2
-last_updated_at: 2026-08-01T22:30:00+08:00
+current_task: T8.3
+last_updated_at: 2026-08-01T23:45:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 614 tests, 614 passed, 0 failed, 0 errors
+full_suite_latest: 622 tests, 622 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -595,4 +595,98 @@ tasks:
         只補診斷資訊，沒有降低降級發生率。雲端那次 critic_fallback:ValueError 的真正原因
         仍未知（舊部署不會記錄細節）；修正部署後的下一次 live run 才會顯示是哪個 guard
       - critic 細節只進 Execution Log，report.md 仍只顯示 critic_status（避免把原始錯誤訊息放進主要評分對象）
+      - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
+
+  T8.3:
+    title: Traditional Chinese output, question-anchored claims and one-click artifact download
+    status: PASS
+    depends_on: [T8.2]
+    target_minutes: 90
+    started_at: 2026-08-01T22:40:00+08:00
+    completed_at: 2026-08-01T23:45:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "feat(T8.3)"`。
+    commit: 'feat(T8.3): render reports in Traditional Chinese and add artifact download'
+    note: >-
+      原始 T0-T8 計畫沒有這個 Task，由使用者指派。四件事：報告與前端語言統一為繁體中文、
+      Claim 必須貼緊題目、後續觀察重點不得複製事實、前端提供三份提交物的一鍵下載。
+      不改任何計分規則、不改 verdict、不改 Evidence 內容、不改報告段落順序。
+    root_cause: >-
+      (1) 語言混雜：`src/llm.py` 的 `build_prompt()` 開頭全英文且沒有輸出語言約束，
+          nova-lite 因此回英文 facts／inferences／conclusion，與中文段落標題並存。
+          `_CRITIC_PROMPT` 與 `_CLAIM_PROMPT` 原本已要求繁體中文，但分析輸出是英文時
+          Critic 會跟著用英文。報告本身也有 14 個英文段落標題。
+      (2) Claim 不貼題：`_CLAIM_PROMPT` 沒有規定 statement 必須回答 question。實測
+          題目問「現況、驅動因素與風險」，模型回的 CL-001 是「BTC 價格將在未來兩週繼續上漲」
+          —— 一個題目沒有要求的價格預測。
+      (3) 後續觀察重點複製事實：`observation_points` 在 prompt 裡沒有任何說明，模型直接
+          把 facts 的主語搬過來（「BTC's 14-day market return」對上 fact
+          「BTC 14-day market return was -1.49%」），該段對讀者沒有增量資訊。
+      (4) 下載：`/artifact` 只能在分頁裡「檢視」，沒有 Content-Disposition，也沒有打包，
+          評審要拿三份文件得逐檔右鍵另存。
+    fix: >-
+      1. src/llm.py `build_prompt()` 全面改繁體中文，明確要求「所有文字欄位一律使用繁體中文」
+         （幣種代號、指標名稱、Evidence ID 保留原文），並加上 market_judgment／conclusion
+         必須直接回答 question、題目沒要求時不得預測價格、observation_points 必須前瞻且
+         不得複製 facts。
+      2. src/claim_graph.py `_CLAIM_PROMPT` 加入 statement 貼題規則：題目問什麼就答什麼，
+         不可改寫成價格預測；多子問題拆成多個 Claim；只有題目要求驗證看法時才用該看法。
+      3. src/orchestrator.py 抽出 `_observation_points(evidence, signals)`，並新增
+         `_forward_looking_observations()`：以 2-gram 重疊 >= 0.90 且不長於該 fact 判定
+         「只是複述」，全部被濾掉才退回 deterministic 版本。過濾結果寫入 execution_log 的
+         `llm_reasoning.observation_points_source`（model／model_filtered／deterministic_fallback）。
+      4. src/report_renderer.py 14 個英文段落標題改繁體中文；Fact／Inference／Conclusion／
+         Claim／Citation Gate 保留英文括註（命題以三層分離為評分主軸，讓評審對得上用語）。
+         段落順序完全不變。免責聲明改中文。
+      5. src/app.py 介面文字繁中化（研究計畫、任務類型、支持證據、反方證據、推翻條件、
+         信心分量、證據可追溯性、執行紀錄、來源類別、內容依據……）；`sec-sub` 的小字英文
+         副標刻意保留為輔助標籤。
+      6. src/app.py 新增 `/download` 端點與 `build_artifact_zip()`：scope=required 打包命題
+         要求的三份（report.md／evidence.json／execution_log.json），scope=all 打包六項並
+         含比較執行的兩腳子目錄；`/artifact` 新增 `download=1` 加 Content-Disposition。
+         結果頁新增「下載三份提交物（ZIP）」「下載全部產出（ZIP）」按鈕與逐檔檢視／下載表格。
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_t6_web_demo → 14 tests OK（新增
+      ArtifactDownloadTests 6 個與 test_page_does_not_leave_english_section_labels）。
+      完整套件：python3 -m unittest discover -s tests → 622 tests, 622 passed, 0 failed
+      （T8.2 後為 614）。因語言變更同步更新 8 個測試檔的段落標題斷言，未放寬任何檢查。
+      五幣 offline E2E：BTC／ETH／SOL／BNB／XRP 各六檔齊備、Citation Gate 皆 PASS、
+      報告 20 個段落全部以中文開頭（英文開頭段落數為 0）、段落順序與修改前一致。
+      Web smoke（port 8123，避開既有 8000 process）：GET / 200；POST（live=false）200；
+      /download?scope=required → HTTP 200、Content-Type: application/zip、
+      Content-Disposition 帶 filename 與 filename*=UTF-8''、ZIP 內容恰為三份、CRC 驗證 OK、
+      report.md 開頭為「# ETH 市場研究報告」；/download?scope=all → 六項齊備；
+      /artifact?path=report.md&download=1 → 帶 attachment；不帶 download 參數則無該標頭。
+      安全性：scope=evil → 400；run=../.. → 404；path=../../.env → 404；
+      `_checkpoint.json` 與非白名單檔案不會被打包（有對應測試）。
+    artifacts:
+      - src/llm.py
+      - src/claim_graph.py
+      - src/orchestrator.py
+      - src/report_renderer.py
+      - src/app.py
+      - tests/test_t6_web_demo.py
+      - tests/test_real_inputs.py
+      - tests/test_day5_quality.py
+      - tests/test_t5_citation_gate.py
+      - tests/test_report_renderer.py
+      - tests/test_day8_stance_history_tvl.py
+      - tests/test_day9_pipeline.py
+      - tests/test_t2_planner_wiring.py
+      - tests/test_t3_credibility_wiring.py
+      - tests/test_t4_claim_graph_wiring.py
+      - tests/test_t7_formal_run.py
+    blockers: []
+    known_limitations:
+      - >-
+        語言與貼題是 prompt 層約束，無法百分之百保證模型遵守。實際效果需在部署後的
+        live run 驗證；離線 deterministic 路徑本來就全是繁體中文，不受影響
+      - >-
+        觀察重點的複述判定是字元 2-gram 啟發式。模型若用完全不同的措辭重述同一條事實
+        不會被抓到；反之極短的合法觀察重點也可能被誤判並退回 deterministic 版本
+        （退路品質可接受，且 execution_log 會標明 source）
+      - >-
+        `demo-fixtures/competition-ready/` 內的既有 fixture 仍是舊的英文標題版本（含
+        live-success）。那是歷史執行紀錄，刻意不改寫；現場展示若要中文版需重新產生
+      - ZIP 在記憶體組出（Lambda /tmp 空間有限）；單次回應大小受 Function URL 6 MB buffered 上限約束
       - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）

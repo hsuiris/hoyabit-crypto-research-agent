@@ -645,7 +645,7 @@ class CriticFailureStillProducesOutputTests(unittest.TestCase):
             # 報告必須自己說出語意稽核沒跑，而不是安靜地少一段。
             self.assertIn("語意稽核未執行", report)
             self.assertIn("fallback:TimeoutError", report)
-            self.assertIn("## Citation Gate", report)
+            self.assertIn("## 引用檢核（Citation Gate）", report)
 
     def test_gate_failure_on_a_model_graph_degrades_instead_of_raising(self):
         """模型提案過不了 gate 時，整批作廢改用 deterministic 圖，而不是照樣發佈或直接中止。"""
@@ -785,16 +785,16 @@ class DeterministicReportTests(unittest.TestCase):
 
     def test_missing_sections_degrade_instead_of_raising(self):
         markdown = render_competition_report({})
-        self.assertIn("# 未指定標的 Market Research", markdown)
+        self.assertIn("# 未指定標的 市場研究報告", markdown)
         self.assertIn("N/A", markdown)
 
     def test_section_order_is_fixed(self):
         markdown = render_competition_report(self.payload())
-        expected = ["## Question", "## 分析標的與題目", "## 資料截止與分析區間", "## Stance",
-                    "## Market Judgment", "## 關鍵依據", "## Facts", "## Inferences",
-                    "## Conclusion", "## Claims", "## 跨來源一致程度", "## Critic Review",
-                    "## Citation Gate", "## Confidence", "## Indicators", "## Counter Evidence",
-                    "## Evidence Sources", "## Next Observations", "## Risks and Limitations",
+        expected = ["## 研究問題", "## 分析標的與題目", "## 資料截止與分析區間", "## 立場",
+                    "## 市場判斷", "## 關鍵依據", "## 事實（Fact）", "## 推論（Inference）",
+                    "## 結論（Conclusion）", "## 主張（Claim）", "## 跨來源一致程度", "## 稽核（Critic）",
+                    "## 引用檢核（Citation Gate）", "## 信心", "## 指標", "## 反方證據",
+                    "## 證據來源", "## 後續觀察重點", "## 風險與限制",
                     "## 可能推翻結論的條件"]
         positions = [markdown.index(heading) for heading in expected]
         self.assertEqual(positions, sorted(positions))
@@ -805,11 +805,11 @@ class DeterministicReportTests(unittest.TestCase):
             run("ETH", "T5 報告內容", output, live=False, use_llm=False)
             report = (output / "report.md").read_text(encoding="utf-8")
 
-        for required in ("## 分析標的與題目", "## 資料截止與分析區間", "## Stance", "## 關鍵依據",
-                         "## Claims", "- 事實：", "- 推論：", "- 結論：", "- 支持證據：",
-                         "- 反方證據：", "## 跨來源一致程度", "- 信心分量：", "## Evidence Sources",
-                         "## Risks and Limitations", "## 可能推翻結論的條件", "## Next Observations",
-                         "not investment advice"):
+        for required in ("## 分析標的與題目", "## 資料截止與分析區間", "## 立場", "## 關鍵依據",
+                         "## 主張（Claim）", "- 事實：", "- 推論：", "- 結論：", "- 支持證據：",
+                         "- 反方證據：", "## 跨來源一致程度", "- 信心分量：", "## 證據來源",
+                         "## 風險與限制", "## 可能推翻結論的條件", "## 後續觀察重點",
+                         "非投資建議"):
             self.assertIn(required, report, required)
 
     def test_rejected_evidence_is_excluded_from_the_numbered_citations(self):

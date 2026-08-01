@@ -17,10 +17,10 @@ class Day5QualityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             run("ETH", "What moved ETH?", Path(directory))
             report = (Path(directory) / "report.md").read_text(encoding="utf-8")
-            self.assertIn("Evidence Sources", report)
+            self.assertIn("證據來源", report)
             self.assertIn("https://example.com/market", report)
-            self.assertIn("Risks and Limitations", report)
-            self.assertIn("not investment advice", report)
+            self.assertIn("風險與限制", report)
+            self.assertIn("非投資建議", report)
 
 
 if __name__ == "__main__":

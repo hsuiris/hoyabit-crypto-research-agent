@@ -165,7 +165,7 @@ def _render_header(run_info: dict, plan_info: dict) -> str:
     coin_label = _coin_label(run_info, plan_info)
     question = _text(run_info.get("question") or plan_info.get("primary_question"))
     lines = [
-        "# %s Market Research" % coin_label,
+        "# %s 市場研究報告" % coin_label,
         "",
         "## 分析標的與題目",
         "- 標的：%s" % coin_label,
@@ -202,7 +202,7 @@ def _render_plan_summary(plan_info: dict) -> str:
 
     task_modes = _list(plan_info.get("task_modes"))
     mode_labels = [_TASK_MODE_LABELS.get(mode, mode) for mode in task_modes if str(mode or "").strip()]
-    lines.append("- Task modes：%s" % ("、".join(mode_labels) if mode_labels else _NO_DATA))
+    lines.append("- 任務類型：%s" % ("、".join(mode_labels) if mode_labels else _NO_DATA))
 
     required_domains = [str(item) for item in _list(plan_info.get("required_domains")) if str(item or "").strip()]
     lines.append("- 必要資料領域：%s" % ("、".join(required_domains) if required_domains else _NO_DATA))
@@ -445,7 +445,7 @@ def _render_critique(critique) -> str:
 # --------------------------------------------------------------------------------------
 
 def _render_evidence_sources(ordered_evidence: list) -> str:
-    lines = ["## Evidence Sources"]
+    lines = ["## 證據來源"]
     if not ordered_evidence:
         lines.append(_NO_DATA)
         return "\n".join(lines)
@@ -543,7 +543,9 @@ _VERIFICATION_STATUS_LABELS = {
     "rejected": "已排除", "unavailable": "取不到（降級）", "fallback": "離線 fixture",
 }
 
-_COMPETITION_DISCLAIMER = "_This is research support, not investment advice._"
+_COMPETITION_DISCLAIMER = (
+    "_本報告為研究支援，非投資建議；不構成買賣訊號，也不對未來市場表現做出保證。_"
+)
 
 
 def evidence_source_line(record: dict, number: int | None = None) -> str:
@@ -630,7 +632,7 @@ def render_claims_section(graph: dict, confidence_weights) -> str:
             "信心是 heuristic evidence score，不是市場正確機率。_"
             % _text(graph.get("scoring_version"), "unknown"))
     body = "\n\n".join(blocks) if blocks else _NO_DATA
-    return "\n## Claims\n" + body + "\n\n" + note + "\n"
+    return "\n## 主張（Claim）\n" + body + "\n\n" + note + "\n"
 
 
 def _render_scope(run_info: dict, plan_info: dict, evidence_window: dict) -> str:
@@ -709,7 +711,7 @@ def _render_consistency(consistency: dict) -> str:
 
 def _render_competition_critique(critique, critic_status, semantic_findings) -> str:
     """稽核段：語意稽核可能不存在（離線、逾時、無配額），此時必須明說並改用保守呈現。"""
-    lines = ["## Critic Review"]
+    lines = ["## 稽核（Critic）"]
     critique = _dict(critique)
     if critique:
         verdict = _text(critique.get("verdict"), "")
@@ -755,7 +757,7 @@ def _render_competition_critique(critique, critic_status, semantic_findings) -> 
 def _render_citation_gate(gate: dict) -> str:
     """Citation Gate 的結果本身就是提交物的一部分：讀者要能看到哪一條規則被檢查過。"""
     gate = _dict(gate)
-    lines = ["## Citation Gate"]
+    lines = ["## 引用檢核（Citation Gate）"]
     if not gate:
         lines.append(_NO_DATA)
         return "\n".join(lines)
@@ -810,18 +812,18 @@ def render_competition_report(data: dict) -> str:
     question = _text(run_info.get("question") or plan_info.get("primary_question"))
 
     sections = [
-        "# %s Market Research" % coin_label,
-        "## Question\n%s" % question,
+        "# %s 市場研究報告" % coin_label,
+        "## 研究問題\n%s" % question,
         "\n".join([
             "## 分析標的與題目",
             "- 分析標的：%s" % coin_label,
             "- 研究問題：%s" % question,
-            "- Task modes：%s" % ("、".join(
+            "- 任務類型：%s" % ("、".join(
                 str(mode) for mode in _list(plan_info.get("task_modes"))) or _NO_DATA),
         ]),
         _render_scope(run_info, plan_info, _dict(data.get("evidence_window"))),
         "\n".join([
-            "## Stance",
+            "## 立場",
             "**%s（%s）**　信心 %s" % (
                 _text(stance.get("label"), _STANCE_FALLBACK_LABEL),
                 _text(stance.get("label_en"), "Unknown"),
@@ -833,13 +835,13 @@ def render_competition_report(data: dict) -> str:
                 _text(stance.get("signal_count"))),
         ] + ["- 主要推力：%s（%s）" % (_dict(driver).get("text"), _dict(driver).get("evidence_id"))
              for driver in _list(stance.get("drivers"))]),
-        "## Market Judgment\n%s" % _text(reasoning.get("market_judgment"), _NO_DATA),
+        "## 市場判斷\n%s" % _text(reasoning.get("market_judgment"), _NO_DATA),
     ]
 
     history = _dict(data.get("history"))
     if history:
         windows = _dict(_dict(history.get("content")).get("windows"))
-        rows = ["## Long-horizon Context"]
+        rows = ["## 長期價格脈絡"]
         for label, window in windows.items():
             window = _dict(window)
             rows.append("- %s（%s → %s）: 報酬 %s%%／年化波動 %s%%／最大回撤 %s%%"
@@ -856,20 +858,22 @@ def render_competition_report(data: dict) -> str:
 
     sections.extend([
         _render_key_basis(stance, data.get("consistency")),
-        "## Facts\n%s" % _bullets(reasoning.get("facts")),
-        "## Inferences\n%s" % _bullets(reasoning.get("inferences")),
-        "## Conclusion\n%s" % _text(reasoning.get("conclusion"), _NO_DATA),
+        # 三層標題保留英文括註：命題以「事實 → 推論 → 結論」為評分主軸，
+        # 讓評審一眼對得上 Fact／Inference／Conclusion。
+        "## 事實（Fact）\n%s" % _bullets(reasoning.get("facts")),
+        "## 推論（Inference）\n%s" % _bullets(reasoning.get("inferences")),
+        "## 結論（Conclusion）\n%s" % _text(reasoning.get("conclusion"), _NO_DATA),
         render_claims_section(graph, confidence_weights).strip("\n"),
         _render_consistency(data.get("consistency")),
         _render_competition_critique(data.get("critique"), data.get("critic_status"),
                                      gate.get("semantic_findings")),
         _render_citation_gate(gate),
-        "## Confidence\n%s" % _text(_round(reasoning.get("confidence"))),
-        "## Indicators\n%s" % _render_indicators(data.get("indicators")),
-        "## Counter Evidence\n%s" % _bullets(reasoning.get("counter_evidence")),
-        "## Evidence Sources\n%s" % _render_competition_sources(evidence),
-        "## Next Observations\n%s" % _bullets(reasoning.get("observation_points")),
-        "## Risks and Limitations\n%s" % _bullets(data.get("risk_factors")),
+        "## 信心\n%s" % _text(_round(reasoning.get("confidence"))),
+        "## 指標\n%s" % _render_indicators(data.get("indicators")),
+        "## 反方證據\n%s" % _bullets(reasoning.get("counter_evidence")),
+        "## 證據來源\n%s" % _render_competition_sources(evidence),
+        "## 後續觀察重點\n%s" % _bullets(reasoning.get("observation_points")),
+        "## 風險與限制\n%s" % _bullets(data.get("risk_factors")),
         _render_invalidation(graph),
         _COMPETITION_DISCLAIMER,
     ])

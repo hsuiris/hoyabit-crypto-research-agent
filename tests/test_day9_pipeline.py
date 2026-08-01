@@ -52,7 +52,7 @@ class PhaseBudgetTest(unittest.TestCase):
             steps = json.loads((output / "execution_log.json").read_text(encoding="utf-8"))["steps"]
             critic = next(step for step in steps if step["name"] == "critic_review")
             self.assertEqual(critic["status"], "skipped:disabled")
-            self.assertIn("## Conclusion", (output / "report.md").read_text(encoding="utf-8"))
+            self.assertIn("## 結論（Conclusion）", (output / "report.md").read_text(encoding="utf-8"))
 
 
 class ParallelCollectionTest(unittest.TestCase):
@@ -184,7 +184,7 @@ class CriticTest(unittest.TestCase):
                 critique["adjusted_confidence"], max(0.0, critique["original_confidence"] - 0.2), places=4
             )
             self.assertEqual(result["reasoning"]["confidence"], critique["adjusted_confidence"])
-            self.assertIn("## Critic Review", (output / "report.md").read_text(encoding="utf-8"))
+            self.assertIn("## 稽核（Critic）", (output / "report.md").read_text(encoding="utf-8"))
 
     def test_critic_failure_degrades_without_breaking_the_run(self):
         with patch.object(orchestrator, "analyze_with_llm", side_effect=RuntimeError("skip llm")), \

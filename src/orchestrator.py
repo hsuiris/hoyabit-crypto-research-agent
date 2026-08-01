@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -334,6 +335,92 @@ def _dynamic_risk_factors(result: dict, evidence: list, signals: list[dict]) -> 
     return risks
 
 
+def _observation_points(evidence: list, signals: list[dict]) -> list[str]:
+    """後續觀察重點：每一條都要指向「接下來要看什麼、看到什麼算是改變判斷」。
+
+    刻意不是把已知事實再列一次 —— 那對讀者沒有增量資訊。這裡產生的是前瞻性追蹤項目，
+    同時也作為 LLM 路徑的替代來源（見 `_forward_looking_observations()`）。
+
+    方向用的是與 `_offline_reasoning` 相同的原始權重比較（不是 `_market_stance()` 的
+    門檻判定）：這裡只需要知道「淨訊號偏哪一側」來決定要追蹤什麼，不是在下立場結論。
+    """
+    bull_weight = sum(item["weight"] for item in signals if item["side"] == "bull")
+    bear_weight = sum(item["weight"] for item in signals if item["side"] == "bear")
+    if bull_weight > bear_weight:
+        net_side = "bull"
+    elif bear_weight > bull_weight:
+        net_side = "bear"
+    else:
+        net_side = "neutral"
+    opposing_side = "bear" if net_side == "bull" else "bull" if net_side == "bear" else None
+    opposing = [item for item in signals if opposing_side and item["side"] == opposing_side]
+
+    points = []
+    if opposing:
+        points.append(f"優先追蹤反向訊號是否強化：{opposing[0]['text']}（{opposing[0]['evidence_id']}）。")
+    if net_side != "neutral":
+        points.append(f"確認下一個 24 小時價格與成交量是否延續{'偏多' if net_side == 'bull' else '偏空'}方向，否則視為假突破。")
+    macro_item = next((item for item in evidence if item.data_type == "macro"), None)
+    if macro_item and macro_item.content.get("fear_greed_value") is not None:
+        points.append(f"追蹤全市場恐懼貪婪指數是否脫離目前的 {macro_item.content.get('fear_greed_value')} 區間，總體風險偏好轉向會同步改變個別幣種的訊號解讀。")
+    points.append("追蹤官方公告與鏈上活躍度是否與價格方向同步，若背離則優先相信鏈上與官方事件。")
+    return points
+
+
+# 觀察重點與某條 fact 的 2-gram 重疊比例達到這個門檻，就視為只是把該 fact 再說一次。
+_OBSERVATION_RESTATEMENT_THRESHOLD = 0.90
+
+
+def _normalise_for_overlap(text: str) -> str:
+    """比對用的正規化：移除 Evidence ID、標點與空白，只留英數與中日韓文字。"""
+    without_ids = re.sub(r"\bEV-[A-Z0-9-]+\b", "", str(text))
+    return re.sub(r"[^0-9a-z\u3400-\u9fff]", "", without_ids.lower())
+
+
+def _bigrams(text: str) -> set:
+    return {text[index:index + 2] for index in range(len(text) - 1)}
+
+
+def _restates_a_fact(point: str, facts: list[str]) -> bool:
+    """這條觀察重點是不是只把某條 fact 再說一次。
+
+    比 fact 更長的敘述一律不算複述 —— 多出來的字就是它補充的內容。只有「比 fact 短、
+    而且幾乎全部字元都來自那條 fact」才會被判定為沒有增量資訊。
+    """
+    normalised = _normalise_for_overlap(point)
+    if not normalised:
+        return True
+    grams = _bigrams(normalised)
+    if not grams:
+        return True
+    for fact in facts:
+        fact_normalised = _normalise_for_overlap(fact)
+        if len(normalised) > len(fact_normalised):
+            continue
+        overlap = len(grams & _bigrams(fact_normalised)) / len(grams)
+        if overlap >= _OBSERVATION_RESTATEMENT_THRESHOLD:
+            return True
+    return False
+
+
+def _forward_looking_observations(reasoning: dict, fallback_points: list[str]) -> tuple[list[str], str]:
+    """濾掉只是複述 fact 的觀察重點；全部被濾掉時改用 deterministic 版本。
+
+    「後續觀察重點」的用途是告訴讀者接下來要看什麼。實測 nova-lite 會直接把 facts 的主語
+    搬過來（「BTC's 14-day market return」對上 fact「BTC 14-day market return was -1.49%」），
+    這種段落對讀者沒有任何增量資訊。過濾是 deterministic 的，不動模型的其他欄位。
+
+    回傳 `(points, source)`；`source` 寫進 Execution Log，讓讀者知道這一段是模型寫的、
+    被過濾過的，還是整段改用規則產生的。
+    """
+    facts = [str(item) for item in (reasoning.get("facts") or [])]
+    points = [str(item).strip() for item in (reasoning.get("observation_points") or []) if str(item).strip()]
+    kept = [point for point in points if not _restates_a_fact(point, facts)]
+    if kept:
+        return kept, "model" if len(kept) == len(points) else "model_filtered"
+    return list(fallback_points), "deterministic_fallback"
+
+
 def _offline_reasoning(result: dict, evidence: list, reason: str = "LLM disabled") -> dict:
     vegas = next((item for item in evidence if item.data_type == "vegas_channel"), None)
     tf_4h = vegas.content.get("4h") if vegas else None
@@ -476,15 +563,7 @@ def _offline_reasoning(result: dict, evidence: list, reason: str = "LLM disabled
             counter_evidence.append(f"資料品質｜{entry.split(':')[0]} 來源未取得即時資料（{entry}），該面向缺乏反證能力。")
     counter_evidence.append(f"推理模式｜{reason}，本結論由規則式訊號加總產生，未經 LLM 語意推理交叉檢驗。")
 
-    observation_points = []
-    if opposing:
-        observation_points.append(f"優先追蹤反向訊號是否強化：{opposing[0]['text']}（{opposing[0]['evidence_id']}）。")
-    if net_side != "neutral":
-        observation_points.append(f"確認下一個 24 小時價格與成交量是否延續{'偏多' if net_side == 'bull' else '偏空'}方向，否則視為假突破。")
-    macro_item = next((item for item in evidence if item.data_type == "macro"), None)
-    if macro_item and macro_item.content.get("fear_greed_value") is not None:
-        observation_points.append(f"追蹤全市場恐懼貪婪指數是否脫離目前的 {macro_item.content.get('fear_greed_value')} 區間，總體風險偏好轉向會同步改變個別幣種的訊號解讀。")
-    observation_points.append("追蹤官方公告與鏈上活躍度是否與價格方向同步，若背離則優先相信鏈上與官方事件。")
+    observation_points = _observation_points(evidence, signals)
 
     return {
         "market_judgment": judgment,
@@ -1264,6 +1343,8 @@ def _run_pipeline(coin: str, question: str, output_dir: Path, live: bool = False
     result["risk_factors"] = _dynamic_risk_factors(result, evidence, signals) + _credibility_risk_factors(credibility)
     timeline.start("llm_reasoning")
     llm_status = "offline_fallback"
+    # 離線推理的觀察重點本來就是規則產生的；只有走模型路徑時這個值才會變。
+    observation_source = "deterministic_fallback"
     llm_info = llm_runtime_info()
     llm_seconds_remaining = round(reasoning_deadline - time.monotonic(), 1)
     reasoning_decision = deadline_now()
@@ -1291,6 +1372,10 @@ def _run_pipeline(coin: str, question: str, output_dir: Path, live: bool = False
             unknown = set(llm_result.get("cited_evidence_ids", [])) - set(result["evidence_ids"])
             if unknown:
                 raise ValueError(f"LLM cited unknown evidence IDs: {sorted(unknown)}")
+            # 「後續觀察重點」必須是前瞻項目。模型有時只把 facts 的主語搬過來，那一段就
+            # 變成事實的重複清單；過濾是 deterministic 的，全部被濾掉才改用規則版本。
+            llm_result["observation_points"], observation_source = _forward_looking_observations(
+                llm_result, _observation_points(evidence, signals))
             result["reasoning"] = llm_result
             llm_status = "success"
         except Exception as error:
@@ -1573,6 +1658,8 @@ def _run_pipeline(coin: str, question: str, output_dir: Path, live: bool = False
             {"name": "llm_reasoning", "status": llm_status, **llm_info,
              "tool": "src.llm.analyze_with_llm",
              "fallback_reason": None if llm_status == "success" else llm_status,
+             # 「後續觀察重點」是模型寫的、被過濾過的，還是整段改用規則產生的。
+             "observation_points_source": observation_source,
              **timeline.entry("llm_reasoning")},
             {"name": "critic_review", "status": critic_status, **llm_info,
              "tool": "src.llm.critique_with_llm",

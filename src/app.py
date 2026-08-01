@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import html
+import io
 import json
 import os
 import re
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -42,6 +44,84 @@ def _run_root() -> Path:
 def _normalise_run_mode(raw: str) -> str:
     mode = (raw or RUN_MODE_TEST).strip().lower()
     return mode if mode in VALID_RUN_MODES else RUN_MODE_TEST
+
+
+# --------------------------------------------------------------------------------------
+# 提交物下載
+# --------------------------------------------------------------------------------------
+
+# 命題「提交項目」要求的三份資料文件。這三份是 `/download` 的預設範圍：評審要的是
+# 分析報告、證據清單與執行紀錄，一次點擊就要能全部拿到，不該逐檔右鍵另存。
+REQUIRED_ARTIFACTS = (
+    ARTIFACT_FILENAMES["report"],
+    ARTIFACT_FILENAMES["evidence"],
+    ARTIFACT_FILENAMES["execution_log"],
+)
+# 可被讀取或打包的檔名白名單。比較執行會另外產生 comparison.md／comparison.json。
+DOWNLOADABLE_NAMES = frozenset(ARTIFACT_FILENAMES.values()) | {"comparison.md", "comparison.json"}
+DOWNLOAD_SCOPES = ("required", "all")
+
+
+def _artifact_roots() -> tuple[Path, ...]:
+    """產物解析順序：最近一次單幣執行 → 最近一次比較執行 → 舊的平面輸出 → comparison 目錄。
+
+    `runs/{run_id}/report.md` 這種帶 run_id 的相對路徑會直接命中 root，因此歷史 run 也讀得到。
+    """
+    root = _run_root()
+    candidates = (
+        _LATEST_RUN_DIRS.get("single"), _LATEST_RUN_DIRS.get("comparison"),
+        root, root / "comparison",
+    )
+    return tuple(path.resolve() for path in candidates if path is not None and path.exists())
+
+
+def _resolve_run_dir(run_id: str = "") -> Path | None:
+    """把可選的 run_id 解析成目錄；沒給就用最近一次執行的目錄。
+
+    run_id 必須是單一路徑片段：帶分隔符或 `..` 的值一律拒絕，不做任何拼接嘗試。
+    """
+    if run_id:
+        if "/" in run_id or "\\" in run_id or run_id in {".", ".."}:
+            return None
+        candidate = (_run_root() / "runs" / run_id).resolve()
+        runs_root = (_run_root() / "runs").resolve()
+        if candidate.is_dir() and candidate.is_relative_to(runs_root):
+            return candidate
+        return None
+    for root in _artifact_roots():
+        if any((root / name).is_file() for name in DOWNLOADABLE_NAMES):
+            return root
+    return None
+
+
+def _collect_downloadables(run_dir: Path, scope: str) -> list[tuple[str, Path]]:
+    """收集要打包的檔案，回傳 `(zip 內路徑, 實際路徑)`。
+
+    `required` 只收命題要求的三份；`all` 連比較執行的每一腳子目錄一起收。
+    只走白名單檔名，因此 `_checkpoint.json` 這類內部狀態檔不會被打包出去。
+    """
+    names = REQUIRED_ARTIFACTS if scope == "required" else sorted(DOWNLOADABLE_NAMES)
+    entries = [(name, run_dir / name) for name in names if (run_dir / name).is_file()]
+    if scope == "all":
+        # 比較執行把每個幣種放在自己的子目錄；少了它們，打包出來的報告會缺兩腳的內容。
+        for leg in sorted(path for path in run_dir.iterdir() if path.is_dir()):
+            entries += [(f"{leg.name}/{name}", leg / name)
+                        for name in sorted(DOWNLOADABLE_NAMES) if (leg / name).is_file()]
+    return entries
+
+
+def build_artifact_zip(run_dir: Path, scope: str = "required") -> tuple[bytes, list[str]]:
+    """把提交物打包成 ZIP，回傳 `(bytes, 收錄的檔名)`。
+
+    在記憶體裡組（不落地暫存檔）：Lambda 的 /tmp 空間有限，而且產生一個只為了立刻回傳
+    的暫存檔沒有意義。ZIP 時間戳固定為各檔案的 mtime，內容因此可重現。
+    """
+    entries = _collect_downloadables(run_dir, scope)
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for arcname, path in entries:
+            archive.writestr(arcname, path.read_bytes())
+    return buffer.getvalue(), [arcname for arcname, _ in entries]
 
 
 def _prepare_run(question: str, coins, mode: str):
@@ -98,6 +178,8 @@ h1{font-size:clamp(34px,5vw,58px);line-height:1.08;margin:12px 0 16px;letter-spa
 .panel{padding:28px}.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
 .back{padding:11px 15px;border:1px solid var(--line-2);border-radius:11px;white-space:nowrap;color:var(--ink);background:#fff;font-weight:700;transition:.16s}
 .back:hover{border-color:var(--brand);color:var(--brand);box-shadow:0 8px 20px rgba(255,107,53,.16)}
+.back.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.back.primary:hover{color:#fff;filter:brightness(1.06)}
 .badge{display:inline-flex;align-items:center;gap:8px;background:var(--brand-soft);color:var(--brand-ink);border:1px solid var(--brand-line);padding:7px 12px;border-radius:999px;font-size:13px;font-weight:800}
 .badge:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 3px rgba(255,107,53,.18)}
 .badge.fail{background:var(--bad-soft);color:var(--bad);border-color:var(--bad-line)}.badge.fail:before{background:var(--bad);box-shadow:0 0 0 3px rgba(201,42,47,.15)}
@@ -485,7 +567,7 @@ def _home_page() -> str:
     <span class="feature">API 失敗 fallback</span><span class="feature">逾時 watchdog</span>
     <span class="feature">非投資建議</span></div></section>
     <section class="panel" style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
-    <div><div class="report-kicker">Strategy backtest</div>
+    <div><div class="report-kicker">策略回測</div>
     <h2 style="margin:7px 0 6px">Vegas 通道策略的歷史表現</h2>
     <div class="muted" style="font-size:14px;line-height:1.7">用 5 年日線資料逐根重放進出場規則，
     與買進持有並列比較，並誠實標示樣本數限制。</div></div>
@@ -523,13 +605,13 @@ def _competition_sections(result: dict, evidence: list[dict], execution: dict) -
         for item in hypotheses if isinstance(item, dict)
     ) or "<li>N/A</li>"
     plan_html = f'''<article class="insight-block sec accent"><div class="sec-head"><div class="sec-num">P</div>
-    <div><h3 class="sec-title">Research Plan</h3><div class="sec-sub">研究計畫</div></div></div>
-    <div class="metrics"><div class="card"><div class="metric-label">Task modes</div><div class="metric-value small">{html.escape("、".join(map(str, plan.get("task_modes") or [])) or "N/A")}</div></div>
-    <div class="card"><div class="metric-label">Time window</div><div class="metric-value small">{html.escape(value(time_window.get("days")))} 天</div><div class="metric-sub">來源：{html.escape(value(time_window.get("source")))}</div></div>
-    <div class="card"><div class="metric-label">Planner fallback</div><div class="metric-value small">{html.escape(value(planning.get("fallback_used")))}</div><div class="metric-sub">{html.escape(value(planning.get("path")))}</div></div></div>
-    <div class="report-grid"><div><strong>Hypotheses</strong><ul class="insight-list" style="margin-top:10px">{hypothesis_html}</ul></div>
-    <div><strong>Required domains</strong><ul class="insight-list" style="margin-top:10px">{text_list(plan.get("required_domains"))}</ul>
-    <strong style="display:block;margin-top:14px">Assumptions</strong><ul class="insight-list" style="margin-top:10px">{text_list(plan.get("assumptions"))}</ul></div></div></article>'''
+    <div><h3 class="sec-title">研究計畫</h3><div class="sec-sub">Research Plan</div></div></div>
+    <div class="metrics"><div class="card"><div class="metric-label">任務類型</div><div class="metric-value small">{html.escape("、".join(map(str, plan.get("task_modes") or [])) or "N/A")}</div></div>
+    <div class="card"><div class="metric-label">研究時間窗</div><div class="metric-value small">{html.escape(value(time_window.get("days")))} 天</div><div class="metric-sub">來源：{html.escape(value(time_window.get("source")))}</div></div>
+    <div class="card"><div class="metric-label">規劃器是否降級</div><div class="metric-value small">{html.escape(value(planning.get("fallback_used")))}</div><div class="metric-sub">{html.escape(value(planning.get("path")))}</div></div></div>
+    <div class="report-grid"><div><strong>假設</strong><ul class="insight-list" style="margin-top:10px">{hypothesis_html}</ul></div>
+    <div><strong>必要資料領域</strong><ul class="insight-list" style="margin-top:10px">{text_list(plan.get("required_domains"))}</ul>
+    <strong style="display:block;margin-top:14px">預設假設</strong><ul class="insight-list" style="margin-top:10px">{text_list(plan.get("assumptions"))}</ul></div></div></article>'''
 
     claims = result.get("claims") if isinstance(result.get("claims"), list) else []
     claim_cards = []
@@ -538,7 +620,7 @@ def _competition_sections(result: dict, evidence: list[dict], execution: dict) -
             continue
         confidence = claim.get("confidence") if isinstance(claim.get("confidence"), dict) else {}
         components = confidence.get("components") if isinstance(confidence.get("components"), dict) else {}
-        component_labels = {"weighted_evidence_quality": "Evidence quality", "domain_coverage": "Coverage", "source_diversity": "Diversity", "signal_consistency": "Consistency", "counter_evidence_coverage": "Counter evidence coverage"}
+        component_labels = {"weighted_evidence_quality": "證據品質（加權）", "domain_coverage": "領域覆蓋度", "source_diversity": "來源多元性", "signal_consistency": "訊號一致性", "counter_evidence_coverage": "反方證據覆蓋度"}
         breakdown = "".join(
             f'<li>{label}：{float(components.get(key, 0) or 0):.2f}</li>'
             for key, label in component_labels.items()
@@ -551,18 +633,18 @@ def _competition_sections(result: dict, evidence: list[dict], execution: dict) -
         claim_cards.append(f'''<article class="insight-block sec"><div class="sec-head"><div class="sec-num">C</div><div>
         <h3 class="sec-title">{html.escape(value(claim.get("claim_id")))}</h3><div class="sec-sub">{html.escape(value(claim.get("verdict")))}</div></div>
         <span class="conf-badge mid">{float(confidence.get("score", 0) or 0):.0%} · {html.escape(value(confidence.get("type")))}</span></div>
-        <p><strong>Claim：</strong>{html.escape(value(claim.get("statement")))}</p><strong>Fact</strong><ul class="insight-list" style="margin:10px 0">{facts_html}</ul>
-        <p><strong>Inference：</strong>{html.escape(value(claim.get("inference")))}</p><p><strong>Conclusion：</strong>{html.escape(value(claim.get("conclusion")))}</p>
-        <div class="report-grid"><div><strong>Supporting Evidence</strong><p>{evidence_links(claim.get("supporting_evidence_ids"))}</p><strong>Limitations</strong><ul class="insight-list">{text_list(claim.get("limitations"))}</ul></div>
-        <div><strong>Contradicting Evidence</strong><p>{evidence_links(claim.get("contradicting_evidence_ids"))}</p><strong>Invalidation Conditions</strong><ul class="insight-list">{text_list(claim.get("invalidation_conditions"))}</ul></div></div>
-        <details><summary>Confidence Breakdown（heuristic）</summary><ul class="insight-list" style="margin-top:10px">{breakdown or "<li>N/A</li>"}</ul>
-        <div class="metric-sub">Hard-cap limiters：{html.escape("、".join(map(str, confidence.get("limiters") or [])) or "N/A")}</div></details>
-        <strong style="display:block;margin-top:14px">Watchpoints</strong><ul class="insight-list">{text_list(claim.get("watchpoints"))}</ul></article>''')
-    claims_html = "".join(claim_cards) or '<article class="insight-block sec"><h3>Claim Cards</h3><p class="muted">本次沒有可展示的 Claim；partial run 仍可從 Evidence 與 report.md 追溯。</p></article>'
+        <p><strong>主張：</strong>{html.escape(value(claim.get("statement")))}</p><strong>事實（Fact）</strong><ul class="insight-list" style="margin:10px 0">{facts_html}</ul>
+        <p><strong>推論（Inference）：</strong>{html.escape(value(claim.get("inference")))}</p><p><strong>結論（Conclusion）：</strong>{html.escape(value(claim.get("conclusion")))}</p>
+        <div class="report-grid"><div><strong>支持證據</strong><p>{evidence_links(claim.get("supporting_evidence_ids"))}</p><strong>限制</strong><ul class="insight-list">{text_list(claim.get("limitations"))}</ul></div>
+        <div><strong>反方證據</strong><p>{evidence_links(claim.get("contradicting_evidence_ids"))}</p><strong>推翻條件</strong><ul class="insight-list">{text_list(claim.get("invalidation_conditions"))}</ul></div></div>
+        <details><summary>信心分量（heuristic，由程式計算）</summary><ul class="insight-list" style="margin-top:10px">{breakdown or "<li>N/A</li>"}</ul>
+        <div class="metric-sub">生效的信心上限：{html.escape("、".join(map(str, confidence.get("limiters") or [])) or "N/A")}</div></details>
+        <strong style="display:block;margin-top:14px">觀察重點</strong><ul class="insight-list">{text_list(claim.get("watchpoints"))}</ul></article>''')
+    claims_html = "".join(claim_cards) or '<article class="insight-block sec"><h3>主張卡片</h3><p class="muted">本次沒有可展示的 Claim；partial run 仍可從證據與 report.md 追溯。</p></article>'
 
     evidence_detail = "".join(
         f'''<details class="insight-block" id="evidence-{quote(value(item.get("evidence_id")), safe="")}"><summary><strong>{html.escape(value(item.get("evidence_id")))}</strong> · {html.escape(value(item.get("source")))}</summary>
-        <div class="table-wrap" style="margin-top:12px"><table><tbody><tr><th>Source type</th><td>{html.escape(value(item.get("source_type")))}</td></tr><tr><th>Locator</th><td>{html.escape(value(item.get("source_url")))}</td></tr><tr><th>Fetched at</th><td>{html.escape(value(item.get("fetched_at")))}</td></tr><tr><th>Published/event time</th><td>{html.escape(value(item.get("published_at") or item.get("event_time")))}</td></tr><tr><th>Content reference</th><td>{html.escape(json.dumps(item.get("content_reference"), ensure_ascii=False)[:800])}</td></tr><tr><th>Reliability</th><td>{html.escape(value(item.get("reliability_score")))}</td></tr><tr><th>Verification status</th><td>{html.escape(value(item.get("verification_status")))}</td></tr><tr><th>Related Claim</th><td>{evidence_links(item.get("related_claim_ids"))}</td></tr><tr><th>Score limiters</th><td>{html.escape("、".join(map(str, item.get("score_limiters") or [])) or "N/A")}</td></tr></tbody></table></div>
+        <div class="table-wrap" style="margin-top:12px"><table><tbody><tr><th>來源類別</th><td>{html.escape(value(item.get("source_type")))}</td></tr><tr><th>來源位址</th><td>{html.escape(value(item.get("source_url")))}</td></tr><tr><th>取得時間</th><td>{html.escape(value(item.get("fetched_at")))}</td></tr><tr><th>發布／事件時間</th><td>{html.escape(value(item.get("published_at") or item.get("event_time")))}</td></tr><tr><th>內容依據</th><td>{html.escape(json.dumps(item.get("content_reference"), ensure_ascii=False)[:800])}</td></tr><tr><th>可靠度</th><td>{html.escape(value(item.get("reliability_score")))}</td></tr><tr><th>驗證狀態</th><td>{html.escape(value(item.get("verification_status")))}</td></tr><tr><th>對應主張</th><td>{evidence_links(item.get("related_claim_ids"))}</td></tr><tr><th>生效的分數上限</th><td>{html.escape("、".join(map(str, item.get("score_limiters") or [])) or "N/A")}</td></tr></tbody></table></div>
         <div class="metric-sub" style="margin-top:10px">內容摘要：{html.escape(json.dumps(item.get("content"), ensure_ascii=False)[:500])}</div></details>'''
         for item in evidence if isinstance(item, dict)
     ) or '<p class="muted">N/A</p>'
@@ -571,13 +653,33 @@ def _competition_sections(result: dict, evidence: list[dict], execution: dict) -
         f'<tr><td>{html.escape(value(step.get("name")))}</td><td>{html.escape(value(step.get("status")))}</td><td>{html.escape(value(step.get("duration_ms")))} ms</td><td>{html.escape(value(step.get("fallback_reason")))}</td><td>{html.escape(value(step.get("tool") or step.get("model") or step.get("provider")))}</td><td>{html.escape("、".join(map(str, step.get("evidence_ids_created") or [])) or "N/A")}</td></tr>'
         for step in (execution.get("steps") or []) if isinstance(step, dict)
     ) or '<tr><td colspan="6">N/A</td></tr>'
-    artifacts = "".join(
-        f'<a class="back" target="_blank" href="/artifact?path={quote(filename)}">{html.escape(filename)}</a>'
-        for filename in ARTIFACT_FILENAMES.values()
+    # 命題要求的三份資料文件先列，並標上它對應哪一項提交物；其餘三項屬本專案的加值產出。
+    artifact_labels = {
+        ARTIFACT_FILENAMES["report"]: "分析報告",
+        ARTIFACT_FILENAMES["evidence"]: "證據清單",
+        ARTIFACT_FILENAMES["execution_log"]: "執行紀錄",
+        ARTIFACT_FILENAMES["research_plan"]: "研究計畫",
+        ARTIFACT_FILENAMES["claims"]: "主張與信心",
+        ARTIFACT_FILENAMES["manifest"]: "檔案清單與雜湊",
+    }
+    ordered_names = list(REQUIRED_ARTIFACTS) + [
+        name for name in ARTIFACT_FILENAMES.values() if name not in REQUIRED_ARTIFACTS]
+    artifact_rows = "".join(
+        f'<tr><td>{html.escape(artifact_labels.get(name, ""))}</td>'
+        f'<td><code>{html.escape(name)}</code></td>'
+        f'<td>{"必要" if name in REQUIRED_ARTIFACTS else "加值"}</td>'
+        f'<td><a href="/artifact?path={quote(name)}" target="_blank">檢視</a>'
+        f' ｜ <a href="/artifact?path={quote(name)}&amp;download=1">下載</a></td></tr>'
+        for name in ordered_names
     )
-    evidence_html = f'<article class="insight-block sec"><h3>Evidence Traceability</h3><p class="muted">大型 Evidence content 預設只顯示摘要；展開個別項目可查看可追溯 metadata。</p>{evidence_detail}</article>'
-    execution_html = f'''<article class="insight-block" style="margin-bottom:16px"><span class="section-tag">Competition execution log</span><h3>Execution Log</h3><div class="table-wrap"><table><thead><tr><th>Stage</th><th>Status</th><th>Duration</th><th>Fallback</th><th>Model / tool</th><th>Created Evidence IDs</th></tr></thead><tbody>{execution_rows}</tbody></table></div></article>
-    <article class="insight-block"><span class="section-tag">Artifacts</span><h3>檢視／下載輸出</h3><div class="feature-row">{artifacts}</div></article>'''
+    evidence_html = f'<article class="insight-block sec"><h3>證據可追溯性</h3><p class="muted">大型證據內容預設只顯示摘要；展開個別項目可查看可追溯的中介資料。</p>{evidence_detail}</article>'
+    execution_html = f'''<article class="insight-block" style="margin-bottom:16px"><span class="section-tag">執行紀錄</span><h3>執行紀錄（Execution Log）</h3><div class="table-wrap"><table><thead><tr><th>階段</th><th>狀態</th><th>耗時</th><th>降級原因</th><th>模型／工具</th><th>產生的證據 ID</th></tr></thead><tbody>{execution_rows}</tbody></table></div></article>
+    <article class="insight-block"><span class="section-tag">提交物</span><h3>下載提交物</h3>
+    <p class="muted">一鍵取得命題要求的三份資料文件，或下載本次執行的全部產出。</p>
+    <div class="feature-row">
+    <a class="back primary" href="/download?scope=required">下載三份提交物（ZIP）</a>
+    <a class="back" href="/download?scope=all">下載全部產出（ZIP）</a></div>
+    <div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>文件</th><th>檔名</th><th>類別</th><th>操作</th></tr></thead><tbody>{artifact_rows}</tbody></table></div></article>'''
     return plan_html + claims_html, evidence_html, execution_html
 
 
@@ -1045,10 +1147,10 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <nav class="tabs" role="tablist" aria-label="研究結果分頁" style="margin-top:28px">
     <button class="tab" role="tab" aria-selected="true" aria-controls="overview">研究摘要</button>
     <button class="tab" role="tab" aria-selected="false" aria-controls="charts">互動圖表</button>
-    <button class="tab" role="tab" aria-selected="false" aria-controls="evidence">Evidence <span class="muted">({len(evidence)})</span></button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="evidence">證據清單 <span class="muted">({len(evidence)})</span></button>
     <button class="tab" role="tab" aria-selected="false" aria-controls="execution">執行流程</button></nav>
     <section class="panel tab-panel" id="overview" role="tabpanel">
-    <div class="report-head"><div><div class="report-kicker">Professional Research Brief</div><h2 style="margin:7px 0 0">完整研究報告</h2></div>
+    <div class="report-head"><div><div class="report-kicker">研究摘要</div><h2 style="margin:7px 0 0">完整研究報告</h2></div>
     <div class="report-meta"><span class="meta-chip">{html.escape(result['coin'])}</span><span class="meta-chip">{len(evidence)} 筆 Evidence</span>
     <span class="meta-chip">{duration_seconds} 秒完成</span><span class="meta-chip">{html.escape(str(llm_step.get('model', 'AI reasoning')))}</span>
     <span class="meta-chip">Run {html.escape(str(result.get('run_id') or 'N/A'))}</span>
@@ -1099,13 +1201,13 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <div class="disclaimer"><strong>研究聲明</strong><span>本報告僅供研究與展示用途，不構成投資建議、買賣指令或任何形式的財務承諾。請搭配完整 Evidence 與自身風險承受度獨立判斷。</span></div>
     <details><summary>查看原始 report.md 內容</summary><pre class="raw">{html.escape(report)}</pre></details></section>
     <section class="panel tab-panel" id="charts" role="tabpanel" hidden>
-    <div class="report-head"><div><div class="report-kicker">Interactive charts</div><h2 style="margin:7px 0 0">互動圖表與原始訊號</h2></div>
+    <div class="report-head"><div><div class="report-kicker">互動圖表</div><h2 style="margin:7px 0 0">互動圖表與原始訊號</h2></div>
     <div class="report-meta"><span class="meta-chip">滑鼠移入圖表可查看每個資料點</span></div></div>
-    <article class="insight-block" style="margin-top:22px"><span class="section-tag">Price trend</span><h3>{html.escape(result['coin'])} 價格走勢</h3>
+    <article class="insight-block" style="margin-top:22px"><span class="section-tag">價格走勢</span><h3>{html.escape(result['coin'])} 價格走勢</h3>
     <div class="muted" style="font-size:13px;margin-bottom:6px">資料來源：market evidence 的每日收盤價（USD）</div>
     {price_chart}
     <div class="chart-caption"><span>{price_caption}</span><span>移動滑鼠可顯示該日日期與收盤價</span></div></article>
-    <article class="insight-block" style="margin-top:16px"><span class="section-tag">Long-horizon context</span><h3>長期價格脈絡（5 年日線）</h3>
+    <article class="insight-block" style="margin-top:16px"><span class="section-tag">長期脈絡</span><h3>長期價格脈絡（5 年日線）</h3>
     <div class="muted" style="font-size:13px;margin-bottom:6px">資料來源：本地 5 年日線 CSV（Binance 公開日線，2021-07 起）。
     其餘來源皆為 14 天窗口，這張表用來回答「現在這個波動，以這個幣自己的歷史標準來看算大還算小」。</div>
     {history_chart}
@@ -1113,7 +1215,7 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>期間</th><th>報酬</th><th>年化波動</th><th>最大回撤</th><th>價格區間分位</th></tr></thead>
     <tbody>{history_rows}</tbody></table></div>
     <div class="metric-sub" style="margin-top:10px">「價格區間分位」＝目前收盤價落在該期間高低點之間的位置；接近 0% 代表貼近期間低點，接近 100% 代表貼近高點。</div></article>
-    <article class="insight-block" style="margin-top:16px"><span class="section-tag">Chain fundamentals · TVL</span><h3>鏈上鎖倉量（TVL）</h3>
+    <article class="insight-block" style="margin-top:16px"><span class="section-tag">鏈上基本面 · TVL</span><h3>鏈上鎖倉量（TVL）</h3>
     <div class="muted" style="font-size:13px;margin-bottom:6px">資料來源：DefiLlama {html.escape(str(tvl_content.get('chain', 'N/A')))} 鏈 TVL（免金鑰）。
     TVL 反映真實鎖進鏈上的資金，可用來檢驗價格變動有沒有基本面支撐。</div>
     <div class="metrics" style="grid-template-columns:repeat(3,1fr);margin:0 0 14px">
@@ -1123,7 +1225,7 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <div class="card"><div class="metric-label">近 90 天變化</div><div class="metric-value">{metric(tvl_content.get('change_pct'), '%')}</div></div></div>
     {tvl_chart}
     <div class="chart-caption"><span>{tvl_caption}</span><span>移動滑鼠可顯示該日 TVL（十億美元）</span></div></article>
-    <article class="insight-block" style="margin-top:16px"><span class="section-tag">Long/short position ratio</span><h3>大戶多空持倉比走勢</h3>
+    <article class="insight-block" style="margin-top:16px"><span class="section-tag">多空持倉比</span><h3>大戶多空持倉比走勢</h3>
     <div class="muted" style="font-size:13px;margin-bottom:6px">資料來源：Binance 大戶持倉量多空比（非帳戶數）；虛線為 50% 多空中性水位</div>
     <div class="metrics" style="grid-template-columns:repeat(3,1fr);margin:0 0 14px">
     <div class="card"><div class="metric-label">多方佔比</div><div class="metric-value">{metric(lsratio_current.get('long_pct') if lsratio_current else None, '%')}</div></div>
@@ -1132,7 +1234,7 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <div class="muted" style="margin-bottom:8px">{html.escape(lsratio_bias_labels.get(lsratio_content.get('bias'), 'N/A'))}</div>
     {lsratio_chart}
     <div class="chart-caption"><span>{lsratio_caption}</span><span>移動滑鼠可顯示該時點與多方佔比 %</span></div></article>
-    <article class="insight-block" style="margin-top:16px"><span class="section-tag">Vegas Channel + RSI strategy</span><h3>Vegas 通道狀態（4H 趨勢 / 1H 執行）</h3>
+    <article class="insight-block" style="margin-top:16px"><span class="section-tag">Vegas 通道 + RSI 策略</span><h3>Vegas 通道狀態（4H 趨勢 / 1H 執行）</h3>
     <div style="margin-bottom:14px"><span class="badge{'' if vegas_alignment and vegas_alignment.get('passed') else ' fail'}">{'通過' if vegas_alignment and vegas_alignment.get('passed') else '不通過'}</span>
     <span class="muted" style="margin-left:10px">{html.escape(vegas_alignment.get('note')) if vegas_alignment else '資料暫時無法取得'}</span></div>
     <div class="metrics" style="grid-template-columns:repeat(3,1fr);margin:0 0 14px">
@@ -1141,7 +1243,7 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <div class="card"><div class="metric-label">資金費率</div><div class="metric-value">{metric(funding_rate, '%')}</div><div class="metric-sub">{html.escape(funding_bias)}</div></div></div>
     <ul class="insight-list">{vegas_html}</ul>
     <div class="metric-sub" style="margin-top:10px">大小時區方向須一致才「通過」；EMA144~987 通道 + RSI(6) + 成交量脈衝確認，需 1000 根K棒歷史，與其他 14 天指標的資料窗口不同</div></article>
-    <article class="insight-block" style="margin-top:16px"><span class="section-tag">Macro backdrop</span><h3>總體經濟背景：恐懼貪婪指數與聯準會</h3>
+    <article class="insight-block" style="margin-top:16px"><span class="section-tag">總體經濟背景</span><h3>總體經濟背景：恐懼貪婪指數與聯準會</h3>
     <div class="muted" style="font-size:13px;margin-bottom:6px">資料來源：alternative.me（全市場，非單一幣種）；虛線為 50 中性水位</div>
     <div class="metrics" style="grid-template-columns:repeat(2,1fr);margin:0 0 14px">
     <div class="card"><div class="metric-label">恐懼貪婪指數</div><div class="metric-value">{metric(macro_content.get('fear_greed_value'))}</div>
@@ -1152,23 +1254,23 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <div class="chart-caption"><span>{fng_caption}</span><span>移動滑鼠可顯示該時點與指數值</span></div>
     <div class="section-tag" style="margin-top:16px">Federal Reserve 貨幣政策發布</div>
     <ul class="insight-list">{fed_rows}</ul></article>
-    <article class="insight-block" style="margin-top:16px"><span class="section-tag">News digest</span><h3>消息面重點整理：新聞</h3>
+    <article class="insight-block" style="margin-top:16px"><span class="section-tag">新聞重點</span><h3>消息面重點整理：新聞</h3>
     <div class="muted" style="font-size:13px;margin-bottom:14px">{digest_note}</div>
     {news_digest}</article>
-    <article class="insight-block" style="margin-top:16px"><span class="section-tag">Social digest</span><h3>消息面重點整理：社群討論</h3>
+    <article class="insight-block" style="margin-top:16px"><span class="section-tag">社群討論重點</span><h3>消息面重點整理：社群討論</h3>
     <div class="muted" style="font-size:13px;margin-bottom:14px">來源為公開社群貼文標題，情緒判斷仍以正負向關鍵字計數為準，摘要僅供理解討論在談什麼。</div>
     {social_digest}</article>
-    <article class="insight-block" style="margin-top:16px"><span class="section-tag">Official announcements</span><h3>官方公告重點整理</h3>
+    <article class="insight-block" style="margin-top:16px"><span class="section-tag">官方公告</span><h3>官方公告重點整理</h3>
     <div class="muted" style="font-size:13px;margin-bottom:14px">來源：{html.escape(str((announcement_item or {}).get('source', 'N/A')))}
     ／{'第一方官方 feed' if announcement_content.get('first_party') else '官方網域限定的新聞聚合（非第一方 feed，可靠度較低）'}</div>
     {announcement_digest}</article>
-    <article class="insight-block" style="margin-top:16px"><span class="section-tag">Known whale wallets</span><h3>已知大戶錢包餘額</h3>
+    <article class="insight-block" style="margin-top:16px"><span class="section-tag">已知大戶錢包</span><h3>已知大戶錢包餘額</h3>
     <div class="muted" style="font-size:13px;margin-bottom:10px">{whale_compare_note}</div>
     <ul class="insight-list">{whale_rows}</ul>
     <div class="metric-sub" style="margin-top:10px">僅追蹤已知大型交易所/機構地址的即時餘額，非全網即時巨鯨偵測；目前僅支援 BTC/ETH/BNB。
     增減為兩次查詢之間的餘額差，交易所錢包的流入流出成因很多，不等同買賣方向。</div></article></section>
     <section class="panel tab-panel" id="evidence" role="tabpanel" hidden><h2>Evidence 資料清單</h2>
-    <div class="table-wrap"><table><thead><tr><th>Evidence ID</th><th>資料來源</th><th>類型</th><th>取得時間</th><th>可靠度</th></tr></thead><tbody>{rows}</tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>證據 ID</th><th>資料來源</th><th>類型</th><th>取得時間</th><th>可靠度</th></tr></thead><tbody>{rows}</tbody></table></div>
     {competition_evidence}</section>
     <section class="panel tab-panel" id="execution" role="tabpanel" hidden><div class="run-summary"><div>
     <span class="badge{'' if pipeline_clean else ' fail'}">{'Pipeline Success' if pipeline_clean else 'Pipeline Degraded'}</span>
@@ -1178,16 +1280,16 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     ／LLM 判斷時剩餘 {time_budget.get('llm_seconds_remaining_at_decision', 'N/A')} 秒
     ／watchdog 跳過 {len(time_budget.get('sources_skipped_by_watchdog') or [])} 個來源</div></div>
     <div><div class="metric-label">總執行時間</div><div class="run-time">{duration_seconds} 秒</div></div></div>
-    <article class="insight-block" style="margin-bottom:16px"><span class="section-tag">Phase budget</span>
+    <article class="insight-block" style="margin-bottom:16px"><span class="section-tag">階段時間預算</span>
     <h3>三階段時間預算</h3>
     <div class="muted" style="font-size:13px;margin-bottom:10px">每個階段做完就進入下一階段，上限只是天花板而非目標。</div>
     <div class="table-wrap"><table><thead><tr><th>階段</th><th>上限</th><th>實際耗時</th><th>用掉比例</th></tr></thead>
     <tbody>{phase_rows}</tbody></table></div></article>
-    <article class="insight-block" style="margin-bottom:16px"><span class="section-tag">Parallel collection agents</span>
+    <article class="insight-block" style="margin-bottom:16px"><span class="section-tag">平行採集 Agent</span>
     <h3>平行蒐集 Agent（{len(agents_report)} 個領域同時執行）</h3>
     <div class="muted" style="font-size:13px;margin-bottom:10px">各 agent 獨立負責一個研究面向並同時執行，
     因此總耗時等於最慢的 agent，而不是所有來源的加總。本次新聞面完成 {news_fulltext_count} 篇全文爬取。</div>
-    <div class="table-wrap"><table><thead><tr><th>Agent</th><th>負責來源</th><th>耗時</th><th>結果</th></tr></thead>
+    <div class="table-wrap"><table><thead><tr><th>採集 Agent</th><th>負責來源</th><th>耗時</th><th>結果</th></tr></thead>
     <tbody>{agent_rows}</tbody></table></div></article>
     <div class="muted" style="margin-bottom:14px">來源收集結果：{html.escape("、".join(execution.get("collection") or []))}</div>
     <div class="steps">{steps}</div><details><summary>查看原始 Execution Log</summary>
@@ -1262,13 +1364,13 @@ def _comparison_page(payload: dict) -> str:
     <h1 style="font-size:clamp(32px,4vw,48px)">{html.escape(coin_a)} vs {html.escape(coin_b)}</h1>
     <div class="muted">{html.escape(payload['question'])}</div></div><a class="back" href="/">＋ 新增研究</a></div>
     <section class="panel" style="margin-top:26px">
-    <div class="report-head"><div><div class="report-kicker">Comparative Research Brief</div>
+    <div class="report-head"><div><div class="report-kicker">比較研究摘要</div>
     <h2 style="margin:7px 0 0">三維度並列比較</h2></div>
     <div class="report-meta"><span class="meta-chip">{round(payload['duration_ms'] / 1000, 1)} 秒完成</span>
     <span class="meta-chip">共用單一時間預算</span><span class="meta-chip">共用時間範圍：{html.escape(shared_window)}</span></div></div>
-    <article class="insight-block accent" style="margin-top:20px"><span class="section-tag">Research Plan</span><h3>共用研究計畫</h3>
-    <div class="metric-sub">Task modes：{html.escape('、'.join(map(str, plan.get('task_modes') or [])) or 'N/A')}<br>Required domains：{html.escape('、'.join(map(str, plan.get('required_domains') or [])) or 'N/A')}<br>Comparison dimensions：{html.escape('、'.join(map(str, plan.get('comparison_dimensions') or [])) or 'N/A')}</div></article>
-    <article class="conclusion" style="margin-top:20px"><span class="section-tag">Comparative conclusion</span><h3>比較結論</h3>
+    <article class="insight-block accent" style="margin-top:20px"><span class="section-tag">研究計畫</span><h3>共用研究計畫</h3>
+    <div class="metric-sub">任務類型：{html.escape('、'.join(map(str, plan.get('task_modes') or [])) or 'N/A')}<br>必要資料領域：{html.escape('、'.join(map(str, plan.get('required_domains') or [])) or 'N/A')}<br>比較維度：{html.escape('、'.join(map(str, plan.get('comparison_dimensions') or [])) or 'N/A')}</div></article>
+    <article class="conclusion" style="margin-top:20px"><span class="section-tag">比較結論</span><h3>比較結論</h3>
     <p>{html.escape(comparison['summary'])}</p></article>
     {liquidity_html}{risk_html}{attention_html}
     <div class="report-grid">{leg_card(coin_a)}{leg_card(coin_b)}</div>
@@ -1357,7 +1459,7 @@ def _backtest_page(payload: dict) -> str:
     <a class="back" href="/">← 回到研究首頁</a></div>
     <nav class="tabs" style="margin-top:26px">{coin_links}</nav>
     <section class="panel">
-    <div class="report-head"><div><div class="report-kicker">Headline result</div>
+    <div class="report-head"><div><div class="report-kicker">主要結果</div>
     <h2 style="margin:7px 0 0">策略 vs 買進持有</h2></div>
     <div class="report-meta"><span class="meta-chip">測試 {window['test_bars']} 根日線</span>
     <span class="meta-chip">暖身 {window['warmup_bars']} 根</span>
@@ -1369,7 +1471,7 @@ def _backtest_page(payload: dict) -> str:
     {metric_card('交易次數', str(primary['trade_count']), f"勝率 {_metric(primary['win_rate_pct'], '%')}")}
     </div>
     <article class="insight-block accent" style="margin-bottom:16px">
-    <span class="section-tag">How to read this</span><h3>先看這裡：這份回測能證明什麼、不能證明什麼</h3>
+    <span class="section-tag">如何解讀</span><h3>先看這裡：這份回測能證明什麼、不能證明什麼</h3>
     <ul class="insight-list">
     <li><strong>樣本數太少，不足以證明策略有效。</strong>整個測試區間只產生 {primary['trade_count']} 筆交易，
     這個數量無法區分「策略有邊」與「運氣」。任何勝率或報酬率都應視為觀察，不是統計結論。</li>
@@ -1382,19 +1484,19 @@ def _backtest_page(payload: dict) -> str:
     <li><strong>單一標的、單一參數、單一段歷史。</strong>切換上方幣種可以看規則在其他標的上是否一致，
     這是最低限度的穩健性檢查，仍不等於參數穩健。</li>
     </ul></article>
-    <article class="insight-block" style="margin-bottom:16px"><span class="section-tag">Equity curve</span>
+    <article class="insight-block" style="margin-bottom:16px"><span class="section-tag">資金曲線</span>
     <h3>資金曲線（起始 = 1.0 倍）</h3>
     <div class="muted" style="font-size:13px;margin-bottom:6px">持倉期間逐日按收盤價計算未實現損益，空手期間為水平線；虛線為起始本金。</div>
     {equity_chart}
     <div class="chart-caption"><span>{html.escape(window['date_start'])} → {html.escape(window['date_end'])}
     （{window['test_bars']} 個交易日）</span><span>移動滑鼠可顯示該日資金倍數</span></div></article>
-    <article class="insight-block" style="margin-bottom:16px"><span class="section-tag">Variants</span>
+    <article class="insight-block" style="margin-bottom:16px"><span class="section-tag">參數變體</span>
     <h3>做多 only 與多空雙向的比較</h3>
     <div class="table-wrap"><table><thead><tr><th>變體</th><th>交易數</th><th>勝率</th><th>策略報酬</th>
     <th>買進持有</th><th>超額</th><th>最大回撤</th><th>持倉時間佔比</th></tr></thead><tbody>{variant_rows}</tbody></table></div>
     <div class="metric-sub" style="margin-top:10px">現貨只能做多；多空雙向需要合約，並且會額外承擔資金費率成本（此處未計入）。
     兩者數字相同時，代表測試期間沒有觸發任何做空進場訊號。</div></article>
-    <article class="insight-block"><span class="section-tag">Trade log</span>
+    <article class="insight-block"><span class="section-tag">交易明細</span>
     <h3>{html.escape(primary['label'])} 的每一筆交易</h3>
     <div class="table-wrap"><table><thead><tr><th>期間</th><th>方向</th><th>進場價</th><th>出場價</th>
     <th>持有</th><th>報酬（含費）</th><th>出場原因</th></tr></thead><tbody>{trade_rows}</tbody></table></div>
@@ -1413,7 +1515,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         route = urlparse(self.path)
         if route.path == "/artifact":
-            self._send_artifact(parse_qs(route.query).get("path", [""])[0])
+            query = parse_qs(route.query)
+            self._send_artifact(query.get("path", [""])[0],
+                               as_attachment=query.get("download", [""])[0] == "1")
+            return
+        if route.path == "/download":
+            query = parse_qs(route.query)
+            self._send_bundle(scope=query.get("scope", ["required"])[0],
+                              run_id=query.get("run", [""])[0].strip())
             return
         if route.path.rstrip("/") == "/backtest":
             coin = (parse_qs(route.query).get("coin", ["ETH"])[0] or "ETH").upper()
@@ -1497,31 +1606,60 @@ class Handler(BaseHTTPRequestHandler):
             (run_dir / ARTIFACT_FILENAMES["execution_log"]).read_text(encoding="utf-8"))
         self._send(_result_page(result, report, evidence, execution))
 
-    def _send_artifact(self, relative_path: str):
-        """只提供已知提交物，且拒絕任何跨出 Web 輸出目錄的路徑。"""
+    def _send_artifact(self, relative_path: str, *, as_attachment: bool = False):
+        """只提供已知提交物，且拒絕任何跨出 Web 輸出目錄的路徑。
+
+        `as_attachment=True` 時加上 `Content-Disposition: attachment`，瀏覽器會直接存檔而不是
+        在分頁裡開啟 —— 「檢視」與「下載」是兩個不同需求，同一個端點用參數區分。
+        """
         requested = Path(str(relative_path))
-        allowed_names = set(ARTIFACT_FILENAMES.values()) | {"comparison.md", "comparison.json"}
-        root = _run_root()
-        # 先找最近一次執行的 run 目錄，再退回舊的平面輸出與 comparison 目錄；
-        # `runs/{run_id}/report.md` 這種帶 run_id 的路徑會直接命中 root，因此舊 run 也讀得到。
-        roots = tuple(path.resolve() for path in (
-            _LATEST_RUN_DIRS.get("single"), _LATEST_RUN_DIRS.get("comparison"),
-            root, root / "comparison") if path is not None and path.exists())
-        if requested.is_absolute() or ".." in requested.parts or requested.name not in allowed_names:
+        if requested.is_absolute() or ".." in requested.parts or requested.name not in DOWNLOADABLE_NAMES:
             self._send("找不到指定輸出檔案", status=404)
             return
-        for root in roots:
+        for root in _artifact_roots():
             candidate = (root / requested).resolve()
             if candidate.is_file() and candidate.is_relative_to(root):
                 content_type = "application/json; charset=utf-8" if candidate.suffix == ".json" else "text/plain; charset=utf-8"
                 payload = candidate.read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", content_type)
+                if as_attachment:
+                    self.send_header("Content-Disposition",
+                                     f'attachment; filename="{requested.name}"')
                 self.send_header("Content-Length", str(len(payload)))
                 self.end_headers()
                 self.wfile.write(payload)
                 return
         self._send("指定輸出檔案尚未產生", status=404)
+
+    def _send_bundle(self, *, scope: str, run_id: str = ""):
+        """把本次執行的提交物打包成一個 ZIP 回傳。
+
+        預設 scope=required，收命題要求的分析報告、證據清單與執行紀錄三份；scope=all 收
+        全部六項並含比較執行的兩腳子目錄。
+        """
+        if scope not in DOWNLOAD_SCOPES:
+            self._send(f"不支援的下載範圍：{html.escape(scope)}", status=400)
+            return
+        run_dir = _resolve_run_dir(run_id)
+        if run_dir is None:
+            self._send("尚未有可下載的執行結果，請先執行一次分析。", status=404)
+            return
+        payload, names = build_artifact_zip(run_dir, scope)
+        if not names:
+            self._send("這次執行的目錄裡找不到提交物檔案。", status=404)
+            return
+        label = "提交物三份" if scope == "required" else "提交物全部"
+        # 檔名用 run 目錄名稱，下載多次也不會互相覆蓋；非 ASCII 一律走 filename* 以免亂碼。
+        filename = f"hoyabit-{label}-{run_dir.name}.zip"
+        self.send_response(200)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Disposition",
+                         "attachment; filename=\"hoyabit-artifacts-%s.zip\"; filename*=UTF-8''%s"
+                         % (run_dir.name, quote(filename)))
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
 
     def _send(self, body: str, status: int = 200):
         payload = body.encode("utf-8")

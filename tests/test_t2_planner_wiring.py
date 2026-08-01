@@ -213,7 +213,7 @@ class PlannerDegradationTests(unittest.TestCase):
 
             self.assertEqual(step["status"], "fallback")
             self.assertIn("simulated planner timeout", step["fallback_reason"])
-            self.assertIn("## Conclusion", (output / "report.md").read_text(encoding="utf-8"))
+            self.assertIn("## 結論（Conclusion）", (output / "report.md").read_text(encoding="utf-8"))
 
     def test_expired_budget_skips_the_model_call_entirely(self):
         client = _RecordingClient(_valid_plan_payload(["ETH"], "分析 ETH 當前市場狀況。"))
@@ -278,8 +278,8 @@ class NoRegressionTests(unittest.TestCase):
             self.assertEqual([item["evidence_id"] for item in written],
                              [item.evidence_id for item in expected])
             report = (output / "report.md").read_text(encoding="utf-8")
-            self.assertIn("## Evidence Sources", report)
-            self.assertIn("## Stance", report)
+            self.assertIn("## 證據來源", report)
+            self.assertIn("## 立場", report)
 
     def test_plan_does_not_gate_collection_in_this_task(self):
         """T2 刻意不改 Collector 選擇：不同 required_domains 的題目仍蒐集同一組來源。"""

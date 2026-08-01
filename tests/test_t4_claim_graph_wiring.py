@@ -190,7 +190,7 @@ class OfflineArtifactTests(unittest.TestCase):
 
     def test_report_shows_the_three_layers_and_the_limiters(self):
         report = (self.output / "report.md").read_text(encoding="utf-8")
-        self.assertIn("## Claims", report)
+        self.assertIn("## 主張（Claim）", report)
         self.assertIn("- 推論：", report)
         self.assertIn("- 結論：", report)
         self.assertIn("- 生效上限：", report)

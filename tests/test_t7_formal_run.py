@@ -340,7 +340,7 @@ class DeadlineWiringTests(unittest.TestCase):
                 self.assertTrue((run_dir / filename).is_file(), filename)
             # 報告仍然完整：立場、Claim 與 Citation Gate 都在。
             report = (run_dir / "report.md").read_text(encoding="utf-8")
-            self.assertIn("## Claims", report)
+            self.assertIn("## 主張（Claim）", report)
             self.assertTrue(result["claims"])
             self.assertIn(record.status, (STATUS_COMPLETED, STATUS_COMPLETED_DEGRADED))
 

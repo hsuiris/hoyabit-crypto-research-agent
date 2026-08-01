@@ -56,7 +56,7 @@ class MarketStanceTest(unittest.TestCase):
             stance = result["stance"]
             self.assertIn(stance["stance"], {"bullish", "neutral", "bearish"})
             report = (output / "report.md").read_text(encoding="utf-8")
-            self.assertLess(report.index("## Stance"), report.index("## Market Judgment"))
+            self.assertLess(report.index("## 立場"), report.index("## 市場判斷"))
             self.assertIn(stance["label"], report)
 
     def test_stance_is_deterministic_for_the_same_evidence(self):
@@ -127,8 +127,8 @@ class LongHorizonContextTest(unittest.TestCase):
             with_history, without = Path(directory) / "a", Path(directory) / "b"
             run("ETH", "近期風險？", with_history, history_path=self.csv_path)
             run("ETH", "近期風險？", without)
-            self.assertIn("## Long-horizon Context", (with_history / "report.md").read_text(encoding="utf-8"))
-            self.assertNotIn("## Long-horizon Context", (without / "report.md").read_text(encoding="utf-8"))
+            self.assertIn("## 長期價格脈絡", (with_history / "report.md").read_text(encoding="utf-8"))
+            self.assertNotIn("## 長期價格脈絡", (without / "report.md").read_text(encoding="utf-8"))
 
 
 class ChainTvlTest(unittest.TestCase):
