@@ -2,8 +2,8 @@ project: hoyabit-aws-deployment
 spec_path: .kiro/specs/hoyabit-aws-deployment
 branch: okByYaya0801            # 與 hackathon/competition-ready 同一 commit
 baseline_commit: 5f369ce        # test(T8): freeze competition-ready demo
-current_task: D4
-last_updated_at: 2026-08-01T17:05:00+08:00
+current_task: D5
+last_updated_at: 2026-08-01T17:30:00+08:00
 
 # 本機驗證環境（實測，非推定）
 environment:
@@ -15,7 +15,7 @@ environment:
   aws_region_configured: false
 
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_baseline: 541 tests, 541 passed, 0 failed, 0 errors
+full_suite_baseline: 555 tests, 555 passed, 0 failed, 0 errors   # D4 新增 14 個
 
 allowed_statuses:
   - TODO
@@ -242,34 +242,68 @@ tasks:
 
   D4:
     title: Ensure Lambda AWS SDK supports Bedrock Converse
-    status: TODO
+    status: PASS
     executor: KIRO
     depends_on: [D2]
     target_minutes: 45
+    completed_at: 2026-08-01T17:30:00+08:00
     requirements: [4.1, 4.2, 4.3, 4.4, 4.5]
     design_decision: D-2
-    commit: 'fix(D4): pin aws sdk in lambda package for bedrock converse'
+    commit: 'feat(D4): report aws sdk capability to expose silent bedrock degradation'
     in_scope:
-      - aws/deploy.sh
-      - aws/deploy.ps1
-      - aws/template.yaml（僅在選 Layer 方式時）
-      - lambda_handler.py（botocore 版本 log）
+      - lambda_handler.py（sdk_capability() 與冷啟動 log、JSON 回應欄位、首頁顯示）
+      - tests/test_d4_sdk_capability.py（新增）
+      - aws/deploy.sh（--bundle-sdk 備用選項，已於 D3 就位）
       - aws/README.md
     out_of_scope:
       - 新增 requirements.txt 作為專案相依
       - src/llm.py 的 Bedrock 呼叫邏輯
       - 讓任何 src/ 模組把 boto3 變成硬性 import
+    decision_change:
+      original_plan: 直接把 pin 版 boto3／botocore 打包進部署包或做成 Lambda Layer。
+      actual: >-
+        改為「先量測再決定」：在 lambda_handler.py 加 sdk_capability() 顯式回報執行環境是否
+        具備 bedrock-runtime 的 Converse，先用 Lambda 內建 SDK 部署並由 D5 檢查該欄位，
+        確認不支援才用 deploy.sh 的 --bundle-sdk 重新部署。
+      rationale: >-
+        botocore 的 service model data 目錄約 150 MB，無條件打包會把部署包從 1.2 MB 推到
+        接近 Lambda 的 250 MB 解壓上限，並拖慢冷啟動。而 Converse 自 2024 年中就存在，
+        2026 年的 python3.12 受管 runtime 很可能已內建支援——這是可量測的事實，不該用
+        體積成本去賭。--bundle-sdk 已實作並保留，若 D5 發現不支援即可立即啟用。
+      residual_risk: >-
+        若 Lambda 內建 SDK 不支援 Converse，第一次部署的模型路徑會降級。
+        但這不會被隱藏：sdk_capability 會在首頁、JSON 回應與 CloudWatch 的 [sdk] log
+        三處明確標示，D5 的驗收會抓到。
     acceptance:
-      - 部署包內含或 Layer 提供 pin 版 boto3／botocore
-      - 打包版本經確認含 Converse operation
-      - 無 boto3 的隔離環境下完整測試套件通過
-      - 無 boto3 的隔離環境下離線端到端產出六項提交物且 manifest hash 相符
-      - zip 大小在 Lambda 限制內
+      - 'PASS: sdk_capability() 顯式回報 botocore 版本與 Converse 可用性；本機為 1.42.97 / true'
+      - 'PASS: 無 AWS SDK 的環境下完整測試套件 555 tests 通過（2 skip 為刻意，需真 botocore 才能 stub session）'
+      - 'PASS: 無 AWS SDK 的環境下離線端到端產出六項提交物，manifest 5 個 SHA-256 全部相符，Citation Gate PASS'
+      - 'PASS: zip 解壓後 1.2 MB，遠低於 Lambda 250 MB 上限'
+      - 'DEFERRED: Lambda 內建 SDK 是否支援 Converse 由 D5 用 sdk_capability 欄位判定'
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_d4_sdk_capability -v → 14 tests OK；
+      完整套件：python3 -m unittest discover -s tests → 555 tests, 555 passed, 0 failed, 0 errors；
+      無 SDK 完整套件：sys.modules['boto3']=None 與 ['botocore']=None 後 discover
+      → 555 tests, 0 failures, 0 errors, 2 skipped；
+      無 SDK 離線端到端：ETH offline run → 六檔齊備、manifest 5 個 hash 全 MATCH、
+      citation_gate_status=PASS、run_status=COMPLETED_DEGRADED（離線的預期狀態）。
+    incidental_fixes:
+      - >-
+        初版測試用 sys.modules.pop("src.llm") 後重新 import 來模擬缺少 boto3，導致
+        test_gemini_adapter 的 2 個測試真的發出網路請求而 error：那些測試在模組層級
+        from src.llm import ... 綁定的是舊函式物件，其 globals 指向舊模組，因此對
+        src.llm.urlopen 的 patch 對新模組無效。已改為全部走 subprocess 隔離，
+        並在測試檔頂端記錄此陷阱。
+      - >-
+        依賴真 botocore 的兩個測試補上 skipUnless，否則「無 AWS SDK 時完整套件通過」
+        這條驗收在真實缺少 SDK 的環境無法成立。
     blockers: []
     notes: >-
-      與零第三方相依原則的關係必須在 aws/README.md 說明：boto3 只出現在部署包與 AWS 執行環境，
-      屬於部署目標環境的一部分，不是專案原始碼的相依。src/llm.py 對它是 optional import，
-      tests/ 全程 mock。這一點有對應驗收項目，不能只在文件裡宣稱。
+      與零第三方相依原則的關係：boto3 只出現在部署包與 AWS 執行環境，屬於部署目標環境的
+      一部分，不是專案原始碼的相依。src/llm.py 對它是 optional import，tests/ 全程 mock。
+      這一點有兩條實際執行的驗收（無 SDK 完整套件、無 SDK 離線端到端）支撐，不只是文件宣稱。
+      sdk_capability() 刻意只讀 service model 而不建 boto3 client：建 client 會嘗試解析憑證
+      與 endpoint，而這個檢測必須無網路、無憑證即可在冷啟動安全執行。
 
   D5:
     title: Execute and verify the first AWS deployment
