@@ -661,6 +661,82 @@ class CriticFailureStillProducesOutputTests(unittest.TestCase):
         self.assertIn("citation gate failed", result["claim_graph"]["fallback_reason"])
         self.assertTrue(result["claims"])
 
+    def test_gate_failure_records_why_the_model_graph_was_rejected(self):
+        """降級原因必須是**造成失敗**那次 gate 的 errors，不是重建後成功那次的。
+
+        `build(None)` 會重新綁定 `gate`，而 deterministic 重建通常會通過（errors 為空）。
+        在那之後才讀 `gate["errors"]` 會把失敗原因蓋成空字串，記錄只剩
+        `citation gate failed: ` —— 事後無法回答「模型的提案為什麼被擋掉」。
+        """
+        failing = dict(gate(two_sided_evidence(), [make_claim(supporting_evidence_ids=["EV-404"])]))
+        passing = dict(gate(two_sided_evidence(), [make_claim()]))
+        self.assertTrue(failing["errors"], "前提：失敗那次必須真的有 errors")
+        self.assertEqual(passing["errors"], [], "前提：重建那次通過且沒有 errors")
+
+        with tempfile.TemporaryDirectory() as directory, \
+             patch("src.orchestrator.run_citation_gate", side_effect=[failing, passing]):
+            result = run("ETH", "T5 gate 降級原因", Path(directory), live=False, use_llm=False,
+                         claim_client=ProposalClient())
+            log = json.loads((Path(directory) / "execution_log.json").read_text(encoding="utf-8"))
+
+        reason = result["claim_graph"]["fallback_reason"]
+        detail = reason.replace("citation gate failed:", "").strip()
+        self.assertTrue(detail, "失敗原因被重建後那次 gate 蓋掉了：%r" % reason)
+        self.assertIn("EV-404", reason)
+        # 同一份原因必須也出現在 run 層級的降級清單，否則只有讀 claim_graph 的人看得到。
+        rebuilt = [item for item in log["degradation_reasons"]
+                   if item.startswith("claims_rebuilt_deterministically:")]
+        self.assertTrue(rebuilt)
+        self.assertIn("EV-404", rebuilt[0])
+
+    def test_critic_failure_records_which_guard_rejected_the_critique(self):
+        """`fallback:ValueError` 不足以診斷：兩個 guard 的意義完全不同。
+
+        「模型捏造 Evidence ID」是模型幻覺，「稽核改寫了原始證據」是完整性違規。
+        `status` 的字面格式被多處依賴，因此細節附在 `fallback_reason`。
+        """
+        class HallucinatingCritic:
+            def generate_json(self, **kwargs):
+                return {
+                    "verdict": "concerns",
+                    "summary": "稽核摘要",
+                    "confidence_adjustment": -0.1,
+                    "findings": [{
+                        "severity": "MEDIUM", "category": "over_claim",
+                        "issue": "結論強度超過證據", "claim": "某個結論",
+                        "evidence_id": "EV-DOES-NOT-EXIST",
+                    }],
+                }
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            result = offline_llm_run(output, critic_client=HallucinatingCritic())
+            log = json.loads((output / "execution_log.json").read_text(encoding="utf-8"))
+            step = next(s for s in log["steps"] if s["name"] == "critic_review")
+
+            # 捏造的稽核不得被採用。
+            self.assertIsNone(result["critique"])
+            # status 維持既有字面格式（`== "success"`、`startswith("fallback:")` 都靠它）。
+            self.assertEqual(step["status"], "fallback:ValueError")
+            self.assertEqual(result["critic_status"], "fallback:ValueError")
+            # 但原因必須看得出來。
+            self.assertIn("EV-DOES-NOT-EXIST", step["fallback_reason"])
+            self.assertIn("fallback:ValueError", step["fallback_reason"])
+            # 六項提交物不受影響。
+            for name in ARTIFACT_FILENAMES.values():
+                self.assertTrue((output / name).exists(), name)
+
+    def test_successful_critic_leaves_no_fallback_reason(self):
+        """成功時不得出現降級字樣，否則讀者無法分辨有沒有真的跑過稽核。"""
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            run("ETH", "T5 稽核成功", output, live=False, use_llm=False)
+            log = json.loads((output / "execution_log.json").read_text(encoding="utf-8"))
+            step = next(s for s in log["steps"] if s["name"] == "critic_review")
+
+        self.assertEqual(step["status"], "skipped:disabled")
+        self.assertNotIn("None", str(step["fallback_reason"]).split(";")[0])
+
     def test_persistent_gate_failure_stops_the_run(self):
         failing = gate(two_sided_evidence(), [make_claim(supporting_evidence_ids=["EV-404"])])
         with tempfile.TemporaryDirectory() as directory, \

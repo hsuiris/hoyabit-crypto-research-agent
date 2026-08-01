@@ -1001,8 +1001,13 @@ def _build_claims_with_gate(result: dict, evidence: list, plan_dict: dict, signa
 
     graph, gate, linked = build(client)
     if gate["status"] == GATE_STATUS_FAIL and graph["source"] == GRAPH_SOURCE_LLM:
+        # 先把造成失敗的 errors 抄下來。`build(None)` 會重新綁定 `gate`，而重建後的
+        # deterministic 圖通常會通過 gate（errors 是空的）—— 在那之後才讀 gate["errors"]
+        # 等於用成功那次的結果覆蓋失敗原因，記錄只會剩下 "citation gate failed: "
+        # 這個沒有任何資訊的字串，事後無法回答「模型的提案為什麼被擋掉」。
+        rejected_errors = list(gate["errors"])
         graph, gate, linked = build(None)
-        graph["fallback_reason"] = "citation gate failed: " + "; ".join(gate["errors"][:3])
+        graph["fallback_reason"] = "citation gate failed: " + "; ".join(rejected_errors[:3])
     if gate["status"] == GATE_STATUS_FAIL:
         raise ValueError("Citation gate failed: " + "; ".join(gate["errors"]))
     return graph, gate, linked
@@ -1303,6 +1308,9 @@ def _run_pipeline(coin: str, question: str, output_dir: Path, live: bool = False
     critic_started = time.monotonic()
     critic_deadline = min(deadline, critic_started + CRITIC_PHASE_SECONDS)
     critic_status, critique = "skipped:disabled", None
+    # 例外訊息與狀態分開存。`critic_status` 的字面格式被多處依賴（`== "success"`、
+    # `startswith("fallback:")`、報告與 Execution Log 都直接顯示它），不能把訊息塞進去。
+    critic_detail = ""
     critic_decision = deadline_now()
     if use_llm:
         critic_seconds_remaining = round(critic_deadline - time.monotonic(), 1)
@@ -1333,6 +1341,10 @@ def _run_pipeline(coin: str, question: str, output_dir: Path, live: bool = False
                 critic_status = "success"
             except Exception as error:
                 critic_status = f"fallback:{type(error).__name__}"
+                # 型別名不足以診斷：上面兩個 guard 都拋 ValueError，但「模型捏造 Evidence ID」
+                # 是模型幻覺，「稽核改寫了原始證據」是完整性違規 —— 只看 fallback:ValueError
+                # 無法分辨是哪一種，而這兩件事該有的反應完全不同。
+                critic_detail = str(error)
     if critique:
         adjustment = float(critique.get("confidence_adjustment") or 0)
         original = float(result["reasoning"].get("confidence", 0) or 0)
@@ -1564,7 +1576,10 @@ def _run_pipeline(coin: str, question: str, output_dir: Path, live: bool = False
              **timeline.entry("llm_reasoning")},
             {"name": "critic_review", "status": critic_status, **llm_info,
              "tool": "src.llm.critique_with_llm",
-             "fallback_reason": None if critic_status == "success" else critic_status,
+             # `status` 維持既有字面值；具體原因附在 fallback_reason 之後，讓 Execution Log
+             # 能回答「稽核為什麼沒跑」而不只是「稽核沒跑」。
+             "fallback_reason": None if critic_status == "success" else
+             "; ".join(part for part in (critic_status, critic_detail) if part),
              "semantic_categories": sorted({
                  finding["category"] for finding in citation_gate["semantic_findings"]}),
              **timeline.entry("critic_review")},

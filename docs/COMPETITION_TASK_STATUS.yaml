@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T8.1
-last_updated_at: 2026-08-01T21:40:00+08:00
+current_task: T8.2
+last_updated_at: 2026-08-01T22:30:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 611 tests, 611 passed, 0 failed, 0 errors
+full_suite_latest: 614 tests, 614 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -542,3 +542,57 @@ tasks:
         兩者與本 Task 的根因無關，未納入範圍
       - DOMAIN_ALIASES 是詞表啟發式；模型若造出表中沒有的新詞仍會退回預設分母（有 limiter 標示）
       - 未執行真實 Bedrock 呼叫的 targeted test（延續既有慣例，模型端一律 mock）
+
+  T8.2:
+    title: Stop degradation reasons from erasing themselves
+    status: PASS
+    depends_on: [T8.1]
+    target_minutes: 30
+    started_at: 2026-08-01T22:00:00+08:00
+    completed_at: 2026-08-01T22:30:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "fix(T8.2)"`。
+    commit: 'fix(T8.2): keep the reason a degradation actually happened'
+    note: >-
+      原始 T0-T8 計畫沒有這個 Task。起因是 T8.1 期間的雲端 test run 出現兩個降級，
+      但兩者都只留下「發生了降級」而沒有「為什麼」。屬可觀測性缺陷修復，不改任何計分、
+      不改 verdict、不改 Claim 或 Evidence 的內容，只補回被丟掉的診斷資訊。
+    root_cause: >-
+      (1) 變數遮蔽（明確的 bug）：`_build_claims_with_gate()` 在 `build(None)` 重新綁定
+          `gate` **之後**才讀 `gate["errors"]`。deterministic 重建通常會通過 gate（errors
+          為空），因此失敗原因被成功那次的結果覆蓋，記錄只剩 `citation gate failed: `。
+          實測失敗那次有 3 條具體 errors（未知 ID EV-404 等），全部遺失。
+          既有測試只斷言前綴 `"citation gate failed"`，沒有斷言後面的原因，所以沒被抓到。
+      (2) 訊息被丟棄：critic 的 except 只保留 `type(error).__name__`，因此三個意義完全
+          不同的失敗都收斂成 `fallback:ValueError`——「模型捏造 Evidence ID」是模型幻覺、
+          「稽核改寫了原始證據」是完整性違規、「Invalid critic verdict」是模型輸出不合規。
+          現場只看到 fallback:ValueError 無法判斷該不該重跑。
+    fix: >-
+      1. src/orchestrator.py `_build_claims_with_gate()`：重建前先把造成失敗的 errors
+         抄進 `rejected_errors`，再用它組 fallback_reason。
+      2. src/orchestrator.py critic 區塊：新增 `critic_detail` 保存 `str(error)`，附在
+         Execution Log 的 `critic_review.fallback_reason` 之後。`critic_status` 的字面
+         格式刻意不動（`== "success"`、`startswith("fallback:")`、報告顯示都依賴它）。
+    test_summary: >-
+      targeted：python3 -m unittest
+      tests.test_t5_citation_gate.CriticFailureStillProducesOutputTests → 6 tests OK
+      （新增 3 個：gate 失敗原因、critic guard 可辨識、成功時不得出現降級字樣）。
+      反向驗證：git stash 掉 src/orchestrator.py 後同一組測試 2 failed，訊息分別為
+      "'EV-DOES-NOT-EXIST' not found in 'fallback:ValueError'" 與
+      "失敗原因被重建後那次 gate 蓋掉了：'citation gate failed: '"，確認測試真的擋住舊行為。
+      完整套件：python3 -m unittest discover -s tests → 614 tests, 614 passed, 0 failed
+      （T8.1 後為 611）。
+      Offline E2E：BTC／ETH／SOL／BNB／XRP 各六檔齊備、Citation Gate 皆 PASS。
+      修正後實測輸出：
+        gate    → "citation gate failed: CL-001: cites unknown evidence ids ['EV-404']; ..."
+        critic  → "fallback:ValueError; Critic cited unknown evidence IDs: ['EV-DOES-NOT-EXIST']"
+    artifacts:
+      - src/orchestrator.py
+      - tests/test_t5_citation_gate.py
+    blockers: []
+    known_limitations:
+      - >-
+        只補診斷資訊，沒有降低降級發生率。雲端那次 critic_fallback:ValueError 的真正原因
+        仍未知（舊部署不會記錄細節）；修正部署後的下一次 live run 才會顯示是哪個 guard
+      - critic 細節只進 Execution Log，report.md 仍只顯示 critic_status（避免把原始錯誤訊息放進主要評分對象）
+      - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
