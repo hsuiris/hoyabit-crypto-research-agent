@@ -1,0 +1,215 @@
+{
+  "registry_version": "source-registry-v1",
+  "description": "T3 Evidence credibility 的來源類別基準值。source_type 的合法值以 src/schemas.py 的 SOURCE_TYPES 為準；本檔只提供每一類的分數基準與語意限制，不含任何計分邏輯。",
+  "notes": [
+    "source_quality / traceability / method_transparency / independence_base 皆為 0-1 的基準值，實際分數由 src/credibility.py 依單筆 Evidence 的 metadata 調整。",
+    "fetched_at_is_observation=true 表示這類來源的 fetched_at 就是觀測時間（例如 API 快照），可直接用於 freshness；false 表示必須有 event_time 或 published_at 才能主張新鮮度。",
+    "freshness_policy.fresh_within_days 以內視為完全新鮮，stale_after_days 以外落到下限，中間線性遞減。",
+    "hard cap 定義在 src/schemas.py 的 HARD_CAPS，不在本檔重複，避免兩份字面值漂移。"
+  ],
+  "default": {
+    "label": "保守預設（registry 未涵蓋的 source_type）",
+    "source_quality": 0.35,
+    "traceability": 0.35,
+    "method_transparency": 0.3,
+    "independence_base": 0.5,
+    "first_party": false,
+    "is_news": false,
+    "is_secondary_news": false,
+    "is_social": false,
+    "is_fallback": false,
+    "fetched_at_is_observation": false,
+    "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 7},
+    "known_limitations": ["來源類別未登錄，一律以保守基準計分"]
+  },
+  "source_types": {
+    "market_api": {
+      "label": "公開市場資料 API（價量、OHLCV）",
+      "source_quality": 0.85,
+      "traceability": 0.9,
+      "method_transparency": 0.75,
+      "independence_base": 0.85,
+      "first_party": true,
+      "is_news": false,
+      "is_secondary_news": false,
+      "is_social": false,
+      "is_fallback": false,
+      "fetched_at_is_observation": true,
+      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 14},
+      "known_limitations": [
+        "不同交易所報價可能不一致",
+        "指標可重現不代表預測正確"
+      ]
+    },
+    "derivatives_api": {
+      "label": "衍生品市場 API（資金費率、多空比）",
+      "source_quality": 0.8,
+      "traceability": 0.85,
+      "method_transparency": 0.7,
+      "independence_base": 0.8,
+      "first_party": true,
+      "is_news": false,
+      "is_secondary_news": false,
+      "is_social": false,
+      "is_fallback": false,
+      "fetched_at_is_observation": true,
+      "freshness_policy": {"fresh_within_days": 0.5, "stale_after_days": 7},
+      "known_limitations": [
+        "只涵蓋單一交易所的部位分布",
+        "倉位分布不等於後續價格方向"
+      ]
+    },
+    "blockchain_raw": {
+      "label": "鏈上原始資料（節點 JSON-RPC、交易與餘額）",
+      "source_quality": 0.9,
+      "traceability": 0.95,
+      "method_transparency": 0.85,
+      "independence_base": 0.9,
+      "first_party": true,
+      "is_news": false,
+      "is_secondary_news": false,
+      "is_social": false,
+      "is_fallback": false,
+      "fetched_at_is_observation": true,
+      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 30},
+      "known_limitations": [
+        "可高可信證明轉帳發生，不能證明地址實際擁有者",
+        "不能證明交易意圖或後續買賣行為"
+      ]
+    },
+    "official_announcement": {
+      "label": "第一方官方公告",
+      "source_quality": 0.85,
+      "traceability": 0.85,
+      "method_transparency": 0.55,
+      "independence_base": 0.6,
+      "first_party": true,
+      "is_news": true,
+      "is_secondary_news": false,
+      "is_social": false,
+      "is_fallback": false,
+      "fetched_at_is_observation": false,
+      "freshness_policy": {"fresh_within_days": 3, "stale_after_days": 60},
+      "known_limitations": [
+        "高可信證明「已發布」，不證明商業成果",
+        "第一方陳述不構成獨立確認"
+      ]
+    },
+    "major_media": {
+      "label": "主要媒體報導",
+      "source_quality": 0.7,
+      "traceability": 0.7,
+      "method_transparency": 0.5,
+      "independence_base": 0.65,
+      "first_party": false,
+      "is_news": true,
+      "is_secondary_news": false,
+      "is_social": false,
+      "is_fallback": false,
+      "fetched_at_is_observation": false,
+      "freshness_policy": {"fresh_within_days": 2, "stale_after_days": 21},
+      "known_limitations": ["報導本身仍是二手陳述，需回溯原始出處"]
+    },
+    "secondary_media": {
+      "label": "轉載或次級媒體",
+      "source_quality": 0.5,
+      "traceability": 0.55,
+      "method_transparency": 0.35,
+      "independence_base": 0.4,
+      "first_party": false,
+      "is_news": true,
+      "is_secondary_news": true,
+      "is_social": false,
+      "is_fallback": false,
+      "fetched_at_is_observation": false,
+      "freshness_policy": {"fresh_within_days": 2, "stale_after_days": 14},
+      "known_limitations": [
+        "單一次級來源不足以確認事件",
+        "多篇同源轉載不構成多個獨立確認"
+      ]
+    },
+    "social_public": {
+      "label": "公開社群討論",
+      "source_quality": 0.35,
+      "traceability": 0.4,
+      "method_transparency": 0.25,
+      "independence_base": 0.45,
+      "first_party": false,
+      "is_news": false,
+      "is_secondary_news": false,
+      "is_social": true,
+      "is_fallback": false,
+      "fetched_at_is_observation": false,
+      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 7},
+      "known_limitations": [
+        "可描述討論度與情緒，不能單獨確認外部事件",
+        "匿名或低可追溯帳號的可信度另有上限"
+      ]
+    },
+    "macro_api": {
+      "label": "總體或市場情緒指標 API",
+      "source_quality": 0.8,
+      "traceability": 0.85,
+      "method_transparency": 0.7,
+      "independence_base": 0.75,
+      "first_party": true,
+      "is_news": false,
+      "is_secondary_news": false,
+      "is_social": false,
+      "is_fallback": false,
+      "fetched_at_is_observation": true,
+      "freshness_policy": {"fresh_within_days": 2, "stale_after_days": 30},
+      "known_limitations": ["多為全市場範圍，不是單一幣種的證據"]
+    },
+    "local_csv": {
+      "label": "本地歷史日線 CSV",
+      "source_quality": 0.7,
+      "traceability": 0.9,
+      "method_transparency": 0.8,
+      "independence_base": 0.6,
+      "first_party": false,
+      "is_news": false,
+      "is_secondary_news": false,
+      "is_social": false,
+      "is_fallback": false,
+      "fetched_at_is_observation": true,
+      "freshness_policy": {"fresh_within_days": 2, "stale_after_days": 45},
+      "known_limitations": [
+        "檔案為快照，需以 metadata 確認下載時間",
+        "樣本數有限，不足以證明策略有效"
+      ]
+    },
+    "fallback_fixture": {
+      "label": "離線降級 fixture",
+      "source_quality": 0.2,
+      "traceability": 0.2,
+      "method_transparency": 0.2,
+      "independence_base": 0.2,
+      "first_party": false,
+      "is_news": false,
+      "is_secondary_news": false,
+      "is_social": false,
+      "is_fallback": true,
+      "fetched_at_is_observation": true,
+      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 1},
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ]
+    },
+    "unknown": {
+      "label": "未分類來源",
+      "source_quality": 0.35,
+      "traceability": 0.35,
+      "method_transparency": 0.3,
+      "independence_base": 0.5,
+      "first_party": false,
+      "is_news": false,
+      "is_secondary_news": false,
+      "is_social": false,
+      "is_fallback": false,
+      "fetched_at_is_observation": false,
+      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 7},
+      "known_limitations": ["來源類別未標註，一律以保守基準計分"]
+    }
+  }
+}
