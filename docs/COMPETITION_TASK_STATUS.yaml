@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T7
-last_updated_at: 2026-08-01T14:20:00+08:00
+current_task: T8.1
+last_updated_at: 2026-08-01T21:40:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 535 tests, 535 passed, 0 failed, 0 errors
+full_suite_latest: 611 tests, 611 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -455,3 +455,90 @@ tasks:
         T8 的 status 維持 PARTIAL 未改為 PASS：T8 的驗收範圍屬於 hoyabit-competition-ready
         spec，本次只解除其 blocker 並補上 live smoke 證據，不追溯改寫該 spec 的驗收結論。
         是否建立 competition-demo-ready tag 由使用者決定。
+
+  T8.1:
+    title: Fix silent domain_coverage zeroing and make deployment state verifiable
+    status: PASS
+    depends_on: [T8]
+    target_minutes: 60
+    started_at: 2026-08-01T20:30:00+08:00
+    completed_at: 2026-08-01T21:40:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "fix(T8.1)"`。
+    commit: 'fix(T8.1): map plan domains to the claim vocabulary and verify deployment'
+    note: >-
+      原始 T0-T8 計畫沒有這個 Task。起因是比對主辦方命題文件時，實測發現正式部署上每個
+      Claim 都被判成 insufficient_evidence，而報告與 Citation Gate 都不會顯示任何異常。
+      根因不是證據不足，是 domain 詞彙表在兩端分岔。屬缺陷修復，不新增功能，不擴大範圍。
+    root_cause: >-
+      `required_domains` 由 Planner 產出、由 claim_graph 當 domain_coverage 的分母，
+      兩端各自維護詞彙表且沒有共用契約，於是有兩條靜默歸零的路徑：
+      (1) LLM 用自由字串填 required_domains。正式部署（us-west-2／amazon.nova-lite-v1:0）
+          實際回傳 market_data／news_events／social_sentiment／technical_analysis，與
+          claim_graph 的 market／news／social／onchain／derivatives／macro 交集為空。
+      (2) 即使詞彙表對上，`covered` 只取「證據 domain ∩ plan domain」，因此 plan 沒列到的
+          領域即使真的有證據也一分不算（實測：plan 要 market/news/social，Claim 唯一支持
+          證據是 chain TVL → onchain，coverage 仍是 0/3）。
+      兩者都讓 coverage < MIN_DOMAIN_COVERAGE，強制 verdict = insufficient_evidence。
+      沒有 error、沒有 warning、Citation Gate 仍 PASS —— 報告只會說「資料不足」。
+      Planner 的 deterministic fallback 另有同類問題：`announcement`／`whale` 不是 domain
+      （分別歸 news／onchain），因此永遠無法被覆蓋。
+    fix: >-
+      1. src/schemas.py 新增 CLAIM_DOMAINS（domain 字面值的唯一定義來源）、DOMAIN_ALIASES
+         與 normalise_domains()。比對前先收斂大小寫與分隔符，因此 on-chain／On Chain／
+         ONCHAIN 命中同一個鍵。
+      2. src/planner.py：LLM schema 的 required_domains 加 enum、prompt 明列 allowed_domains、
+         解析與 fallback 都經 normalise_domains()，因此落地的 research_plan.json 已是 canonical。
+         刻意不因為模型用了近義詞就作廢整份 plan（plan 其餘部分仍可用）。
+      3. src/claim_graph.py：取交集前正規化；分母改為「plan 領域 ∪ 本 Claim 證據實際覆蓋的
+         領域」；plan 領域完全無法對應時退回 DEFAULT_REQUIRED_DOMAINS 並記 limiter
+         plan_domains_unrecognised。未知 data_type 的 `other` 不進分母也不進分子。
+      4. aws/：deploy.sh 計算並注入 CODE_COMMIT（工作區不乾淨時加 -dirty），template.yaml
+         新增 CodeCommit parameter 與 Lambda 環境變數，manifest.json 的 code_commit 因此
+         不再是 unknown；新增 aws/verify-deployment.sh，不需 AWS 憑證即可確認線上狀態。
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_claim_domain_vocabulary -v → 24 tests OK。
+      回歸：python3 -m unittest tests.test_claim_graph tests.test_planner
+      tests.test_schema_contract tests.test_t2_planner_wiring tests.test_t4_claim_graph_wiring
+      → 158 tests OK（既有斷言全部未修改）。
+      完整套件：python3 -m unittest discover -s tests → 611 tests, 611 passed, 0 failed, 0 errors
+      （修改前 587）。
+      Offline E2E：BTC／ETH／SOL／BNB／XRP 各產出六檔、Citation Gate PASS、coverage 0.6667。
+      以 git stash 對照確認 offline 行為完全未變（修改前後皆 0.6667）：這個缺陷只出現在
+      LLM 產生 plan 的路徑，離線備援從未受影響。
+      Before/after 對照（同一組 live collector、同一個模型 plan 形狀、注入 planner client）：
+      修改前 domain_coverage=0.0／verdict=insufficient_evidence／信心 0.35；
+      修改後 domain_coverage=0.4／verdict=mixed／信心 0.5963；Citation Gate 皆 PASS。
+      CODE_COMMIT：以 env var 注入後 manifest.code_commit 正確帶出注入值。
+      部署：bash aws/deploy.sh --dry-run → 29 檔／385 KB；bash -n 兩支腳本語法 OK。
+      線上驗證：./aws/verify-deployment.sh --run → 首頁 HTTP 200（0.55s）、五幣可選、
+      執行性質選單在、POST 200（20 秒，遠低於命題 900 秒上限）、六項提交物齊備、
+      Citation Gate PASS_WITH_WARNINGS。
+    deployment_state_verified_at: 2026-08-01T21:20:00+08:00
+    deployment_state: >-
+      Function URL 存活且可完整執行（AuthType NONE，因此不需要 AWS 憑證即可驗證）。
+      但本機 AWS credentials 已過期（Workshop Studio 臨時帳號），因此**無法重新部署**：
+      線上跑的仍是修正前的程式，verify-deployment.sh 也如實回報線上 code_commit=unknown。
+      取得新憑證後執行 ./aws/deploy.sh 即可讓修正上線並讓版本可驗證。
+    artifacts:
+      - src/schemas.py
+      - src/planner.py
+      - src/claim_graph.py
+      - tests/test_claim_domain_vocabulary.py
+      - aws/deploy.sh
+      - aws/template.yaml
+      - aws/verify-deployment.sh
+      - aws/README.md
+    blockers: []
+    known_limitations:
+      - 修正未部署到 AWS：本機 credentials 已過期，需使用者取得新憑證後執行 ./aws/deploy.sh
+      - >-
+        分母含 plan 領域時，「把 plan 寫窄」在多領域 Claim 上仍可能小幅提高 coverage
+        （例：wide 3/4=0.75 vs narrow 3/3=1.0）。這是 MIN_REQUIRED_DOMAIN_COUNT 分母下限
+        設計本來就有的取捨，修改前後行為一致，本 Task 未擴大也未縮小它
+      - >-
+        同一次雲端 test run 另外暴露兩個未修的降級：critic_fallback:ValueError 與
+        claims_rebuilt_deterministically 的 gate 失敗訊息是空字串（看不出失敗原因）。
+        兩者與本 Task 的根因無關，未納入範圍
+      - DOMAIN_ALIASES 是詞表啟發式；模型若造出表中沒有的新詞仍會退回預設分母（有 limiter 標示）
+      - 未執行真實 Bedrock 呼叫的 targeted test（延續既有慣例，模型端一律 mock）

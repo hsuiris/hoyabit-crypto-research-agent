@@ -31,6 +31,7 @@ from dataclasses import asdict
 
 from src.ports import LLMClient
 from src.schemas import (
+    CLAIM_DOMAINS,
     DEFAULT_TASK_MODE,
     DEFAULT_TIME_WINDOW_DAYS,
     Hypothesis,
@@ -40,6 +41,7 @@ from src.schemas import (
     TIME_WINDOW_SOURCES,
     default_stop_conditions,
     default_time_window,
+    normalise_domains,
 )
 
 PLANNER_SCHEMA_NAME = "research_plan"
@@ -65,6 +67,9 @@ _TASK_MODE_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 # 每個 domain 對應的觸發關鍵字，用於從題目文字直接偵測需要哪些資料 domain。
+# 這裡的標籤比 ``CLAIM_DOMAINS`` 細（``announcement``、``whale``），因為關鍵字表要表達的是
+# 「題目提到了公告／巨鯨」。輸出前一律經 ``normalise_domains()`` 收斂成 canonical domain，
+# 落地的 ``required_domains`` 才會與 T4 算 coverage 用的詞彙表一致。
 _DOMAIN_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("market", ("價格", "价格", "市場", "市场", "行情")),
     ("news", ("新聞", "新闻")),
@@ -139,7 +144,7 @@ def _fallback_domains(question: str, task_modes: list[str]) -> list[str]:
     for mode in task_modes:
         detected.update(_BASE_DOMAINS_BY_MODE.get(mode, ()))
     ordered = [domain for domain in _DOMAIN_ORDER if domain in detected]
-    return ordered or ["market"]
+    return normalise_domains(ordered) or ["market"]
 
 
 def _fallback_comparison_dimensions(task_modes: list[str]) -> list[str]:
@@ -243,7 +248,10 @@ RESEARCH_PLAN_SCHEMA = {
                 "additionalProperties": False,
             },
         },
-        "required_domains": {"type": "array", "items": {"type": "string"}},
+        # enum 只是把模型往 canonical 詞彙推；真正的保證在 ``_plan_from_llm_payload()`` 的
+        # ``normalise_domains()``。不在這裡驗證失敗就作廢整份 plan：模型只是用了近義詞
+        # （market_data 之類），plan 的其餘部分仍然可用，沒有理由整份丟掉。
+        "required_domains": {"type": "array", "items": {"type": "string", "enum": list(CLAIM_DOMAINS)}},
         "comparison_dimensions": {"type": "array", "items": {"type": "string"}},
         "assumptions": {"type": "array", "items": {"type": "string"}},
         "stop_conditions": {
@@ -269,6 +277,7 @@ def _build_prompt(question: str, coins: list[str]) -> str:
         "question": question,
         "coins": coins,
         "allowed_task_modes": list(TASK_MODES),
+        "allowed_domains": list(CLAIM_DOMAINS),
         "time_window_sources": list(TIME_WINDOW_SOURCES),
         "default_time_window_days": DEFAULT_TIME_WINDOW_DAYS,
     }
@@ -282,7 +291,8 @@ def _build_prompt(question: str, coins: list[str]) -> str:
         "3. hypotheses：只有在題目要求驗證假設時才填，且 support_questions、"
         "contradiction_questions、falsification_conditions 三者都必須非空且對稱"
         "（同時找支持面與反對面，不能只找想看到的證據）。\n"
-        "4. required_domains：需要蒐集的資料類別。\n"
+        "4. required_domains：需要蒐集的資料領域，只能使用 allowed_domains 中的值，"
+        "不要自創近義詞（例如不要寫 market_data、technical_analysis，價格與技術面都屬 market）。\n"
         "5. comparison_dimensions：比較題才填，且兩個標的必須共用同一組維度。\n"
         "6. assumptions：任何你替題目補上的預設值都要在這裡明說。\n"
         "只回傳一個 JSON 物件，欄位需完全符合上述規則。\n\n"
@@ -357,13 +367,16 @@ def _plan_from_llm_payload(question: str, coins: list[str], raw: dict) -> Resear
         )
         for item in raw["hypotheses"]
     ]
+    # required_domains 一律收斂成 canonical domain。模型即使無視 schema 的 enum 回了
+    # market_data／news_events 這類近義詞，落地的 plan 仍與 T4 算 domain_coverage 用的
+    # 詞彙表一致；全部無法對應時留空，由計分端退回預設分母（見 claim_graph）。
     return ResearchPlan(
         coins=list(coins),
         task_modes=list(raw["task_modes"]),
         primary_question=question,
         time_window=dict(raw["time_window"]),
         hypotheses=hypotheses,
-        required_domains=list(raw["required_domains"]),
+        required_domains=normalise_domains(raw["required_domains"]),
         comparison_dimensions=list(raw["comparison_dimensions"]),
         assumptions=list(raw["assumptions"]),
         stop_conditions=dict(raw["stop_conditions"]),

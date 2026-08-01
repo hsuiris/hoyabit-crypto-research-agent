@@ -9,6 +9,7 @@
 |---|---|---|
 | `template.yaml` | CloudFormation：IAM 執行角色 + Lambda + Function URL | 部署時需要 |
 | `verify-permissions.sh` | 部署前的權限預檢；只做唯讀呼叫，不建立任何資源 | 需要 |
+| `verify-deployment.sh` | 部署**後**確認 Function URL 現在是否真的可用 | 不需要 |
 | `deploy.sh` | POSIX 部署腳本（macOS／Linux） | 除 `--dry-run` 外需要 |
 | `deploy.ps1` | PowerShell 部署腳本（Windows），與 `deploy.sh` 行為對等 | 部署時需要 |
 | `iam/deployer-policy.json` | 部署身分的最小權限參考 policy | 不需要 |
@@ -28,7 +29,11 @@ bash aws/deploy.sh --dry-run
 # 4. 部署
 bash aws/deploy.sh --region us-west-2 --provider bedrock --model-id amazon.nova-lite-v1:0
 
-# 5. Demo 結束後拆除
+# 5. 確認線上真的可用（不需要憑證）
+./aws/verify-deployment.sh          # 只檢查首頁，不消耗 Bedrock 配額
+./aws/verify-deployment.sh --run    # 額外跑一次 test 模式分析
+
+# 6. Demo 結束後拆除
 aws cloudformation delete-stack --region us-west-2 --stack-name hoyabit-agent-mvp
 ```
 
@@ -218,6 +223,25 @@ bash aws/deploy.sh --region us-west-2 --provider bedrock --model-id amazon.nova-
 ```
 
 CloudFormation 只會更新有變動的資源，通常 30–60 秒完成。Function URL **不會改變**。
+
+### Demo 前先確認網址還活著
+
+`aws/verify-deployment.sh` 不需要 AWS 憑證（Function URL 的 AuthType 是 NONE），因此
+**憑證過期後仍可用來判斷線上服務是否還在**。這點很重要：Workshop Studio 是臨時帳號，
+憑證會比 stack 先失效，此時已經無法用 `describe-stacks` 查狀態，但服務可能還跑著。
+
+```bash
+./aws/verify-deployment.sh          # 首頁、五個幣種、執行性質選單
+./aws/verify-deployment.sh --run    # 加上一次 test 模式完整分析
+```
+
+`--run` 檢查六項提交物、Citation Gate、900 秒上限，並比對**線上程式與本機 HEAD 是否同一版**。
+最後這項靠 `deploy.sh` 在部署時注入 `CODE_COMMIT`（Lambda 套件裡沒有 `.git`，不注入的話
+`manifest.json` 的 `code_commit` 永遠是 `unknown`，「線上跑的是哪一版」就無法從產物回答）。
+
+腳本永遠只送 `mode=test`：formal 模式對同一題目只允許一次正式執行，誤送會把正式額度用掉。
+
+> `--run` 會消耗 Bedrock 配額（每次分析 4 次模型呼叫）。上台前確認一次就好。
 
 ### 部署後要驗證什麼
 

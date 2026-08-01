@@ -42,6 +42,14 @@ LOG_RETENTION="${DEPLOY_LOG_RETENTION:-7}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# 打包的 commit。Lambda 套件裡沒有 .git，不注入的話 manifest 的 code_commit 永遠是 unknown，
+# 「線上跑的是哪一版」就無法從產物回答。工作區有未提交變更時加 `-dirty`，避免把「本機改過但
+# 沒 commit」的部署誤標成某個乾淨 commit。
+CODE_COMMIT="$(git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+if [ "$CODE_COMMIT" != "unknown" ] && ! git -C "$PROJECT_ROOT" diff --quiet HEAD 2>/dev/null; then
+  CODE_COMMIT="$CODE_COMMIT-dirty"
+fi
+
 # ----------------------------------------------------------------------------------
 # 載入 .env（選用）
 # ----------------------------------------------------------------------------------
@@ -312,6 +320,7 @@ log "  stack：   $STACK_NAME"
 log "  provider：$PROVIDER"
 [ "$PROVIDER" = "bedrock" ] && log "  model：   $MODEL_ID"
 log "  護欄：    auth=$AUTH_TYPE  concurrency=$CONCURRENCY  log 保留=${LOG_RETENTION} 天"
+log "  commit：  $CODE_COMMIT"
 
 DEPLOY_OUTPUT=$(aws cloudformation deploy \
   --template-file "$SCRIPT_DIR/template.yaml" \
@@ -327,7 +336,8 @@ DEPLOY_OUTPUT=$(aws cloudformation deploy \
     "BedrockModelId=$MODEL_ID" \
     "FunctionUrlAuthType=$AUTH_TYPE" \
     "ReservedConcurrency=$CONCURRENCY" \
-    "LogRetentionDays=$LOG_RETENTION" 2>&1)
+    "LogRetentionDays=$LOG_RETENTION" \
+    "CodeCommit=$CODE_COMMIT" 2>&1)
 DEPLOY_STATUS=$?
 
 if [ "$DEPLOY_STATUS" -ne 0 ]; then

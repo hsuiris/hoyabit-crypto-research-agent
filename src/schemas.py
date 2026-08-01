@@ -21,6 +21,7 @@ validator、credibility engine 與 Web UI 共用同一份字面值。
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
@@ -54,6 +55,147 @@ TIME_WINDOW_SOURCES = (TIME_WINDOW_SOURCE_EXPLICIT, TIME_WINDOW_SOURCE_DEFAULT)
 DEFAULT_TIME_WINDOW_DAYS = 14
 DEFAULT_MAX_EVIDENCE = 36
 DEFAULT_MAX_FOLLOWUP_ROUNDS = 1
+
+
+# --------------------------------------------------------------------------------------
+# T2 產出／T4 消費 — 研究領域（domain）詞彙表
+# --------------------------------------------------------------------------------------
+
+# domain 是「研究領域覆蓋度」的單位，不是資料來源數量。它有兩端：
+#   producer：``ResearchPlan.required_domains``（src/planner.py）
+#   consumer：domain_coverage 的分母（src/claim_graph.py），會與每筆證據的 domain 取交集
+#
+# 兩端必須共用同一組字面值。詞彙表一旦分岔，交集會是空集合，coverage 靜靜地變成 0.0，
+# 於是每個 Claim 都被判成 insufficient_evidence —— 沒有任何錯誤訊息，報告只會說「資料不足」。
+# 因此這裡是 domain 字面值的唯一定義來源。
+#
+# 這組值必須等於 ``claim_graph.DOMAIN_BY_DATA_TYPE`` 的相異值集合（由測試釘住，防止再次分岔）。
+CLAIM_DOMAINS = (
+    "market",
+    "news",
+    "social",
+    "onchain",
+    "derivatives",
+    "macro",
+)
+
+# 非 canonical 寫法 → canonical domain。需要它的原因有兩個：
+#   1. LLM 產生的 plan 用自由字串填 required_domains。實測 Bedrock（nova-lite）會回
+#      market_data／news_events／social_sentiment／technical_analysis 這類近義詞。
+#   2. Planner 的關鍵字表有比 domain 更細的標籤：``announcement`` 歸 news、``whale`` 歸
+#      onchain —— 與 ``DOMAIN_BY_DATA_TYPE`` 對證據的歸類方式一致。
+#
+# 比對前一律先過 ``_domain_key()``（小寫、非英數字元收斂成單一底線），因此 ``on-chain``、
+# ``On Chain``、``ONCHAIN`` 命中同一個鍵，不需要列舉大小寫與分隔符的變體。
+DOMAIN_ALIASES = MappingProxyType({
+    # market：價格、成交量與技術面都由市場資料推導，歸同一個領域。
+    "price": "market",
+    "prices": "market",
+    "price_data": "market",
+    "price_action": "market",
+    "price_history": "market",
+    "market_data": "market",
+    "market_price": "market",
+    "ohlcv": "market",
+    "volume": "market",
+    "volumes": "market",
+    "trading_volume": "market",
+    "liquidity": "market",
+    "technical": "market",
+    "technicals": "market",
+    "technical_analysis": "market",
+    "technical_indicators": "market",
+    "indicators": "market",
+    "ta": "market",
+    "chart": "market",
+    "charts": "market",
+    "vegas_channel": "market",
+    # news：官方公告是第一手新聞，與二手報導同屬 news 領域（可信度差異由 credibility 處理）。
+    "news_events": "news",
+    "news_event": "news",
+    "news_media": "news",
+    "media": "news",
+    "headlines": "news",
+    "press": "news",
+    "press_release": "news",
+    "announcement": "news",
+    "announcements": "news",
+    "official": "news",
+    "official_announcement": "news",
+    "official_announcements": "news",
+    "project_updates": "news",
+    # social
+    "sentiment": "social",
+    "social_media": "social",
+    "social_sentiment": "social",
+    "social_discussion": "social",
+    "community": "social",
+    "community_sentiment": "social",
+    "discussion": "social",
+    # onchain：巨鯨餘額與 TVL 都是鏈上觀測，與 DOMAIN_BY_DATA_TYPE 的 whale／tvl 一致。
+    "on_chain": "onchain",
+    "onchain_data": "onchain",
+    "on_chain_data": "onchain",
+    "chain": "onchain",
+    "chain_data": "onchain",
+    "blockchain": "onchain",
+    "blockchain_data": "onchain",
+    "whale": "onchain",
+    "whales": "onchain",
+    "whale_activity": "onchain",
+    "whale_wallets": "onchain",
+    "tvl": "onchain",
+    "total_value_locked": "onchain",
+    # derivatives
+    "derivative": "derivatives",
+    "derivatives_data": "derivatives",
+    "funding_rate": "derivatives",
+    "funding_rates": "derivatives",
+    "futures": "derivatives",
+    "options": "derivatives",
+    "open_interest": "derivatives",
+    "long_short_ratio": "derivatives",
+    "leverage": "derivatives",
+    "perpetuals": "derivatives",
+    # macro：政策與監管事件由 macro collector 取得（Fed press releases），歸 macro。
+    "macroeconomic": "macro",
+    "macroeconomics": "macro",
+    "macro_economy": "macro",
+    "macro_economic": "macro",
+    "economy": "macro",
+    "economic": "macro",
+    "monetary_policy": "macro",
+    "policy": "macro",
+    "regulation": "macro",
+    "regulations": "macro",
+    "regulatory": "macro",
+    "risk_appetite": "macro",
+    "fear_greed": "macro",
+})
+
+_DOMAIN_KEY_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _domain_key(name: object) -> str:
+    """把 domain 寫法收斂成比對用的鍵：小寫，非英數字元一律變成單一底線。"""
+    return _DOMAIN_KEY_RE.sub("_", str(name).strip().lower()).strip("_")
+
+
+def normalise_domains(names) -> list[str]:
+    """把任意 domain 寫法對應成 ``CLAIM_DOMAINS`` 的字面值。
+
+    保序去重（輸入順序是 deterministic 的，因此輸出也是）。無法對應的名稱一律丟棄，
+    **不**在這裡替換成預設值：分母該不該退回預設是計分端的決定，這裡只做字面值對應。
+    """
+    canonical: list[str] = []
+    for name in names or ():
+        key = _domain_key(name)
+        if not key:
+            continue
+        domain = key if key in CLAIM_DOMAINS else DOMAIN_ALIASES.get(key)
+        if domain and domain not in canonical:
+            canonical.append(domain)
+    return canonical
 
 
 def default_time_window() -> dict:

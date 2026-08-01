@@ -43,9 +43,11 @@ from src.schemas import (
     SOURCE_TYPE_FALLBACK_FIXTURE,
     VERDICT_INSUFFICIENT_EVIDENCE,
     VERDICTS,
+    CLAIM_DOMAINS,
     Claim,
     ClaimConfidence,
     Fact,
+    normalise_domains,
 )
 
 # 計分版本與 credibility 的 SCORING_VERSION 分開遞增：改 claim 計分不必動 evidence 計分版本。
@@ -58,6 +60,9 @@ GRAPH_SOURCE_LLM = "llm"
 GRAPH_SOURCE_FALLBACK = "deterministic_fallback"
 
 # data_type → domain。domain 是「研究領域覆蓋度」的單位，不是資料來源數量。
+# 值域必須等於 ``schemas.CLAIM_DOMAINS``（那裡是 domain 字面值的唯一定義來源，同時被
+# Planner 的 required_domains 使用）。兩邊分岔會讓 domain_coverage 靜靜歸零，
+# 由 tests/test_claim_domain_vocabulary.py 釘住。
 DOMAIN_BY_DATA_TYPE = MappingProxyType({
     "market": "market",
     "price_history": "market",
@@ -119,6 +124,8 @@ LIMITER_CRITIC_REDUCTION = "critic_confidence_reduction"
 LIMITER_CRITIC_POSITIVE_REJECTED = "critic_positive_adjustment_rejected"
 # plan 要求的領域數低於 MIN_REQUIRED_DOMAIN_COUNT，coverage 分母已被補到下限。
 LIMITER_PLAN_SCOPE_FLOOR = "plan_scope_denominator_floor"
+# plan 要求的領域完全無法對應到 CLAIM_DOMAINS，coverage 分母已退回 DEFAULT_REQUIRED_DOMAINS。
+LIMITER_PLAN_DOMAIN_VOCABULARY = "plan_domains_unrecognised"
 
 KNOWN_LIMITERS = (
     LIMITER_SINGLE_DOMAIN,
@@ -130,6 +137,7 @@ KNOWN_LIMITERS = (
     LIMITER_CRITIC_REDUCTION,
     LIMITER_CRITIC_POSITIVE_REJECTED,
     LIMITER_PLAN_SCOPE_FLOOR,
+    LIMITER_PLAN_DOMAIN_VOCABULARY,
 )
 
 CLAIM_TIMEOUT_SECONDS = 60.0
@@ -454,7 +462,32 @@ def evaluate_claim(
     # 單一領域的 Claim 都無法靠改寫 plan 通過覆蓋率門檻。
     requested = tuple(dict.fromkeys(
         str(name) for name in (required_domains or ()) if str(name).strip()))
-    required = requested or DEFAULT_REQUIRED_DOMAINS
+    # plan 的 domain 可能是模型自由生成的近義詞（實測 nova-lite 會回 market_data、
+    # news_events、technical_analysis）。取交集前先收斂成 canonical domain，否則 `covered`
+    # 會是空集合、coverage 靜靜變成 0.0，於是每個 Claim 都被判成 insufficient_evidence
+    # —— 那不是證據不足，是兩端的詞彙表對不起來，而且不會有任何錯誤訊息。
+    canonical = tuple(normalise_domains(requested))
+    # 一個都對應不上時退回預設分母：這與「完全沒有 plan」是同一種處境，不能拿一個不可能
+    # 被滿足的分母去算分。預設是最寬的四領域，比任何合法的窄 plan 都更難滿足，因此這條
+    # 退路不會變成抬高 confidence 的手段（`test_unrecognised_plan_domains_*` 釘住這點）。
+    vocabulary_fallback = bool(requested) and not canonical
+    planned = canonical or DEFAULT_REQUIRED_DOMAINS
+
+    # 分母是「plan 要求的領域」聯集「本 Claim 的證據實際覆蓋的領域」。
+    #
+    # 只用 plan 當分母會有第二條靜默歸零的路徑：plan 沒列到的領域，即使真的有證據支持，
+    # 也一分都不算。實測就會發生 —— plan 要 market／news／social，而 Claim 唯一的支持證據
+    # 是 chain TVL（onchain），交集是空集合，coverage 又變成 0/3。那不是「沒有跨領域證據」，
+    # 是分母漏掉了已經用上的領域。
+    #
+    # 聯集之後 coverage 讀作「這個 Claim 站在幾個研究領域上，相對於（規劃 + 實際使用）的
+    # 領域總數」。這仍然不是模型能操作的量：分母只會因為多用一個領域的證據而變大，
+    # 而 MIN_REQUIRED_DOMAIN_COUNT 的下限依舊擋住「把 plan 寫窄來換高分」。
+    # 只納入 CLAIM_DOMAINS 內的值，未知 data_type 的 `other` 不進分母也不進分子。
+    considered = supporting + contradicting
+    evidence_domains = tuple(sorted(
+        domain for domain in {pool.domain(item) for item in considered} if domain in CLAIM_DOMAINS))
+    required = tuple(dict.fromkeys(planned + evidence_domains))
     scope_floor_applied = len(required) < MIN_REQUIRED_DOMAIN_COUNT
     if scope_floor_applied:
         padded = tuple(dict.fromkeys(required + DEFAULT_REQUIRED_DOMAINS))
@@ -464,8 +497,7 @@ def evaluate_claim(
     contradiction_strength, _ = pool.collapsed_strength(contradicting)
     support_groups = pool.lineage_groups(supporting)
 
-    considered = supporting + contradicting
-    covered = sorted({pool.domain(item) for item in considered} & set(required))
+    covered = sorted(set(evidence_domains) & set(required))
     domain_coverage = round(len(covered) / len(required), 4) if required else 0.0
 
     denominator = sum(pool.strength(item) for item in support_reps)
@@ -489,6 +521,10 @@ def evaluate_claim(
     limiters = []
     supporting_domains = sorted({pool.domain(item) for item in supporting})
 
+    if vocabulary_fallback:
+        # 不影響分數（分母已退回預設），只留痕跡：讀者要能看出這個 coverage 不是對照
+        # plan 原本要求的領域算出來的，而 plan 給的名稱一個都沒被認出來。
+        limiters.append(LIMITER_PLAN_DOMAIN_VOCABULARY)
     if scope_floor_applied:
         # 不影響分數（分母已經在上面補到下限），只留痕跡：讀者要能看出這個 coverage
         # 是對照補足後的分母算出來的，而不是 plan 原本要求的範圍。
