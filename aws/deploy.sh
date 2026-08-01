@@ -25,21 +25,60 @@ set -uo pipefail
 # region 與 model ID 是一組，不可分開改。us-west-2 + amazon.nova-lite-v1:0 已於
 # 2026-08-01 實測確認支援 ON_DEMAND（見 aws/README.md）。換 region 前先跑
 # aws/verify-permissions.sh 的第 3 項重新實測，模型可用形式依 region 而異。
+# 每一項都可由 .env 或環境變數覆寫，命令行參數優先序最高。
 REGION="${AWS_REGION:-us-west-2}"
-STACK_NAME="hoyabit-agent-mvp"
-PROVIDER="bedrock"
-MODEL_ID="amazon.nova-lite-v1:0"
-SECRET_ARN=""
+STACK_NAME="${DEPLOY_STACK_NAME:-hoyabit-agent-mvp}"
+PROVIDER="${LLM_PROVIDER:-bedrock}"
+MODEL_ID="${BEDROCK_MODEL_ID:-amazon.nova-lite-v1:0}"
+SECRET_ARN="${LLM_SECRET_ARN:-}"
 DRY_RUN=0
 BUNDLE_SDK=0
 
 # D7 護欄。AuthType NONE 是 Demo 的刻意取捨；併發上限受帳號 unreserved 額度限制（見 template）。
-AUTH_TYPE="NONE"
-CONCURRENCY="5"
-LOG_RETENTION="7"
+AUTH_TYPE="${DEPLOY_AUTH_TYPE:-NONE}"
+CONCURRENCY="${DEPLOY_CONCURRENCY:-5}"
+LOG_RETENTION="${DEPLOY_LOG_RETENTION:-7}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# ----------------------------------------------------------------------------------
+# 載入 .env（選用）
+# ----------------------------------------------------------------------------------
+
+# 行為與 src/app.py 的 load_dotenv() 一致：不覆蓋已存在的環境變數，因此
+# 優先序為 命令行參數 > 既有環境變數 > .env > 本腳本預設值。
+#
+# 刻意不使用 `source .env`：那會執行檔案內容，一個手誤或惡意的值就能跑任意命令。
+# 這裡只做 KEY=value 的字面解析，並且只接受合法的變數名稱。
+load_env_file() {
+  local file="$PROJECT_ROOT/.env"
+  [ -f "$file" ] || return 0
+  local line key value
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    case "$line" in *=*) ;; *) continue ;; esac
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="$(printf '%s' "$key" | tr -d '[:space:]')"
+    # 只接受 A-Z / 0-9 / _ 的變數名，其餘一律忽略。
+    case "$key" in
+      ''|*[!A-Za-z0-9_]*) continue ;;
+    esac
+    # 去掉包住值的成對引號，但不做任何展開。
+    value="${value%$'\r'}"
+    case "$value" in
+      \"*\") value="${value#\"}"; value="${value%\"}" ;;
+      \'*\') value="${value#\'}"; value="${value%\'}" ;;
+    esac
+    [ -n "$value" ] || continue
+    # 已由環境或呼叫端設定時不覆蓋。
+    [ -n "${!key:-}" ] && continue
+    export "$key=$value"
+  done < "$file"
+}
+
+load_env_file
 BUILD_ROOT="$SCRIPT_DIR/.build"
 STAGE_ROOT="$BUILD_ROOT/package"
 ZIP_PATH="$BUILD_ROOT/agent.zip"

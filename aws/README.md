@@ -263,3 +263,84 @@ aws cloudformation deploy --template-file aws/template.yaml \
     CodeKey=releases/agent-<舊的時間戳>.zip LLMProvider=bedrock \
     BedrockModelId=amazon.nova-lite-v1:0
 ```
+
+## 部署設定與敏感資料的分工
+
+這個 repository 是公開的，因此環境識別資訊一律不進版控。
+
+### 三層防護
+
+| 層 | 機制 | 擋得住什麼 |
+|---|---|---|
+| 1 | `.env`（已被 `.gitignore` 排除） | 實際值集中一處，不必散落在各文件 |
+| 2 | 文件一律使用佔位符 `<ACCOUNT_ID>`、`<FUNCTION_URL_HOST>` | 文件本來就該進版控，內容不能有真值 |
+| 3 | `scripts/check_secrets.sh` + git pre-commit hook | 擋住「忘記」——第 1、2 層都依賴人的紀律 |
+
+第 3 層才是真正解決問題的。實際發生過的洩漏不在 `.env` 裡，而是帳號 ID 與 Function URL
+被寫進 `status.yaml`、`design.md`、`aws/README.md`、`docs/aws-architecture.md`——
+那些檔案本來就要進版控，`.gitignore` 管不到。
+
+### 建立 .env
+
+```bash
+cp .env.example .env
+```
+
+然後填入部署相關欄位。`.env.example` 把它們分成兩類：
+
+- **你決定的設定**（`DEPLOY_STACK_NAME`、`DEPLOY_AUTH_TYPE`、`DEPLOY_CONCURRENCY`、
+  `DEPLOY_LOG_RETENTION`、`AWS_REGION`、`BEDROCK_MODEL_ID`）——輸入值，適合長期放著。
+- **AWS 回傳的執行結果**（`AWS_ACCOUNT_ID`、`DEPLOY_FUNCTION_URL`）——會隨 stack 重建而
+  改變，因此動態查詢才是真實來源。填在 `.env` 只為本機方便，以及讓
+  `check_secrets.sh` 能用實際值做精確掃描。
+
+取得實際值：
+
+```bash
+aws sts get-caller-identity --query Account --output text
+aws cloudformation describe-stacks --region "$AWS_REGION" \
+  --stack-name "$DEPLOY_STACK_NAME" \
+  --query "Stacks[0].Outputs[?OutputKey=='PublicUrl'].OutputValue" --output text
+```
+
+**憑證（access key、secret、session token）在任何情況下都不寫進 `.env`。**
+一律走標準 credential chain（`aws configure`、SSO、或 Workshop 提供的 `export`）。
+
+### deploy.sh 會讀 .env
+
+填好 `.env` 之後可以直接跑，不必每次打一長串參數：
+
+```bash
+bash aws/deploy.sh
+```
+
+優先序：**命令行參數 > 既有環境變數 > `.env` > 腳本預設值**。
+
+解析方式刻意不用 `source .env`——那會執行檔案內容，一個手誤或惡意的值就能跑任意命令。
+腳本只做 `KEY=value` 的字面解析，且只接受 `A-Z0-9_` 的變數名。
+
+### 掃描與 hook
+
+```bash
+bash scripts/check_secrets.sh            # 檢查工作區
+bash scripts/check_secrets.sh --staged   # 只檢查已 staged（pre-commit 用這個）
+bash scripts/check_secrets.sh --history  # 連 git 歷史一起掃（較慢）
+
+bash scripts/install-hooks.sh            # 裝上 pre-commit hook
+bash scripts/install-hooks.sh --remove   # 移除
+```
+
+hook 需要手動安裝，因為 `.git/hooks/` 不進版控，clone 下來不會自動有。
+
+偵測分兩種：**精確比對**（讀 `.env` 的實際值去搜，不誤判不漏）與**樣式比對**
+（access key、私鑰、Function URL 格式等，`.env` 沒填也能擋）。
+
+### 已經洩漏出去怎麼辦
+
+改 git 歷史**不夠**。判斷標準是「有沒有 push 到公開 repo」：
+
+| 情況 | 處置 |
+|---|---|
+| 只在工作區 | 改成佔位符即可 |
+| 已 commit 未 push | 在獨立分支上 `filter-branch` 清理。`--tree-filter` 清檔案內容，`--msg-filter` 清 commit message，**兩者都要做**——只做前者會漏掉 message 裡的值 |
+| 已 push 到公開 repo | 視為已洩漏。Function URL 要 `delete-stack` 換掉，憑證要立即撤銷輪替 |
