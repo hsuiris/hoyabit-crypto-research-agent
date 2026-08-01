@@ -132,27 +132,27 @@ final artifacts
 
 ## Required Tests
 
-- [ ] test run repeatable。
-- [ ] formal accidental duplicate rejected。
-- [ ] authorized rerun。
-- [ ] output not overwritten。
-- [ ] unique run ID。
-- [ ] deadline approaching。
-- [ ] Critic skipped but report complete。
-- [ ] Collector failure → COMPLETED_DEGRADED。
-- [ ] rerun lineage in manifest。
-- [ ] existing watchdog remains valid。
-- [ ] full suite no regression。
+- [x] test run repeatable。
+- [x] formal accidental duplicate rejected。
+- [x] authorized rerun。
+- [x] output not overwritten。
+- [x] unique run ID。
+- [x] deadline approaching。
+- [x] Critic skipped but report complete。
+- [x] Collector failure → COMPLETED_DEGRADED。
+- [x] rerun lineage in manifest。
+- [x] existing watchdog remains valid。
+- [x] full suite no regression。
 
 ## Acceptance Criteria
 
-- [ ] 每次執行唯一。
-- [ ] 正式輸出不可覆寫。
-- [ ] 重跑 lineage 完整。
-- [ ] deadline 前優先保存。
-- [ ] partial evidence preserved。
-- [ ] status 正確。
-- [ ] commit hash 已回報。
+- [x] 每次執行唯一。
+- [x] 正式輸出不可覆寫。
+- [x] 重跑 lineage 完整。
+- [x] deadline 前優先保存。
+- [x] partial evidence preserved。
+- [x] status 正確。
+- [x] commit hash 已回報。
 
 ## Stop Condition
 

@@ -40,6 +40,31 @@ DEFAULT_RUN_MODE = "offline"
 VALID_RUN_MODES = ("offline", "live", "demo")
 CONFIG_VERSION = "t0.5"
 
+# T7：run_id 的字面格式。`RUN-` 前綴讓 run 目錄在任何檔案清單裡都一眼可辨，時間戳讓排序等於
+# 時序，幣種讓人不必打開 manifest 就知道這次分析的標的，尾碼則保證同一秒內建立的兩個 run 不撞名。
+RUN_ID_PREFIX = "RUN"
+RUN_ID_TIMESTAMP_FORMAT = "%Y%m%dT%H%M%SZ"
+# 比較題會有兩個幣種；再多就只取前幾個，避免 run 目錄名稱長到不好用。
+RUN_ID_MAX_COINS = 3
+
+
+def normalise_coins(coins: object) -> tuple[str, ...]:
+    """把單一字串或可迭代的幣種正規化為大寫 tuple，順序保留呼叫端給的順序。"""
+    raw = [coins] if isinstance(coins, str) else list(coins or [])
+    return tuple(coin.strip().upper() for coin in raw if coin and str(coin).strip())
+
+
+def build_run_id(coins: object, now: datetime | None = None, suffix: str | None = None) -> str:
+    """組出 `RUN-20260801T012345Z-BTC-1a2b3c4d` 形式的 run_id。
+
+    `suffix` 只在測試需要固定輸出時才傳入；正式執行一律使用隨機尾碼，因為同一秒內建立兩個 run
+    是完全可能的（例如比較題的兩腳），而 run_id 一旦相撞就會有輸出互相覆寫的風險。
+    """
+    stamp = (now or datetime.now(timezone.utc)).strftime(RUN_ID_TIMESTAMP_FORMAT)
+    normalised = normalise_coins(coins)[:RUN_ID_MAX_COINS] or ("NA",)
+    tail = (suffix or uuid.uuid4().hex[:8]).strip()
+    return "-".join([RUN_ID_PREFIX, stamp, *normalised, tail])
+
 
 def _code_commit() -> str:
     """從 .git 讀出目前 commit；讀不到就回 unknown，不使用 subprocess。"""
@@ -107,10 +132,10 @@ class RunContext:
     ) -> "RunContext":
         """由參數與已凍結的環境變數組出 RunContext；不讀取任何遠端資源。"""
         now = datetime.now(timezone.utc)
-        resolved_run_id = run_id or f"{now.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8]}"
-        normalised_coins = tuple(
-            coin.strip().upper() for coin in ([coins] if isinstance(coins, str) else list(coins)) if coin
-        )
+        normalised_coins = normalise_coins(coins)
+        # T7：沒有指定 run_id 時一律使用 `RUN-<時間>-<幣種>-<尾碼>`，讓每次執行在檔案系統上就能
+        # 唯一識別；呼叫端仍可傳入自己的 run_id（測試與既有輸出目錄依賴這個能力）。
+        resolved_run_id = run_id or build_run_id(normalised_coins, now=now)
         if not normalised_coins:
             raise ValueError("RunContext requires at least one coin")
         deadline_seconds = _internal_deadline_seconds()

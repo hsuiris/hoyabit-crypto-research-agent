@@ -18,6 +18,41 @@ from .schemas import ARTIFACT_FILENAMES
 from .llm import configured_provider, llm_is_configured, llm_runtime_info
 from .ohlcv import load_ohlcv
 from .orchestrator import run, run_comparison
+from .run_manager import (RUN_MODE_FORMAL, RUN_MODE_TEST, VALID_RUN_MODES,
+                          FormalRunAlreadyExistsError, RunManager, artifact_root)
+
+
+# --------------------------------------------------------------------------------------
+# T7 — 每次執行一個獨立 run 目錄
+# --------------------------------------------------------------------------------------
+
+# Web Demo 的產物根目錄；每次執行寫進 `<root>/runs/{run_id}/`，因此兩次分析不會互相覆寫。
+# 舊的 `outputs-day5/` 平面輸出仍可被 `/artifact` 讀取，既有的 Demo 錄影與 fixture 不會失效。
+WEB_OUTPUT_ROOT = "outputs-day5"
+
+# 最近一次執行的產物目錄，供 `/artifact?path=report.md` 這種不帶 run_id 的連結解析。
+# 只保留路徑字串，不快取檔案內容：每個 run 目錄在磁碟上都仍然完整存在。
+_LATEST_RUN_DIRS: dict[str, Path] = {}
+
+
+def _run_root() -> Path:
+    return artifact_root(WEB_OUTPUT_ROOT)
+
+
+def _normalise_run_mode(raw: str) -> str:
+    mode = (raw or RUN_MODE_TEST).strip().lower()
+    return mode if mode in VALID_RUN_MODES else RUN_MODE_TEST
+
+
+def _prepare_run(question: str, coins, mode: str):
+    """建立這次執行的 run record 與輸出目錄。
+
+    formal 模式若對同一題目已有正式紀錄，`create_run()` 會拋出 `FormalRunAlreadyExistsError`，
+    由呼叫端轉成 409 頁面 —— 正式結果不該因為有人多按一次送出就被重跑或覆寫。
+    """
+    manager = RunManager(_run_root())
+    record = manager.create_run(question, coins, mode=mode)
+    return record, manager.run_directory(record)
 
 
 def load_dotenv(path: Path | None = None) -> list[str]:
@@ -437,6 +472,13 @@ def _home_page() -> str:
     <option value="false">Offline（固定 fallback）</option></select></div><div><label for="use_llm">LLM 推理</label>
     <select id="use_llm" name="use_llm"><option value="true" selected>On（失敗時自動 fallback）</option>
     <option value="false">Off（確定性離線推理）</option></select></div></div>
+    <div class="form-grid" style="margin-top:18px"><div><label for="mode">執行性質</label>
+    <select id="mode" name="mode"><option value="{RUN_MODE_TEST}" selected>Test（可重複執行）</option>
+    <option value="{RUN_MODE_FORMAL}">Formal（正式執行，不可覆寫）</option></select></div>
+    <div><label>執行性質說明</label>
+    <div class="muted" style="font-size:13px;line-height:1.6">每次執行都會寫入獨立的
+    <code>runs/&lt;run_id&gt;/</code> 目錄，既有結果不會被覆寫。正式執行對同一題目只允許一次；
+    需要重跑時必須以授權重跑（authorized rerun）建立新 run，並保留重跑理由與原始 run 的血緣。</div></div></div>
     <button class="primary" type="submit">開始研究分析</button></form>
     <div class="feature-row"><span class="feature">Evidence ID 可追溯</span><span class="feature">九類資料來源</span>
     <span class="feature">總經與官方公告</span><span class="feature">雙幣比較</span>
@@ -1008,7 +1050,9 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <section class="panel tab-panel" id="overview" role="tabpanel">
     <div class="report-head"><div><div class="report-kicker">Professional Research Brief</div><h2 style="margin:7px 0 0">完整研究報告</h2></div>
     <div class="report-meta"><span class="meta-chip">{html.escape(result['coin'])}</span><span class="meta-chip">{len(evidence)} 筆 Evidence</span>
-    <span class="meta-chip">{duration_seconds} 秒完成</span><span class="meta-chip">{html.escape(str(llm_step.get('model', 'AI reasoning')))}</span></div></div>
+    <span class="meta-chip">{duration_seconds} 秒完成</span><span class="meta-chip">{html.escape(str(llm_step.get('model', 'AI reasoning')))}</span>
+    <span class="meta-chip">Run {html.escape(str(result.get('run_id') or 'N/A'))}</span>
+    <span class="meta-chip">狀態 {html.escape(str(result.get('run_status') or execution.get('run_status') or 'N/A'))}</span></div></div>
     {competition_overview}
     <article class="insight-block sec" style="margin-top:22px">
     <div class="sec-head"><div class="sec-num">1</div><div><h3 class="sec-title">結論</h3><div class="sec-sub">Conclusion</div></div>
@@ -1209,7 +1253,7 @@ def _comparison_page(payload: dict) -> str:
         return f"""<article class="insight-block"><span class="section-tag">{html.escape(coin)} 個別結論</span>
         <h3>信心度 {confidence}%</h3><p style="color:var(--ink-2);line-height:1.7">{html.escape(reasoning['market_judgment'])}</p>
         <div class="metric-sub" style="margin-top:10px">Evidence {len(payload['results'][coin]['evidence_ids'])} 筆
-        ／完整報告輸出於 <code>outputs-day5/comparison/{html.escape(coin)}/report.md</code></div></article>"""
+        ／完整報告輸出於 <code>runs/{html.escape(str(payload.get('run_id') or 'N/A'))}/{html.escape(coin)}/report.md</code></div></article>"""
 
     return f"""<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1395,29 +1439,48 @@ class Handler(BaseHTTPRequestHandler):
         compare_with = values.get("compare_with", [""])[0].strip().upper()
         live = values.get("live", ["true"])[0].lower() == "true"
         use_llm = values.get("use_llm", ["true"])[0].lower() == "true"
+        mode = _normalise_run_mode(values.get("mode", [RUN_MODE_TEST])[0])
+        coins = [coin, compare_with] if compare_with else [coin]
+        try:
+            # 每次執行先取得唯一 run 目錄；formal 模式在這一步就會擋下意外的重複正式執行。
+            record, run_dir = _prepare_run(question, coins, mode)
+        except FormalRunAlreadyExistsError as error:
+            self._send(
+                f"<html lang='zh-Hant'><meta charset='utf-8'><style>{BASE_CSS}</style>"
+                f"<main class='wrap'><section class='panel'><h1>正式執行已存在</h1>"
+                f"<p>這個題目與幣種組合已經有一次正式（formal）執行紀錄，預設不允許再次正式執行，"
+                f"以免既有正式結果被覆寫。</p><pre class='raw'>{html.escape(str(error))}</pre>"
+                f"<p>如果確定要重跑，請改用測試模式，或由執行者以授權重跑（authorized rerun）方式"
+                f"建立新的 run，並填寫重跑理由。</p><a href='/'>返回重新輸入</a></section></main></html>",
+                status=409,
+            )
+            return
         try:
             if compare_with:
                 payload = run_comparison(
                     coin,
                     compare_with,
                     question,
-                    Path("outputs-day5/comparison"),
+                    run_dir,
                     live=live,
                     use_llm=use_llm,
+                    run_record=record,
                 )
+                _LATEST_RUN_DIRS["comparison"] = run_dir
                 self._send(_comparison_page(payload))
                 return
             history_path = Path("data") / f"{coin}.csv"
             result = run(
                 coin,
                 question,
-                Path("outputs-day5"),
+                run_dir,
                 live=live,
                 use_llm=use_llm,
                 # The 5-year CSV is local and free: always use it for long-horizon context, while
                 # the live market adapter keeps supplying the 14-day series the indicators run on.
                 history_path=history_path if history_path.is_file() else None,
                 fulltext=True,
+                run_record=record,
             )
         except AgentInputError as error:
             self._send(
@@ -1427,16 +1490,23 @@ class Handler(BaseHTTPRequestHandler):
                 status=400,
             )
             return
-        report = Path("outputs-day5/report.md").read_text(encoding="utf-8")
-        evidence = json.loads(Path("outputs-day5/evidence.json").read_text(encoding="utf-8"))
-        execution = json.loads(Path("outputs-day5/execution_log.json").read_text(encoding="utf-8"))
+        _LATEST_RUN_DIRS["single"] = run_dir
+        report = (run_dir / ARTIFACT_FILENAMES["report"]).read_text(encoding="utf-8")
+        evidence = json.loads((run_dir / ARTIFACT_FILENAMES["evidence"]).read_text(encoding="utf-8"))
+        execution = json.loads(
+            (run_dir / ARTIFACT_FILENAMES["execution_log"]).read_text(encoding="utf-8"))
         self._send(_result_page(result, report, evidence, execution))
 
     def _send_artifact(self, relative_path: str):
         """只提供已知提交物，且拒絕任何跨出 Web 輸出目錄的路徑。"""
         requested = Path(str(relative_path))
         allowed_names = set(ARTIFACT_FILENAMES.values()) | {"comparison.md", "comparison.json"}
-        roots = (Path("outputs-day5").resolve(), Path("outputs-day5/comparison").resolve())
+        root = _run_root()
+        # 先找最近一次執行的 run 目錄，再退回舊的平面輸出與 comparison 目錄；
+        # `runs/{run_id}/report.md` 這種帶 run_id 的路徑會直接命中 root，因此舊 run 也讀得到。
+        roots = tuple(path.resolve() for path in (
+            _LATEST_RUN_DIRS.get("single"), _LATEST_RUN_DIRS.get("comparison"),
+            root, root / "comparison") if path is not None and path.exists())
         if requested.is_absolute() or ".." in requested.parts or requested.name not in allowed_names:
             self._send("找不到指定輸出檔案", status=404)
             return

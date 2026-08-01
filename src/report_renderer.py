@@ -650,7 +650,20 @@ def _render_scope(run_info: dict, plan_info: dict, evidence_window: dict) -> str
         "- 執行模式：%s（live=%s、use_llm=%s）" % (
             _text(run_info.get("mode")), _text(run_info.get("live")), _text(run_info.get("use_llm"))),
         "- 推理提供者：%s／%s" % (_text(run_info.get("provider")), _text(run_info.get("model"))),
+        # T7：執行性質與結束狀態。讀者必須能一眼看出這份報告是正式執行還是測試，以及它是照計畫
+        # 跑完（COMPLETED）還是有來源／階段降級（COMPLETED_DEGRADED）。
+        "- 執行性質：%s／狀態：%s" % (
+            _text(run_info.get("run_mode")), _text(run_info.get("status"))),
     ]
+    degradations = [str(reason) for reason in _list(run_info.get("degradation_reasons"))
+                    if str(reason).strip()]
+    if degradations:
+        lines.append("- 本次降級項目：%s" % "、".join(degradations))
+    rerun_of = _text(run_info.get("rerun_of"), "")
+    if rerun_of:
+        lines.append("- 重跑血緣：本 run 重跑自 %s（理由：%s；授權：%s）" % (
+            rerun_of, _text(run_info.get("rerun_reason")),
+            _text(run_info.get("authorized_rerun"))))
     return "\n".join(lines)
 
 

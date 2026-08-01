@@ -51,9 +51,9 @@ BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 python3 -m unittest discover -s tests -v
 ```
 
-預期結果：**488 tests, 488 passed, 0 failed, 0 errors**
+預期結果：**534 tests, 534 passed, 0 failed, 0 errors**
 
-> 數量隨 Task 增加：T0 基線 117、T0.6 後 267、T5 後 488。以 `docs/COMPETITION_TASK_STATUS.yaml`
+> 數量隨 Task 增加：T0 基線 117、T0.6 後 267、T5 後 488、T6 後 495、T7 後 534。以 `docs/COMPETITION_TASK_STATUS.yaml`
 > 的 `full_suite_latest` 為準。
 
 ## 離線 Smoke 測試
@@ -272,15 +272,16 @@ done
     - Bedrock 無此支援時會回「未支援的 provider」並退回純標題清單
     - 待 T6 処理時改為經由 LLMClient adapter
 
-13. **Lambda 硬編路徑**（`lambda_handler.py`）
-    - 目前仍寫到 `/tmp/outputs`，不上傳 S3
-    - 待 T7 或 S3 任務時改為 `S3ArtifactStore` 或 `LocalArtifactStore`
+13. **Lambda 產物落點**（`lambda_handler.py`）
+    - T7 起改為每次請求一個唯一 run 目錄（`<ARTIFACT_ROOT 或容器暫存目錄>/runs/<run_id>/`），
+      同一個容器連續處理兩個請求時不會互相覆寫
+    - 仍寫在容器本機、尚未上傳 S3；改用 `S3ArtifactStore` 留給後續 S3 任務
 
 ## 操作檢查清單
 
 展示前 30 分鐘：
 
-- [ ] 確認 `python3 -m unittest discover -s tests` 通過（488 tests）
+- [ ] 確認 `python3 -m unittest discover -s tests` 通過（534 tests）
 - [ ] 驗證 `data/` 目錄下有五個 `.csv` 檔（BTC / ETH / SOL / BNB / XRP）
 - [ ] 若使用 LLM：檢查 `.env` 金鑰與模型 ID 有效
 - [ ] 預先跑一次離線 smoke，確認輸出目錄有六個提交物，且 manifest hash 全部相符

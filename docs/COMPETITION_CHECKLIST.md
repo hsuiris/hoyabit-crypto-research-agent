@@ -8,7 +8,7 @@
 
 ### 代碼與測試
 
-- [ ] 完整測試套件通過：`python3 -m unittest discover -s tests` → 488 tests, 488 passed
+- [ ] 完整測試套件通過：`python3 -m unittest discover -s tests` → 534 tests, 534 passed
 - [ ] 無 regression：與 T0 baseline commit `b38c43369efbf27aeff841b4ca0e15fd9db22aa0` 對比
 - [ ] 離線工作流程驗證通過：六項提交物（`report.md`、`evidence.json`、`execution_log.json`、
       `research_plan.json`、`claims.json`、`manifest.json`）產出無誤
@@ -274,7 +274,7 @@ T5 已實作 manifest 與 hashing：
 
 ### 終極檢查（正式提交前 15 分鐘）
 
-- [ ] `python3 -m unittest discover -s tests` → 488 passed ✓
+- [ ] `python3 -m unittest discover -s tests` → 534 passed ✓
 - [ ] `python3 -c "from pathlib import Path; from src.orchestrator import run; run('ETH', 'final check', Path('outputs-final-check'), live=False, use_llm=False)"` → 六檔產出 ✓
 - [ ] manifest hash 全部相符、citation gate 非 FAIL ✓
 - [ ] `python3 -m src.app` → 首頁加載 ✓

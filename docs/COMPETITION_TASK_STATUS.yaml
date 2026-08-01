@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T6
-last_updated_at: 2026-08-01T13:37:23+08:00
+current_task: T7
+last_updated_at: 2026-08-01T14:20:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 488 tests, 488 passed, 0 failed, 0 errors
+full_suite_latest: 535 tests, 535 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -345,15 +345,68 @@ tasks:
 
   T7:
     title: Harden formal run lifecycle and deadline
-    status: TODO
+    status: PASS
     depends_on: [T6]
     target_minutes: 45
-    started_at: null
-    completed_at: null
-    commit: null
-    test_summary: null
+    started_at: 2026-08-01T13:45:00+08:00
+    completed_at: 2026-08-01T14:20:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "feat(T7)"`。
+    commit: 'feat(T7): harden formal run lifecycle and deadline handling'
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_t7_formal_run → 32 tests OK（全程離線，模型端一律
+      patch，不觸網路）；python3 -m unittest tests.test_run_manager → 35 tests OK（純模組規則）。
+      完整套件：python3 -m unittest discover -s tests → 535 tests, 535 passed, 0 failed, 0 errors。
+      五幣 formal smoke：BTC／ETH／SOL／BNB／XRP 各建立一個 formal run，皆產出六檔、manifest 五個
+      SHA-256 全部相符、citation gate PASS，且第二次 formal 建立一律被 FormalRunAlreadyExistsError
+      擋下。Web smoke：GET / 200 且含執行性質選單；POST（live=false）產生 runs/<run_id>/ 六檔並在
+      頁面顯示 run_id 與狀態；同題目第二次 formal POST 回 409；改 test 模式可重複；
+      /artifact?path=manifest.json 與 /artifact?path=runs/<run_id>/report.md 皆 200。
+      收尾窗口 smoke：hard=900／finalization=840、剩餘 40 秒 → analyze_with_llm 與 critique_with_llm
+      均未被呼叫，critic_status=skipped:finalization_window_reached，六檔仍完整且報告含 ## Claims。
+      失敗保存 smoke：計分階段注入 RuntimeError → 狀態轉 FAILED、_checkpoint.json 保有 plan 與
+      collected_evidence、formal lock 第一筆紀錄維持 FAILED，之後可授權重跑。
+    owner_note: >-
+      src/run_manager.py 與 tests/test_run_manager.py 由 Track C 於 2e32eea 提供；本 Task 解除該模組
+      對 src/orchestrator.py 的反向 import（改讀 run_context 的同名常數），並補上 run_id 格式、
+      completed_at、lifecycle payload、manager 反向參照與 artifact_root，其餘規則未改。
+    artifacts:
+      - src/run_manager.py
+      - src/run_context.py
+      - src/orchestrator.py
+      - src/report_renderer.py
+      - src/app.py
+      - lambda_handler.py
+      - tests/test_run_manager.py
+      - tests/test_t7_formal_run.py
+    integration_points:
+      - run() 拆為生命週期外殼與 _run_pipeline()：外殼負責 CREATED→RUNNING→COMPLETED／
+        COMPLETED_DEGRADED／FAILED，例外時先標 FAILED 再落地 checkpoint，然後原樣往上丟
+      - run_comparison() 同樣接受 run_record；兩腳只要有一腳降級，pair status 即 COMPLETED_DEGRADED
+      - 五個 checkpoint（plan／collected_evidence／scored_evidence／claims／final_artifacts）
+        每階段結束即寫入 run 目錄的 _checkpoint.json，後續階段失敗不會清除前面成果
+      - deadline 決策一律走 run_manager.evaluate_deadline()；hard 夾在 900 秒、finalization 夾在
+        840 秒之內，預設仍是既有的 720／672，收尾窗口內停止全文爬取、模型分析、Critic 與 Claim 模型呼叫
+      - manifest.json 新增 question_hash／run_mode／status／degradation_reasons／run_lifecycle／
+        deadline／rerun_reason／authorized_rerun；execution_log.json 新增 run_status／run_mode／
+        question_hash／degradation_reasons／run_lifecycle 與 time_budget.deadline
+      - report.md 的「資料截止與分析區間」新增執行性質、狀態、降級項目與重跑血緣
+      - src/app.py 每次執行走 RunManager 建立 runs/<run_id>/ 目錄，formal 重複送出回 409，
+        /artifact 先解析最近一次 run 目錄再退回舊的平面輸出
+      - lambda_handler.py 改用 <ARTIFACT_ROOT 或 /tmp>/runs/<run_id>/，JSON 回應含六項提交物與 run 狀態
     blockers: []
-    known_limitations: []
+    known_limitations:
+      - 離線執行的證據全為 fallback fixture，因此 offline run 一律回報 COMPLETED_DEGRADED
+        （帶 all_evidence_is_fallback_fixture 原因）；這是刻意的誠實標示，不是 bug。
+        帶 history_path 的本地 CSV 執行會回報 COMPLETED
+      - checkpoint 只在有 run_record 時落地；沒有 record 的既有呼叫端行為完全不變（狀態仍寫入
+        execution_log 與 manifest，但沒有 formal lock 與 _checkpoint.json）
+      - formal lock 是本機檔案（root/_formal_locks/<question_hash>.json），不跨機器共享；
+        多實例部署需要改用共享儲存
+      - claims.json 仍刻意不帶 run_id（沿用 T5 的 determinism 證明）
+      - outputs-day5/whale_history.json 仍是跨 run 的共享歷史檔，不放進 run 目錄（它的用途就是跨執行比較）
+      - Lambda 產物仍寫在容器本機，未上傳 S3；S3ArtifactStore 留給後續任務
+      - 未執行真實 LLM 與 live API 驗證（保留至 T8）
 
   T8:
     title: Competition readiness tests and Demo Freeze

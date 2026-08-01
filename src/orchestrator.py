@@ -17,6 +17,9 @@ from .credibility import load_source_registry, score_evidence_batch
 from .day2_sources import collect_evidence_detailed, stamp_credibility_metadata
 from .report_renderer import render_claims_section, render_competition_report
 from .run_context import RunContext
+from .run_manager import (FINALIZATION_DEADLINE_SECONDS_MAX, HARD_DEADLINE_SECONDS_MAX,
+                          STATUS_COMPLETED, STATUS_COMPLETED_DEGRADED, STATUS_CREATED,
+                          STATUS_FAILED, STATUS_RUNNING, compute_question_hash, evaluate_deadline)
 from .schemas import (ARTIFACT_FILENAMES, CITATION_GATE_VERSION, CONFIDENCE_WEIGHTS,
                       CREDIBILITY_WEIGHTS, GATE_STATUS_FAIL, HARD_CAPS, MANIFEST_VERSION,
                       SCHEMA_VERSION, SCORING_VERSION, VERDICT_INSUFFICIENT_EVIDENCE)
@@ -55,6 +58,89 @@ _PLANNER_MIN_SECONDS = 5.0
 # Where the plan came from, as recorded in the Execution Log. "shared" means the plan was built once
 # by a comparison run and handed to both legs, so both coins are judged over the same time window.
 _PLANNING_PATH_SHARED = "shared"
+
+# --------------------------------------------------------------------------------------
+# T7 — finalization window
+# --------------------------------------------------------------------------------------
+
+# 收尾窗口佔 hard deadline 的比例，取自比賽的 840 / 900。套在既有 720 秒預算上得到 672 秒，
+# 也就是最後 48 秒一律留給「把六項提交物寫出來」，不再開始任何新的模型呼叫或補充蒐集。
+# 這個比例只會讓系統更早收尾，不會放寬既有的三階段預算。
+FINALIZATION_DEADLINE_RATIO = FINALIZATION_DEADLINE_SECONDS_MAX / HARD_DEADLINE_SECONDS_MAX
+DEFAULT_FINALIZATION_DEADLINE_SECONDS = DEFAULT_TIME_BUDGET_SECONDS * FINALIZATION_DEADLINE_RATIO
+
+# 收尾原因的字面值；同時出現在 Execution Log 的階段狀態與 manifest 的降級清單裡。
+_FINALIZATION_REASON = "finalization_window_reached"
+
+
+def _deadline_bounds(time_budget_seconds: float,
+                     finalization_deadline_seconds: float | None) -> tuple[float, float]:
+    """把呼叫端給的預算收斂到比賽上限之內，並算出對應的收尾門檻。
+
+    比賽的硬上限是 900 秒、收尾門檻是 840 秒；本專案預設仍用更保守的 720 / 672，
+    而且這裡只會往下夾（`min`），不會因為「比賽允許 15 分鐘」就把既有預算放寬。
+    """
+    hard = min(float(time_budget_seconds), HARD_DEADLINE_SECONDS_MAX)
+    if finalization_deadline_seconds is None:
+        finalization = hard * FINALIZATION_DEADLINE_RATIO
+    else:
+        finalization = float(finalization_deadline_seconds)
+    finalization = min(finalization, FINALIZATION_DEADLINE_SECONDS_MAX, hard)
+    return hard, finalization
+
+
+def _deadline_state(deadline: float, hard_seconds: float, finalization_seconds: float):
+    """目前時間點的 deadline 決策，交給 `src/run_manager.evaluate_deadline` 這個純函式判斷。
+
+    `deadline` 是 monotonic 絕對時點（比較題的兩腳共用同一個），所以已耗用時間由「預算減去剩餘」
+    回推，而不是各自從自己的起點量 —— 否則第二腳會誤以為自己還有完整預算。
+    """
+    remaining = deadline - time.monotonic()
+    elapsed = max(0.0, hard_seconds - remaining)
+    return evaluate_deadline(elapsed, hard_deadline_seconds=hard_seconds,
+                             finalization_deadline_seconds=finalization_seconds)
+
+
+def _degradation_reasons(collection_log: list, credibility: dict, *, llm_status: str,
+                         critic_status: str, claim_graph: dict, gate: dict,
+                         claim_client_reason: str = "") -> list[str]:
+    """本次執行實際發生的降級。空清單代表 `COMPLETED`，非空代表 `COMPLETED_DEGRADED`。
+
+    刻意只計入「偏離原計畫」的事：使用者主動選擇離線模式（`use_llm=False`）不是降級，
+    但某個 collector 失敗、watchdog 跳過來源、模型呼叫失敗、收尾窗口迫使跳過 Critic 都是。
+    這條線是為了讓 `COMPLETED` 真的代表「照計畫跑完」，而不是變成人人有獎的標籤。
+    """
+    reasons = []
+    for entry in collection_log or []:
+        if ":skipped:" in str(entry):
+            reasons.append(f"collector_skipped:{str(entry).split(':')[0]}")
+        elif ":fallback:" in str(entry):
+            reasons.append(f"collector_fallback:{str(entry).split(':')[0]}")
+    if credibility.get("evidence_count") and not credibility.get("substantive_count"):
+        reasons.append("all_evidence_is_fallback_fixture")
+    if credibility.get("rejected_ids"):
+        reasons.append("rejected_evidence:" + ",".join(credibility["rejected_ids"]))
+    if str(llm_status).startswith("fallback:"):
+        reasons.append(f"analysis_{llm_status}")
+    critic_status = str(critic_status)
+    # `skipped:disabled` 是「這次刻意不跑 Critic」，不是降級；因逾時或收尾窗口而跳過才是。
+    if critic_status.startswith("fallback:") or (
+            critic_status.startswith("skipped:") and critic_status != "skipped:disabled"):
+        reasons.append(f"critic_{critic_status}")
+    # 走 deterministic claim 路徑本身不是降級（沒開模型時那就是原本的計畫）；只有「模型提案被作廢
+    # 後重建」或「因時間不足而不敢呼叫模型」才算偏離計畫。
+    claim_fallback = str(claim_graph.get("fallback_reason") or "")
+    if claim_fallback.startswith(("claim validation failed", "citation gate failed")):
+        reasons.append(f"claims_rebuilt_deterministically:{claim_fallback[:80]}")
+    if claim_client_reason == _FINALIZATION_REASON or str(claim_client_reason).startswith(
+            "time_budget_remaining"):
+        reasons.append(f"claims_model_skipped:{claim_client_reason}")
+    # Citation gate 的 warning 不計入降級：那代表「可發佈，但必須把警告印在報告裡」，
+    # 報告本身已經印了；只有 FAIL 會讓執行中止，走不到這裡。
+    if gate.get("status") == GATE_STATUS_FAIL:  # pragma: no cover - gate FAIL 會先拋出例外
+        reasons.append("citation_gate_failed")
+    # 同一個原因只保留一次，順序維持首次出現的順序，讓 manifest 的清單穩定可比對。
+    return list(dict.fromkeys(reasons))
 
 
 def _signal_inventory(result: dict, evidence: list) -> list[dict]:
@@ -634,7 +720,8 @@ class _PreparedClaimsClient:
         return {"claims": self.proposals}
 
 
-def _claim_client(reasoning: dict, *, use_llm: bool, client: object | None, deadline: float):
+def _claim_client(reasoning: dict, *, use_llm: bool, client: object | None, deadline: float,
+                  finalizing: bool = False):
     """Decide who proposes the Claim text: the analysis response, a fresh model call, or nobody.
 
     Returning `None` is a normal outcome, not an error: `build_claim_graph()` then builds
@@ -644,7 +731,13 @@ def _claim_client(reasoning: dict, *, use_llm: bool, client: object | None, dead
         return client, "injected_client"
     proposals = reasoning.get(CLAIM_PROPOSAL_RESULT_FIELD) or []
     if proposals:
+        # Replaying proposals the analysis already returned costs no extra call, so it stays
+        # available even inside the finalization window.
         return _PreparedClaimsClient(proposals), "analysis_response_claims"
+    if finalizing:
+        # No new model call once the finalization window opens: claims are built from the evidence
+        # already on the table so the six artifacts still get written.
+        return None, _FINALIZATION_REASON
     if not use_llm:
         return None, "llm_disabled"
     if not llm_is_configured():
@@ -944,7 +1037,9 @@ def _collector_records(evidence: list) -> list[dict]:
 def _manifest(context: RunContext, store: LocalArtifactStore, *, completed_at: str,
               duration_ms: float, live: bool, use_llm: bool, registry_version: str,
               gate: dict, evidence_error_count: int, providers: dict,
-              rerun_of: str | None = None) -> dict:
+              rerun_of: str | None = None, question_hash: str = "",
+              status: str = STATUS_COMPLETED, run_lifecycle: dict | None = None,
+              degradation_reasons: list | None = None, deadline: dict | None = None) -> dict:
     """提交物清單：每個檔案的 SHA-256 加上重建這次執行所需的識別資訊。
 
     manifest 不把自己列進 `files`（無法對自己取雜湊），因此重複產生的結果是穩定的；
@@ -958,8 +1053,18 @@ def _manifest(context: RunContext, store: LocalArtifactStore, *, completed_at: s
         "as_of": context.as_of,
         "duration_ms": duration_ms,
         "question": context.question,
+        # 同一個問題與幣種組合的指紋。formal lock 用它判斷「這題是不是已經正式跑過」，
+        # 稽核者也能用它把重跑與原始執行對上。
+        "question_hash": question_hash,
         "coins": list(context.coins),
+        # `mode` 是資料模式（offline／live／demo，T0.5 凍結）；`run_mode` 是 T7 的執行性質
+        # （test／formal）。兩者刻意分開：離線的正式執行與連線的測試執行都必須能被正確描述。
         "mode": context.run_mode,
+        "run_mode": (run_lifecycle or {}).get("run_mode"),
+        "status": status,
+        "degradation_reasons": list(degradation_reasons or []),
+        "run_lifecycle": run_lifecycle,
+        "deadline": dict(deadline or {}),
         "execution_flags": {"live": live, "use_llm": use_llm},
         "model": {"provider": context.model_provider, "model": context.model_id,
                   "region": context.region},
@@ -987,7 +1092,11 @@ def _manifest(context: RunContext, store: LocalArtifactStore, *, completed_at: s
             "citation_gate_checks": gate["checks"],
             "semantic_finding_count": gate["semantic_finding_count"],
         },
-        "rerun_of": rerun_of,
+        # 重跑血緣：原始 run 的 ID、重跑理由與是否經過授權。第一次執行的紀錄不會因為重跑而消失，
+        # 它仍留在自己的 run 目錄與 formal lock 歷史裡。
+        "rerun_of": rerun_of or (run_lifecycle or {}).get("rerun_of"),
+        "rerun_reason": (run_lifecycle or {}).get("rerun_reason"),
+        "authorized_rerun": bool((run_lifecycle or {}).get("authorized_rerun")),
     }
 
 
@@ -996,17 +1105,74 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         deadline: float | None = None, history_path: Path | None = None,
         fulltext: bool = False, research_plan=None, planner_client: object | None = None,
         claim_client: object | None = None, analysis_client: object | None = None,
-        critic_client: object | None = None, run_context: RunContext | None = None) -> dict:
+        critic_client: object | None = None, run_context: RunContext | None = None,
+        run_record=None, finalization_deadline_seconds: float | None = None) -> dict:
+    """執行一次分析。傳入 `run_record`（`src/run_manager.RunManager.create_run()` 產生）時，
+    這次執行會納入正式 run 生命週期：狀態機、checkpoint 落地與 formal lock 同步。
+
+    生命週期刻意包在管線外面，管線本身維持一條直線：任何階段丟出例外時，這裡負責把 run 標成
+    `FAILED`、把已完成的 checkpoint 落地，然後把例外原封不動往上丟 —— 失敗紀錄不刪除，
+    呼叫端也不會拿到一份看起來成功的結果。
+    """
+    if run_record is not None and run_record.status == STATUS_CREATED:
+        run_record.mark(STATUS_RUNNING)
+    try:
+        result = _run_pipeline(
+            coin, question, output_dir, live=live, use_llm=use_llm, ohlcv_path=ohlcv_path,
+            time_budget_seconds=time_budget_seconds, deadline=deadline, history_path=history_path,
+            fulltext=fulltext, research_plan=research_plan, planner_client=planner_client,
+            claim_client=claim_client, analysis_client=analysis_client, critic_client=critic_client,
+            run_context=run_context, run_record=run_record,
+            finalization_deadline_seconds=finalization_deadline_seconds,
+        )
+    except BaseException:
+        if run_record is not None:
+            # 先標記失敗再落地，這樣 checkpoint 檔案本身就記著 FAILED；checkpoint 是「這次跑到哪、
+            # 已經取得什麼」的唯一紀錄，不寫出來重跑時就沒有東西可以參照。
+            if run_record.status == STATUS_RUNNING:
+                run_record.mark(STATUS_FAILED)
+            run_record.persist_checkpoints()
+        raise
+    if run_record is not None and run_record.status == STATUS_RUNNING:
+        run_record.mark(result["run_status"])
+    return result
+
+
+def _run_pipeline(coin: str, question: str, output_dir: Path, live: bool = False,
+                  use_llm: bool = False, ohlcv_path: Path | None = None,
+                  time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
+                  deadline: float | None = None, history_path: Path | None = None,
+                  fulltext: bool = False, research_plan=None, planner_client: object | None = None,
+                  claim_client: object | None = None, analysis_client: object | None = None,
+                  critic_client: object | None = None, run_context: RunContext | None = None,
+                  run_record=None,
+                  finalization_deadline_seconds: float | None = None) -> dict:
     coin, question = validate_request(coin, question)
     started = time.perf_counter()
     timeline = _StageTimeline()
     # One RunContext per analysis: it supplies the run_id every artifact is stamped with, the code
     # commit, and the config version the manifest has to record. A caller (comparison leg, T7 formal
     # run) may pass its own so the whole bundle shares one identity.
-    context = run_context or RunContext.create(question, [coin], run_mode="live" if live else "offline")
+    # A formal run brings its own context so the run_id in the lock, the output directory and the
+    # manifest are the same string; otherwise one is created for this analysis.
+    context = (run_record.context if run_record is not None else run_context) or RunContext.create(
+        question, [coin], run_mode="live" if live else "offline")
+    question_hash = compute_question_hash(question, [coin])
     timeline.mark("parse_input")
+    hard_seconds, finalization_seconds = _deadline_bounds(time_budget_seconds,
+                                                          finalization_deadline_seconds)
     if deadline is None:
-        deadline = time.monotonic() + time_budget_seconds
+        deadline = time.monotonic() + hard_seconds
+
+    def deadline_now():
+        return _deadline_state(deadline, hard_seconds, finalization_seconds)
+
+    def checkpoint(stage: str, data: dict) -> None:
+        """每個階段結束就保存一次，因此後面任何階段失敗都不會讓前面的成果消失。"""
+        if run_record is not None:
+            run_record.save_checkpoint(stage, data)
+            run_record.persist_checkpoints()
+
     # Plan before collecting. A comparison run passes its shared plan in so both legs are planned
     # once, over one time window and one set of comparison dimensions.
     timeline.start("plan_research")
@@ -1020,12 +1186,23 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
             "fallback_reason": None, "duration_seconds": 0.0,
         }
     timeline.finish("plan_research")
+    checkpoint("plan", {"path": planning_log["path"], "task_modes": list(plan.task_modes),
+                        "time_window": dict(plan.time_window),
+                        "hypothesis_count": len(plan.hypotheses)})
     timeline.start("collect_evidence")
     phase_started = time.monotonic()
     collection_deadline = min(deadline, phase_started + COLLECTION_PHASE_SECONDS)
+    # Inside the finalization window nothing optional starts: full-text crawling is the one
+    # supplementary fetch this pipeline has, so it is the first thing dropped.
+    collection_decision = deadline_now()
+    fulltext_requested = fulltext
+    if collection_decision.should_skip_follow_up_collection:
+        fulltext = False
     evidence, collection_log, agent_report = collect_evidence_detailed(
         coin, live=live, deadline=collection_deadline if live else None, fulltext=fulltext,
     )
+    if fulltext_requested and not fulltext:
+        collection_log = list(collection_log) + [f"fulltext:skipped:{_FINALIZATION_REASON}"]
     # The crawl phase ends the moment it is done; the report phase starts immediately rather than
     # waiting out the remaining ceiling.
     phase_timings = {"collection_ms": round((time.monotonic() - phase_started) * 1000, 1)}
@@ -1048,6 +1225,8 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     # the citation gate can tell "this run's evidence" from "a record that came from somewhere else".
     stamp_run_id(evidence, context.run_id)
     timeline.finish("collect_evidence")
+    checkpoint("collected_evidence", {"evidence_ids": [item.evidence_id for item in evidence],
+                                      "collection_log": list(collection_log)})
     # Score before anything reads the evidence: the signal inventory, the prompt, the report and the
     # claim graph all quote `reliability_score`, so they must all see the engine's number rather
     # than the adapter's hint.
@@ -1057,6 +1236,9 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     credibility = _credibility_summary(credibility_records,
                                        registry.get("registry_version", "unavailable"))
     timeline.finish("score_evidence")
+    checkpoint("scored_evidence", {"substantive_count": credibility["substantive_count"],
+                                   "fallback_ids": list(credibility["fallback_ids"]),
+                                   "mean_final_score": credibility["mean_final_score"]})
     plan_dict = plan_to_dict(plan)
     result = {
         "coin": coin.upper(), "question": question,
@@ -1079,12 +1261,23 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     llm_status = "offline_fallback"
     llm_info = llm_runtime_info()
     llm_seconds_remaining = round(reasoning_deadline - time.monotonic(), 1)
+    reasoning_decision = deadline_now()
     if use_llm and llm_seconds_remaining < _LLM_MIN_SECONDS:
         # Skip rather than start: a call begun with 3 seconds left burns the budget and still fails.
+        # Checked before the finalization window so the existing watchdog keeps its own label.
         llm_status = "fallback:TimeBudgetExceeded"
         result["reasoning"] = _offline_reasoning(
             result, evidence,
             f"時間預算僅剩 {llm_seconds_remaining} 秒（低於 LLM 最低需求 {_LLM_MIN_SECONDS} 秒），watchdog 強制切換至離線推理",
+        )
+    elif use_llm and reasoning_decision.should_finalize:
+        # Inside the finalization window the remaining time belongs to the artifacts, so no model
+        # call is started at all -- the deterministic reasoning path is instant and always available.
+        llm_status = f"fallback:{_FINALIZATION_REASON}"
+        result["reasoning"] = _offline_reasoning(
+            result, evidence,
+            f"已進入收尾窗口（已耗用 {reasoning_decision.elapsed_seconds:.1f} 秒，收尾門檻 "
+            f"{finalization_seconds:.0f} 秒），優先保存提交物，改用離線推理",
         )
     elif use_llm:
         try:
@@ -1110,10 +1303,15 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     critic_started = time.monotonic()
     critic_deadline = min(deadline, critic_started + CRITIC_PHASE_SECONDS)
     critic_status, critique = "skipped:disabled", None
+    critic_decision = deadline_now()
     if use_llm:
         critic_seconds_remaining = round(critic_deadline - time.monotonic(), 1)
         if critic_seconds_remaining < _CRITIC_MIN_SECONDS:
+            # Existing watchdog first, so its label and behaviour are unchanged.
             critic_status = "skipped:TimeBudgetExceeded"
+        elif critic_decision.should_skip_critic:
+            # The semantic critic is optional by design; the report, claims and gate are not.
+            critic_status = f"skipped:{_FINALIZATION_REASON}"
         else:
             try:
                 # Validate before committing to `critique`: a critique that cites evidence which
@@ -1159,8 +1357,10 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     # inside whatever the total deadline has left.
     timeline.start("build_claims")
     claims_started = time.monotonic()
+    claims_decision = deadline_now()
     active_claim_client, claim_client_reason = _claim_client(
-        result["reasoning"], use_llm=use_llm, client=claim_client, deadline=deadline)
+        result["reasoning"], use_llm=use_llm, client=claim_client, deadline=deadline,
+        finalizing=claims_decision.should_finalize)
     # Build, link the claim IDs back onto the evidence (so `evidence.json` reads in both directions),
     # then run the citation gate. A gate failure discards the model's graph and rebuilds it
     # deterministically -- see `_build_claims_with_gate`.
@@ -1188,12 +1388,46 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     }
     claims_duration_ms = round((time.monotonic() - claims_started) * 1000, 1)
     timeline.finish("build_claims")
+    checkpoint("claims", {"claim_ids": [claim["claim_id"] for claim in claim_graph["claims"]],
+                          "source": claim_graph["source"],
+                          "citation_gate_status": citation_gate["status"]})
 
     timeline.start("validate_evidence")
     validation_errors = validate_evidence(evidence, result["evidence_ids"], require_scored=True)
     if validation_errors:
         raise ValueError("Evidence validation failed: " + "; ".join(validation_errors))
     timeline.finish("validate_evidence")
+
+    # T7: the lifecycle status has to be decided before the artifacts are written, because both
+    # `execution_log.json` and `manifest.json` record it. A run that lost a collector, fell back to
+    # offline reasoning or had to skip the critic still produces a full report -- it is reported as
+    # COMPLETED_DEGRADED rather than COMPLETED so nobody reads it as a clean run.
+    degradation_reasons = _degradation_reasons(
+        collection_log, credibility, llm_status=llm_status, critic_status=critic_status,
+        claim_graph=claim_graph, gate=citation_gate, claim_client_reason=claim_client_reason)
+    run_status = STATUS_COMPLETED_DEGRADED if degradation_reasons else STATUS_COMPLETED
+    if run_record is not None:
+        for reason in degradation_reasons:
+            run_record.note_degradation(reason)
+    # The record itself is only transitioned once every artifact is on disk (see `run()`), so the
+    # status printed here is the decided outcome rather than the record's in-flight state.
+    run_lifecycle = None if run_record is None else {
+        **run_record.lifecycle_payload(), "status": run_status,
+    }
+    final_decision = deadline_now()
+    deadline_report = {
+        "hard_deadline_seconds": hard_seconds,
+        "finalization_deadline_seconds": finalization_seconds,
+        "competition_hard_ceiling_seconds": HARD_DEADLINE_SECONDS_MAX,
+        "competition_finalization_ceiling_seconds": FINALIZATION_DEADLINE_SECONDS_MAX,
+        "elapsed_seconds_at_finalization": round(final_decision.elapsed_seconds, 1),
+        "remaining_seconds_at_finalization": round(final_decision.remaining_seconds, 1),
+        "reason": final_decision.reason,
+        "follow_up_collection_skipped": bool(fulltext_requested and not fulltext),
+        "critic_skipped_for_deadline": critic_status == f"skipped:{_FINALIZATION_REASON}",
+        "llm_skipped_for_deadline": llm_status == f"fallback:{_FINALIZATION_REASON}",
+        "claim_model_skipped_for_deadline": claim_client_reason == _FINALIZATION_REASON,
+    }
 
     timeline.start("generate_report")
     # Every artifact goes through the ArtifactStore, which records the byte count and SHA-256 of
@@ -1208,6 +1442,9 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     evidence_records = [asdict(item) for item in evidence]
     evidence_window = _evidence_window(evidence)
     completed_at = _now_iso()
+    if run_lifecycle is not None:
+        # 提交物與生命週期紀錄共用同一個完成時間，稽核時不會出現兩個對不起來的時間戳。
+        run_lifecycle["completed_at"] = completed_at
     stage_providers = {
         "planner": {"provider": llm_info["provider"] if planning_log["path"] == PLANNING_PATH_LLM
                     else "deterministic",
@@ -1233,6 +1470,13 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
             "live": live, "use_llm": use_llm, "question": question, "coins": [result["coin"]],
             "provider": stage_providers["analyst"]["provider"],
             "model": stage_providers["analyst"]["model"],
+            # T7：正式執行資訊也印在報告裡，讀者不必打開 manifest 才知道這是正式執行或有降級。
+            "run_mode": (run_lifecycle or {}).get("run_mode"),
+            "status": run_status,
+            "degradation_reasons": degradation_reasons,
+            "rerun_of": (run_lifecycle or {}).get("rerun_of"),
+            "rerun_reason": (run_lifecycle or {}).get("rerun_reason"),
+            "authorized_rerun": (run_lifecycle or {}).get("authorized_rerun"),
         },
         "plan": plan_dict,
         "stance": result["stance"],
@@ -1257,7 +1501,14 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     skipped = [entry for entry in collection_log if "skipped" in entry]
     created_ids = [item.evidence_id for item in evidence]
     store.write_json(ARTIFACT_FILENAMES["execution_log"], {
+        # `status` 是既有契約（「這次執行有沒有走完」），T7 的生命週期狀態另外放在 `run_status`，
+        # 兩者不合併：一次 COMPLETED_DEGRADED 的執行仍然是走完的，六個檔案照樣齊全。
         "status": "success",
+        "run_status": run_status,
+        "run_mode": run_record.mode if run_record is not None else None,
+        "question_hash": question_hash,
+        "degradation_reasons": degradation_reasons,
+        "run_lifecycle": run_lifecycle,
         "run_id": context.run_id,
         "started_at": context.started_at,
         "completed_at": completed_at,
@@ -1273,6 +1524,7 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
                 "critic": CRITIC_PHASE_SECONDS,
             },
             "phase_actual_ms": phase_timings,
+            "deadline": deadline_report,
         },
         "collection_agents": agent_report,
         "stage_providers": stage_providers,
@@ -1342,17 +1594,56 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         live=live, use_llm=use_llm,
         registry_version=registry.get("registry_version", "unavailable"),
         gate=citation_gate, evidence_error_count=len(validation_errors),
-        providers=stage_providers,
+        providers=stage_providers, question_hash=question_hash, status=run_status,
+        run_lifecycle=run_lifecycle, degradation_reasons=degradation_reasons,
+        deadline=deadline_report,
     )
     store.write_json(ARTIFACT_FILENAMES["manifest"], manifest)
     result["manifest"] = manifest
     result["run_id"] = context.run_id
+    result["run_status"] = run_status
+    result["question_hash"] = question_hash
+    result["degradation_reasons"] = degradation_reasons
+    result["deadline"] = deadline_report
+    checkpoint("final_artifacts", {"artifacts": sorted(ARTIFACT_FILENAMES.values()),
+                                   "run_status": run_status,
+                                   "citation_gate_status": citation_gate["status"]})
     return result
 
 
 def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, live: bool = False,
                    use_llm: bool = False, time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
-                   planner_client: object | None = None, claim_client: object | None = None) -> dict:
+                   planner_client: object | None = None, claim_client: object | None = None,
+                   run_record=None) -> dict:
+    """兩腳比較執行。傳入 `run_record` 時，整組比較納入同一個正式 run 生命週期。
+
+    兩腳各自仍有自己的 run_id 與 manifest；`run_record` 描述的是「這一組比較」這次執行，
+    因此狀態只在兩腳都跑完後才轉換，任一腳失敗即整組 `FAILED`。
+    """
+    if run_record is not None and run_record.status == STATUS_CREATED:
+        run_record.mark(STATUS_RUNNING)
+    try:
+        payload = _run_comparison_pipeline(
+            coin_a, coin_b, question, output_dir, live=live, use_llm=use_llm,
+            time_budget_seconds=time_budget_seconds, planner_client=planner_client,
+            claim_client=claim_client, run_record=run_record,
+        )
+    except BaseException:
+        if run_record is not None:
+            if run_record.status == STATUS_RUNNING:
+                run_record.mark(STATUS_FAILED)
+            run_record.persist_checkpoints()
+        raise
+    if run_record is not None and run_record.status == STATUS_RUNNING:
+        run_record.mark(payload["manifest"]["status"])
+    return payload
+
+
+def _run_comparison_pipeline(coin_a: str, coin_b: str, question: str, output_dir: Path,
+                             live: bool = False, use_llm: bool = False,
+                             time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
+                             planner_client: object | None = None,
+                             claim_client: object | None = None, run_record=None) -> dict:
     """Run two single-coin analyses and render a side-by-side comparison.
 
     Both legs share one wall-clock deadline rather than getting a full budget each, so the pair
@@ -1365,12 +1656,15 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
         raise AgentInputError("比較分析需要兩個不同的幣種")
 
     started = time.perf_counter()
-    deadline = time.monotonic() + time_budget_seconds
+    # Both legs share one hard deadline, clamped to the competition ceiling the same way a single
+    # analysis is; each leg derives its own finalization window from that shared deadline.
+    hard_seconds, _ = _deadline_bounds(time_budget_seconds, None)
+    deadline = time.monotonic() + hard_seconds
     output_dir.mkdir(parents=True, exist_ok=True)
     # The comparison bundle is its own run: it gets a run_id and a manifest so the shared plan and
     # the merged claims are verifiable too, while each leg keeps its own run_id and manifest.
-    context = RunContext.create(question, [coin_a, coin_b],
-                               run_mode="live" if live else "offline")
+    context = (run_record.context if run_record is not None else None) or RunContext.create(
+        question, [coin_a, coin_b], run_mode="live" if live else "offline")
     store = LocalArtifactStore(output_dir)
 
     # One plan for the pair, not one per leg: a comparison is only fair if both coins are read over
@@ -1426,10 +1720,18 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
     # sources of truth for the same files.
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
     gate_statuses = {coin: results[coin]["citation_gate"]["status"] for coin in (coin_a, coin_b)}
+    leg_statuses = {coin: results[coin]["run_status"] for coin in (coin_a, coin_b)}
+    # 兩腳只要有一腳降級，整組比較就不能宣稱是乾淨的執行。
+    pair_status = (STATUS_COMPLETED if set(leg_statuses.values()) == {STATUS_COMPLETED}
+                   else STATUS_COMPLETED_DEGRADED)
     manifest = {
         "manifest_version": MANIFEST_VERSION,
         "run_id": context.run_id,
         "mode": "comparison",
+        "status": pair_status,
+        "question_hash": compute_question_hash(question, [coin_a, coin_b]),
+        "degradation_reasons": sorted({reason for coin in (coin_a, coin_b)
+                                       for reason in results[coin]["degradation_reasons"]}),
         "started_at": context.started_at,
         "completed_at": _now_iso(),
         "as_of": context.as_of,
@@ -1440,14 +1742,20 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
         "code_commit": context.code_commit,
         "config_version": context.config_version,
         "shared_time_window": dict(shared_plan.time_window),
+        "run_mode": run_record.mode if run_record is not None else None,
+        "run_lifecycle": None if run_record is None else {
+            **run_record.lifecycle_payload(), "status": pair_status, "completed_at": _now_iso(),
+        },
         "legs": {coin: {"run_id": results[coin]["run_id"],
                         "directory": coin,
                         "manifest": f"{coin}/{ARTIFACT_FILENAMES['manifest']}",
+                        "status": leg_statuses[coin],
                         "citation_gate_status": gate_statuses[coin]}
                  for coin in (coin_a, coin_b)},
         "files": store.entries,
         "manifest_file": ARTIFACT_FILENAMES["manifest"],
-        "validation": {"citation_gate_status_by_coin": gate_statuses},
+        "validation": {"citation_gate_status_by_coin": gate_statuses,
+                       "run_status_by_coin": leg_statuses},
     }
     store.write_json(ARTIFACT_FILENAMES["manifest"], manifest)
     payload["manifest"] = manifest

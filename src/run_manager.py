@@ -20,12 +20,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .artifact_store import LocalArtifactStore
-from .orchestrator import DEFAULT_TIME_BUDGET_SECONDS
-from .run_context import RunContext
+from .run_context import (DEFAULT_INTERNAL_DEADLINE_SECONDS, RUN_ID_PREFIX, RunContext,
+                          build_run_id, normalise_coins)
 
 # ---------------------------------------------------------------------------
 # Run 狀態機
@@ -74,6 +76,18 @@ CHECKPOINT_STAGES = (
     "final_artifacts",
 )
 
+# checkpoint 不是六項提交物之一，所以用底線開頭，和 report.md／evidence.json 等檔案區分開。
+CHECKPOINT_FILENAME = "_checkpoint.json"
+
+# 產物根目錄的環境變數。Web Demo 與 Lambda 各有自己的預設值（前者是 repo 內的輸出目錄，
+# 後者是容器的暫存目錄），但兩邊都用同一個變數名稱覆寫，測試也靠它把輸出導進 tempdir。
+ENV_ARTIFACT_ROOT = "ARTIFACT_ROOT"
+
+
+def artifact_root(default: Path | str) -> Path:
+    """回傳產物根目錄：優先用 `ARTIFACT_ROOT`，否則用呼叫端給的預設值。"""
+    return Path(os.getenv(ENV_ARTIFACT_ROOT, "").strip() or default)
+
 # ---------------------------------------------------------------------------
 # Deadline 常數
 # ---------------------------------------------------------------------------
@@ -82,8 +96,10 @@ CHECKPOINT_STAGES = (
 HARD_DEADLINE_SECONDS_MAX = 900.0
 FINALIZATION_DEADLINE_SECONDS_MAX = 840.0
 
-# 預設沿用 repo 既有三階段預算（420 + 180 + 120 = 720 秒），只讀對照，不重新定義。
-DEFAULT_HARD_DEADLINE_SECONDS = DEFAULT_TIME_BUDGET_SECONDS
+# 預設沿用 repo 既有三階段預算（420 + 180 + 120 = 720 秒）。這裡讀 `run_context` 的同名常數而不是
+# `orchestrator.DEFAULT_TIME_BUDGET_SECONDS`，因為 Orchestrator 需要 import 本模組來做 deadline
+# 決策；兩邊互相 import 會在載入期就壞掉。兩個常數必須相等，由 tests 直接比對把關。
+DEFAULT_HARD_DEADLINE_SECONDS = DEFAULT_INTERNAL_DEADLINE_SECONDS
 # 收尾窗口與 hard deadline 維持跟比賽上限相同的比例（840 / 900），套用在既有預算上
 # 得到 672 秒，仍嚴格低於比賽的 840 秒收尾門檻。
 DEFAULT_FINALIZATION_DEADLINE_SECONDS = DEFAULT_HARD_DEADLINE_SECONDS * (
@@ -125,8 +141,7 @@ def compute_question_hash(question: str, coins) -> str:
 
     正規化順序不影響結果：幣種一律轉大寫並排序，問題只去除頭尾空白。
     """
-    coin_list = [coins] if isinstance(coins, str) else list(coins)
-    normalised_coins = sorted({coin.strip().upper() for coin in coin_list if coin and coin.strip()})
+    normalised_coins = sorted(set(normalise_coins(coins)))
     payload = json.dumps(
         {"question": question.strip(), "coins": normalised_coins},
         ensure_ascii=False,
@@ -138,6 +153,13 @@ def compute_question_hash(question: str, coins) -> str:
 # ---------------------------------------------------------------------------
 # RunRecord：一次執行的生命週期狀態
 # ---------------------------------------------------------------------------
+
+
+TERMINAL_STATUSES = (STATUS_COMPLETED, STATUS_COMPLETED_DEGRADED, STATUS_FAILED)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclass
@@ -152,6 +174,11 @@ class RunRecord:
     rerun_reason: str | None = None
     authorized_rerun: bool = False
     checkpoints: dict = field(default_factory=dict)
+    completed_at: str | None = None
+    degradation_reasons: list = field(default_factory=list)
+    # 建立這筆 record 的 `RunManager`。有 manager 時，狀態轉換會同步寫回 formal lock，
+    # checkpoint 也能落地；沒有 manager（純記憶體使用）時兩者都只留在物件上。
+    manager: object | None = field(default=None, repr=False, compare=False)
 
     @property
     def run_id(self) -> str:
@@ -168,12 +195,37 @@ class RunRecord:
                 f"(allowed targets: {sorted(allowed) or 'none, terminal state'})"
             )
         self.status = new_status
+        if new_status in TERMINAL_STATUSES:
+            self.completed_at = _now_iso()
+
+    def mark(self, new_status: str) -> str:
+        """轉換狀態，並在有 manager 時同步 formal lock。回傳轉換後的狀態。
+
+        Orchestrator 只拿到 record，不需要知道 manager 存不存在；把同步責任放在這裡，
+        呼叫端就不會出現「狀態改了但 lock 沒改」的半套更新。
+        """
+        if self.manager is not None:
+            self.manager.transition(self, new_status)
+        else:
+            self.transition(new_status)
+        return self.status
 
     def save_checkpoint(self, stage: str, data: object) -> None:
         """保存單一階段的可恢復狀態；不會清除其他階段已保存的 checkpoint。"""
         if stage not in CHECKPOINT_STAGES:
             raise ValueError(f"unknown checkpoint stage: {stage!r}, expected one of {CHECKPOINT_STAGES}")
         self.checkpoints[stage] = data
+
+    def persist_checkpoints(self) -> str | None:
+        """把目前 checkpoint 落地（有 manager 時）。逾時或階段失敗時用來保住已完成的部分。"""
+        if self.manager is None:
+            return None
+        return self.manager.write_checkpoints(self)
+
+    def note_degradation(self, reason: str) -> None:
+        """記錄一項降級原因；重複原因只留一次，讓 manifest 的清單保持可讀。"""
+        if reason and reason not in self.degradation_reasons:
+            self.degradation_reasons.append(reason)
 
     def lock_payload(self) -> dict:
         """formal lock 歷史紀錄裡的單筆條目。"""
@@ -183,22 +235,39 @@ class RunRecord:
             "mode": self.mode,
             "status": self.status,
             "started_at": self.context.started_at,
+            "completed_at": self.completed_at,
+            # 正式執行必須能回答「這份結果是哪一版程式、哪一個模型跑出來的」。
+            "code_commit": self.context.code_commit,
+            "model_provider": self.context.model_provider,
+            "model_id": self.context.model_id,
             "rerun_of": self.rerun_of,
             "rerun_reason": self.rerun_reason,
             "authorized_rerun": self.authorized_rerun,
         }
 
-    def as_dict(self) -> dict:
-        payload = self.context.as_dict()
-        payload.update({
-            "mode": self.mode,
+    def lifecycle_payload(self) -> dict:
+        """manifest／Execution Log 用的正式執行資料（spec T7 第 4、6 條）。"""
+        return {
+            "run_id": self.run_id,
+            "run_mode": self.mode,
             "question_hash": self.question_hash,
             "status": self.status,
+            "started_at": self.context.started_at,
+            "completed_at": self.completed_at,
+            "code_commit": self.context.code_commit,
+            "provider": self.context.model_provider,
+            "model": self.context.model_id,
             "rerun_of": self.rerun_of,
             "rerun_reason": self.rerun_reason,
             "authorized_rerun": self.authorized_rerun,
+            "degradation_reasons": list(self.degradation_reasons),
             "checkpoints": sorted(self.checkpoints.keys()),
-        })
+        }
+
+    def as_dict(self) -> dict:
+        payload = self.context.as_dict()
+        payload.update(self.lifecycle_payload())
+        payload["mode"] = self.mode
         return payload
 
 
@@ -328,13 +397,17 @@ class RunManager:
         lock["history"].append(entry)
         self._write_lock(question_hash, lock)
 
-    def _update_lock_status(self, question_hash: str, run_id: str, status: str) -> None:
+    def _update_lock_status(self, question_hash: str, run_id: str, status: str,
+                            completed_at: str | None = None) -> None:
+        """只更新指定 run 的狀態，其他歷史條目原封不動（第一次失敗紀錄因此不會被覆寫）。"""
         lock = self._read_lock(question_hash)
         if not lock:
             return
         for entry in lock["history"]:
             if entry["run_id"] == run_id:
                 entry["status"] = status
+                if completed_at:
+                    entry["completed_at"] = completed_at
         self._write_lock(question_hash, lock)
 
     def formal_lock_history(self, question_hash: str) -> list[dict]:
@@ -370,7 +443,8 @@ class RunManager:
         if rerun_of and not rerun_reason:
             raise ValueError("a rerun requires rerun_reason to be set")
 
-        context = RunContext.create(question, coins, run_id=run_id, as_of=as_of)
+        resolved_run_id = run_id or build_run_id(coins)
+        context = RunContext.create(question, coins, run_id=resolved_run_id, as_of=as_of)
         question_hash = compute_question_hash(question, context.coins)
 
         if mode == RUN_MODE_FORMAL:
@@ -397,6 +471,7 @@ class RunManager:
             rerun_of=rerun_of,
             rerun_reason=rerun_reason,
             authorized_rerun=bool(rerun_of and authorized_rerun),
+            manager=self,
         )
 
         if mode == RUN_MODE_FORMAL:
@@ -410,7 +485,8 @@ class RunManager:
         """套用狀態轉換並同步 formal lock（若適用）。非法轉換拋出例外，record 維持原狀態。"""
         record.transition(new_status)
         if record.mode == RUN_MODE_FORMAL:
-            self._update_lock_status(record.question_hash, record.run_id, new_status)
+            self._update_lock_status(record.question_hash, record.run_id, new_status,
+                                     completed_at=record.completed_at)
         return record
 
     # -- 產物輸出 ------------------------------------------------------
@@ -419,11 +495,21 @@ class RunManager:
         """取得這個 run 對應的 `LocalArtifactStore`，一律建立在 `self.root` 之下。"""
         return LocalArtifactStore.for_run(record.context, self.root)
 
+    def run_directory(self, record: RunRecord) -> Path:
+        """這個 run 的輸出目錄（`root/runs/{run_id}`）。呼叫端把它當成 `output_dir` 傳給 Orchestrator。
+
+        目錄由 run_id 推導，因此不同 run 天生互不覆寫；`create_run()` 另外會擋掉「同一個 run_id
+        的目錄已經有內容」的情況。
+        """
+        return self.root / record.context.output_prefix
+
     def write_checkpoints(self, record: RunRecord) -> str:
         """把目前累積的 checkpoint 狀態落地，供逾時後仍能重建最小可用產物。"""
         store = self.artifact_store(record)
-        return store.write_json("_checkpoint.json", {
+        return store.write_json(CHECKPOINT_FILENAME, {
             "run_id": record.run_id,
+            "run_mode": record.mode,
             "status": record.status,
+            "written_at": _now_iso(),
             "stages": record.checkpoints,
         })

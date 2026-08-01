@@ -21,7 +21,8 @@ python -m src.app
 
 首頁的「比較幣種」下拉選單選擇第二個幣種後，會走 `run_comparison()`：分別完成兩份完整分析，
 再產出「流動性 / 風險敞口 / 市場關注度」三維度並列比較。兩份分析**共用同一組時間預算**，
-輸出位於 `outputs-day5/comparison/`（`comparison.md`、`comparison.json`，以及每個幣種各自的完整輸出子目錄）。
+輸出位於該次執行的 run 目錄 `outputs-day5/runs/<run_id>/`（`comparison.md`、`comparison.json`，
+以及每個幣種各自的完整輸出子目錄）。
 
 程式化呼叫：
 
@@ -79,7 +80,21 @@ run("SOL", "分析近期市場狀況", Path("outputs"), live=True, use_llm=True,
 3. 輸入「近期上漲的主要原因是什麼？」。
 4. 按下 Run analysis。
 5. 確認摘要、RSI／報酬率／波動率與 Evidence ID。
-6. 確認 `outputs-day5` 或固定 Demo 輸出中的三個檔案。
+6. 確認 `outputs-day5/runs/<run_id>/` 或固定 Demo 輸出中的提交物檔案。
+
+### 執行性質與 run 目錄（T7）
+
+首頁的「執行性質」可選 Test 或 Formal：
+
+- 每次執行都會寫入 `outputs-day5/runs/<run_id>/`（`run_id` 形如 `RUN-20260801T012345Z-ETH-1a2b3c4d`），
+  既有結果永遠不會被覆寫；`ARTIFACT_ROOT` 環境變數可改變根目錄（Lambda 預設為容器暫存目錄）。
+- Formal 對同一「問題＋幣種」組合只允許一次，重複送出會得到 HTTP 409；Test 可任意重複，
+  且不會佔用 formal lock。需要重跑正式執行時，必須以授權重跑建立新 run 並填寫理由，
+  `manifest.json` 會保留 `rerun_of`／`rerun_reason`／`authorized_rerun`，第一次的紀錄不會被刪除。
+- `manifest.json` 與 `execution_log.json` 記錄 run 狀態：`COMPLETED`、`COMPLETED_DEGRADED`
+  （例如某個來源失敗、或全部證據都是離線 fixture）或 `FAILED`。
+- 硬上限 900 秒、收尾門檻 840 秒是比賽的天花板；本專案仍使用更保守的 720／672 秒。
+  進入收尾窗口後不再開始補充蒐集與語意 Critic，優先把六項提交物寫完。
 
 ## 5. 架構圖
 

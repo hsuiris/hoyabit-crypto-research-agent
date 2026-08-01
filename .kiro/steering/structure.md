@@ -13,7 +13,7 @@ src/
   validation.py      證據結構與可追溯性驗證
   errors.py          輸入驗證
   day1_mvp.py        Evidence 資料類別與離線 fixture
-tests/               488 個測試（T0 基線為 117，T1-T5 陸續新增）
+tests/               534 個測試（T0 基線為 117，T1-T7 陸續新增）
 data/                5 年日線 CSV（BTC/ETH/SOL/BNB/XRP，各 1826 天）
 demo-fixtures/       離線 Demo 用的固定輸出（勿當成產生物刪除）
 docs/                README、專案報告、Demo 腳本、AWS 架構

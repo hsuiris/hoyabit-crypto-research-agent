@@ -8,16 +8,24 @@ deadline 決策函式。不呼叫 LLM、不碰網路，檔案系統一律限制�
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+from datetime import datetime, timezone
 
 from src.orchestrator import DEFAULT_TIME_BUDGET_SECONDS
 from src.run_manager import (
+    CHECKPOINT_FILENAME,
     DEFAULT_FINALIZATION_DEADLINE_SECONDS,
     DEFAULT_HARD_DEADLINE_SECONDS,
+    ENV_ARTIFACT_ROOT,
     FINALIZATION_DEADLINE_SECONDS_MAX,
     HARD_DEADLINE_SECONDS_MAX,
+    RUN_MODE_FORMAL,
+    RUN_MODE_TEST,
     STATUS_COMPLETED,
     STATUS_COMPLETED_DEGRADED,
     STATUS_CREATED,
@@ -27,6 +35,8 @@ from src.run_manager import (
     InvalidRunTransitionError,
     RunDirectoryExistsError,
     RunManager,
+    artifact_root,
+    build_run_id,
     compute_question_hash,
     evaluate_deadline,
 )
@@ -123,6 +133,39 @@ class RunCreationTests(unittest.TestCase):
             with self.assertRaises(RunDirectoryExistsError):
                 manager.create_run("ETH 近期走勢？", ["ETH"], mode="test", run_id="run-collide")
 
+    def test_generated_run_id_uses_the_competition_format(self):
+        """未指定 run_id 時使用 `RUN-<時間戳>-<幣種>-<尾碼>`，時間排序等於執行順序。"""
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunManager(directory)
+            record = manager.create_run("問題", ["eth"], mode=RUN_MODE_TEST)
+
+            self.assertTrue(record.run_id.startswith("RUN-"))
+            self.assertIn("-ETH-", record.run_id)
+            self.assertEqual(record.context.output_prefix, f"runs/{record.run_id}")
+
+    def test_build_run_id_is_stable_for_a_fixed_timestamp_and_suffix(self):
+        stamp = datetime(2026, 8, 1, 1, 23, 45, tzinfo=timezone.utc)
+        self.assertEqual(build_run_id(["btc"], now=stamp, suffix="abcd1234"),
+                         "RUN-20260801T012345Z-BTC-abcd1234")
+        # 比較題可以帶兩個幣種，但不會無限長：最多三個。
+        self.assertEqual(build_run_id(["btc", "eth"], now=stamp, suffix="x"),
+                         "RUN-20260801T012345Z-BTC-ETH-x")
+        self.assertEqual(build_run_id(["a", "b", "c", "d"], now=stamp, suffix="x").count("-"), 5)
+
+    def test_run_directory_is_derived_from_the_run_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunManager(directory)
+            record = manager.create_run("問題", ["ETH"], mode=RUN_MODE_TEST, run_id="run-dir")
+            self.assertEqual(manager.run_directory(record),
+                             Path(directory) / "runs" / "run-dir")
+
+    def test_artifact_root_prefers_the_environment_variable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {ENV_ARTIFACT_ROOT: directory}, clear=False):
+                self.assertEqual(artifact_root("fallback-root"), Path(directory))
+            with patch.dict(os.environ, {ENV_ARTIFACT_ROOT: ""}, clear=False):
+                self.assertEqual(artifact_root("fallback-root"), Path("fallback-root"))
+
     def test_question_hash_normalises_coin_order_and_case(self):
         """question_hash 對幣種大小寫與順序不敏感，避免同一組合被誤判為不同 formal run。"""
         hash_a = compute_question_hash("問題", ["eth", "BTC"])
@@ -181,6 +224,67 @@ class StatusTransitionTests(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 manager.transition(record, "NOT_A_REAL_STATUS")
+
+    def test_terminal_transition_stamps_completed_at(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunManager(directory)
+            record = manager.create_run("問題", ["ETH"], mode=RUN_MODE_TEST, run_id="run-clock")
+
+            self.assertIsNone(record.completed_at)
+            record.mark(STATUS_RUNNING)
+            self.assertIsNone(record.completed_at)
+            record.mark(STATUS_COMPLETED_DEGRADED)
+            self.assertTrue(record.completed_at > record.context.started_at)
+
+    def test_mark_syncs_the_formal_lock_through_the_manager(self):
+        """record.mark() 不需要呼叫端拿著 manager，狀態與 lock 不會出現半套更新。"""
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunManager(directory)
+            record = manager.create_run("問題", ["ETH"], mode=RUN_MODE_FORMAL, run_id="run-sync")
+
+            record.mark(STATUS_RUNNING)
+            record.mark(STATUS_COMPLETED)
+
+            entry = manager.formal_lock_history(record.question_hash)[0]
+            self.assertEqual(entry["status"], STATUS_COMPLETED)
+            self.assertEqual(entry["completed_at"], record.completed_at)
+
+    def test_lifecycle_payload_carries_the_formal_run_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunManager(directory)
+            first = manager.create_run("問題", ["ETH"], mode=RUN_MODE_FORMAL, run_id="run-meta-1")
+            manager.transition(first, STATUS_RUNNING)
+            manager.transition(first, STATUS_FAILED)
+            rerun = manager.create_run("問題", ["ETH"], mode=RUN_MODE_FORMAL, run_id="run-meta-2",
+                                       rerun_of=first.run_id, rerun_reason="第一次失敗",
+                                       authorized_rerun=True)
+            rerun.note_degradation("collector_skipped:news")
+            rerun.note_degradation("collector_skipped:news")
+
+            payload = rerun.lifecycle_payload()
+
+            self.assertEqual(payload["run_mode"], RUN_MODE_FORMAL)
+            self.assertEqual(payload["question_hash"], rerun.question_hash)
+            self.assertEqual(payload["rerun_of"], first.run_id)
+            self.assertEqual(payload["rerun_reason"], "第一次失敗")
+            self.assertTrue(payload["authorized_rerun"])
+            self.assertEqual(payload["degradation_reasons"], ["collector_skipped:news"])
+            self.assertTrue(payload["code_commit"])
+            self.assertIn("provider", payload)
+            self.assertIn("model", payload)
+
+    def test_persist_checkpoints_is_a_no_op_without_a_manager(self):
+        """RunRecord 可以在沒有 manager 的情況下單獨使用（例如純記憶體測試）。"""
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunManager(directory)
+            record = manager.create_run("問題", ["ETH"], mode=RUN_MODE_TEST, run_id="run-detached")
+            record.manager = None
+            record.save_checkpoint("plan", {})
+
+            self.assertIsNone(record.persist_checkpoints())
+            record.mark(STATUS_RUNNING)
+            self.assertEqual(record.status, STATUS_RUNNING)
+            self.assertFalse((Path(directory) / "runs" / "run-detached" / CHECKPOINT_FILENAME).exists())
 
 
 class DeadlineDecisionTests(unittest.TestCase):
