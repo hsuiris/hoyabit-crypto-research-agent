@@ -1,0 +1,308 @@
+"""競賽資料形狀契約（T0.6 凍結）。
+
+T2（Research Plan）、T3（Credibility）、T4（Claim Graph）、T5（Citation Gate 與提交物）
+會平行開發。如果每條線各自命名欄位、各自寫權重，整合時必然對不起來。本模組把四條線共用的
+資料形狀與常數一次固定下來：**只有結構與常數，沒有任何業務邏輯**。
+
+四條規則：
+
+1. 這裡不計分、不規劃、不建圖、不驗證引用。credibility 與 claim confidence 的實際計算一律由
+   T3／T4 的 deterministic Python 程式負責；LLM 不得決定最終分數，也不得突破 hard cap。
+2. 常數集合使用 ``tuple``／``frozenset``／``MappingProxyType``，呼叫端無法就地改寫共用預設值。
+3. 欄位名稱與數值取自 ``docs/competition-tasks/T2-planner.md``、``T3-credibility.md``、
+   ``T4-claim-graph.md``、``T5-citation-output.md`` 與
+   ``.kiro/steering/evidence-confidence-standards.md``。**改名等於破壞契約，新增欄位才是相容做法。**
+4. 本模組不 import 專案內其他模組（與 ``src/ports.py`` 相同原則），任何一層都能安全引用。
+
+Evidence 本身仍定義在 ``src/day1_mvp.py``，因為既有 positional constructor 必須保持相容；
+本模組只提供它新增欄位的名稱清單 ``EVIDENCE_CREDIBILITY_FIELDS`` 與對應預設值常數，供
+validator、credibility engine 與 Web UI 共用同一份字面值。
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from types import MappingProxyType
+
+# ``SCHEMA_VERSION`` 描述本檔凍結的資料形狀；``SCORING_VERSION`` 只描述 credibility 計分版本
+# （字面值取自 design.md 5.5 的輸出範例）。兩者分開遞增：改欄位不必動計分版本，反之亦然。
+SCHEMA_VERSION = "competition-schema-v1"
+SCORING_VERSION = "credibility-v1"
+
+
+# --------------------------------------------------------------------------------------
+# T2 — Research Plan
+# --------------------------------------------------------------------------------------
+
+# 七種 task mode（T2-planner.md「Allowed task modes」）。一題可同時具有多個 mode。
+TASK_MODES = (
+    "describe_market_state",
+    "test_hypothesis",
+    "compare_assets",
+    "explain_driver",
+    "assess_consistency",
+    "identify_risks",
+    "identify_attention_conditions",
+)
+DEFAULT_TASK_MODE = "describe_market_state"
+
+# 時間窗來源：題目寫明用 explicit，沿用產品預設值時必須是 default，且要在 assumptions 明示。
+TIME_WINDOW_SOURCE_EXPLICIT = "explicit"
+TIME_WINDOW_SOURCE_DEFAULT = "default"
+TIME_WINDOW_SOURCES = (TIME_WINDOW_SOURCE_EXPLICIT, TIME_WINDOW_SOURCE_DEFAULT)
+
+DEFAULT_TIME_WINDOW_DAYS = 14
+DEFAULT_MAX_EVIDENCE = 36
+DEFAULT_MAX_FOLLOWUP_ROUNDS = 1
+
+
+def default_time_window() -> dict:
+    """預設時間窗。標成 ``default`` 是為了讓報告能誠實說明「這 14 天不是題目要求的」。"""
+    return {"days": DEFAULT_TIME_WINDOW_DAYS, "source": TIME_WINDOW_SOURCE_DEFAULT}
+
+
+def default_stop_conditions() -> dict:
+    """預設停止條件，避免蒐集無上限地吃掉時間預算。"""
+    return {"max_evidence": DEFAULT_MAX_EVIDENCE, "max_followup_rounds": DEFAULT_MAX_FOLLOWUP_ROUNDS}
+
+
+@dataclass
+class Hypothesis:
+    """假設題的對稱結構。
+
+    支持與反對問題都必須存在，否則只會找到想看的證據；``falsification_conditions``
+    則是「什麼情況下這個假設算被推翻」，讓假設可檢驗而不是口號。
+    """
+
+    hypothesis_id: str = ""
+    statement: str = ""
+    support_questions: list = field(default_factory=list)
+    contradiction_questions: list = field(default_factory=list)
+    falsification_conditions: list = field(default_factory=list)
+
+
+@dataclass
+class ResearchPlan:
+    """Planner 輸出形狀（落地為 ``research_plan.json``）。
+
+    欄位順序刻意與 T2-planner.md 的 JSON 範例一致。Plan 只描述「要查什麼」，
+    不得含市場結論 —— 方向性判斷是 T4 Claim 的責任。
+    """
+
+    coins: list = field(default_factory=list)
+    task_modes: list = field(default_factory=list)
+    primary_question: str = ""
+    time_window: dict = field(default_factory=default_time_window)
+    hypotheses: list = field(default_factory=list)
+    required_domains: list = field(default_factory=list)
+    comparison_dimensions: list = field(default_factory=list)
+    assumptions: list = field(default_factory=list)
+    stop_conditions: dict = field(default_factory=default_stop_conditions)
+
+
+# --------------------------------------------------------------------------------------
+# T4 — Claim / Fact / Confidence
+# --------------------------------------------------------------------------------------
+
+# 五種 verdict（T4-claim-graph.md「Allowed verdicts」）。
+VERDICTS = (
+    "supported",
+    "partially_supported",
+    "mixed",
+    "contradicted",
+    "insufficient_evidence",
+)
+VERDICT_INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+
+CONFIDENCE_LEVELS = ("low", "medium", "high")
+
+# 信心是 heuristic evidence score，不是校準過的市場正確機率；``type`` 欄位固定寫這個字。
+CONFIDENCE_TYPE_HEURISTIC = "heuristic"
+
+DEFAULT_CLAIM_TYPE = "market_judgment"
+
+
+@dataclass
+class Fact:
+    """可直接追溯的觀察。``evidence_ids`` 必須指向本次 run 內存在且未被 reject 的 Evidence。"""
+
+    statement: str = ""
+    evidence_ids: list = field(default_factory=list)
+
+
+@dataclass
+class ClaimConfidence:
+    """Claim 的信心分數與其展開。
+
+    ``components`` 使用 ``CONFIDENCE_COMPONENT_KEYS`` 的鍵，``limiters`` 記錄套用過的
+    cap 名稱（例如 ``single_supporting_domain``），讓讀者知道分數為什麼被壓住。
+    Critic 只能降低 ``score``，不能提高。
+    """
+
+    score: float = 0.0
+    level: str = "low"
+    type: str = CONFIDENCE_TYPE_HEURISTIC
+    components: dict = field(default_factory=dict)
+    limiters: list = field(default_factory=list)
+
+
+@dataclass
+class Claim:
+    """一個主要判斷，含 Fact → Inference → Conclusion 三層與正反證據。
+
+    ``verdict`` 預設 ``insufficient_evidence``：資料不足時必須誠實輸出資料不足，
+    不能因為預設值好看就先給方向。
+    """
+
+    claim_id: str = ""
+    statement: str = ""
+    claim_type: str = DEFAULT_CLAIM_TYPE
+    verdict: str = VERDICT_INSUFFICIENT_EVIDENCE
+    facts: list = field(default_factory=list)
+    inference: str = ""
+    conclusion: str = ""
+    supporting_evidence_ids: list = field(default_factory=list)
+    contradicting_evidence_ids: list = field(default_factory=list)
+    confidence: ClaimConfidence = field(default_factory=ClaimConfidence)
+    limitations: list = field(default_factory=list)
+    invalidation_conditions: list = field(default_factory=list)
+    watchpoints: list = field(default_factory=list)
+
+
+# --------------------------------------------------------------------------------------
+# T3 — Evidence credibility 的可解釋計分
+# --------------------------------------------------------------------------------------
+
+CREDIBILITY_COMPONENT_KEYS = (
+    "source_quality",
+    "traceability",
+    "freshness",
+    "method_transparency",
+    "independence",
+)
+
+# base_score = 0.30×source_quality + 0.25×traceability + 0.20×freshness
+#            + 0.15×method_transparency + 0.10×independence
+CREDIBILITY_WEIGHTS = MappingProxyType({
+    "source_quality": 0.30,
+    "traceability": 0.25,
+    "freshness": 0.20,
+    "method_transparency": 0.15,
+    "independence": 0.10,
+})
+
+# T3 Source Registry 的類別；Evidence.source_type 只能是其中之一。
+SOURCE_TYPES = (
+    "market_api",
+    "derivatives_api",
+    "blockchain_raw",
+    "official_announcement",
+    "major_media",
+    "secondary_media",
+    "social_public",
+    "macro_api",
+    "local_csv",
+    "fallback_fixture",
+    "unknown",
+)
+SOURCE_TYPE_UNKNOWN = "unknown"
+SOURCE_TYPE_FALLBACK_FIXTURE = "fallback_fixture"
+
+# ``unverified`` 是預設值；``partially_confirmed`` 取自 design.md 5.5 的輸出範例；
+# ``verified`` 取自 evidence-confidence-standards（LLM 不得自行把 unverified 改成 verified）；
+# ``rejected`` 由 T5 citation gate 使用，被 reject 的 Evidence 不得進入主要報告。
+VERIFICATION_STATUSES = ("unverified", "partially_confirmed", "verified", "rejected")
+VERIFICATION_STATUS_UNVERIFIED = "unverified"
+VERIFICATION_STATUS_REJECTED = "rejected"
+
+# hard cap 是上限，必須以 min(raw_score, cap) 套用，不可被加權平均突破。
+# ``missing_fetched_at`` 在 T3 與 steering 中寫的是 ``rejected``（不是一個數字）：
+# 這裡以 0.0 表示該語意，並用 REJECTING_HARD_CAP_KEYS 標明「命中即 reject，不是降分」，
+# 讓整個字典維持同一種型別（float），呼叫端不必為單一鍵做特例判斷。
+HARD_CAP_REJECTED = 0.0
+REJECTING_HARD_CAP_KEYS = frozenset({"missing_fetched_at"})
+
+HARD_CAPS = MappingProxyType({
+    "missing_source_locator": 0.30,
+    "missing_fetched_at": HARD_CAP_REJECTED,
+    "anonymous_or_low_trace_social": 0.35,
+    "single_secondary_news_source": 0.60,
+    "fallback_fixture": 0.20,
+    "unverifiable_entity_attribution": 0.60,
+    "unverifiable_intent_attribution": 0.55,
+    "high_quality_conflict_claim_cap": 0.70,
+})
+
+# T3 附加在 Evidence 尾端的欄位（全部有 default，既有 positional constructor 不受影響）。
+# ``scoring_version`` 不在 T3「New Evidence Fields」的程式碼區塊內，而是同一份文件
+# Deterministic Score 的輸出清單要求保存的欄位，因此一併凍結在這裡。
+EVIDENCE_CREDIBILITY_FIELDS = (
+    "source_type",
+    "published_at",
+    "event_time",
+    "verification_status",
+    "source_lineage_id",
+    "claim_relevance",
+    "independence_factor",
+    "score_breakdown",
+    "score_limiters",
+    "related_claim_ids",
+    "scoring_version",
+)
+
+# 同源轉載的 lineage 判斷可用的鍵；20 篇引用同一原始消息只算一條主要來源鏈。
+SOURCE_LINEAGE_KEYS = (
+    "canonical_url",
+    "original_source_url",
+    "normalized_title",
+    "content_hash",
+    "quote_hash",
+    "source_domain",
+    "event_id",
+    "transaction_hash",
+)
+
+
+# --------------------------------------------------------------------------------------
+# T4 — Claim confidence 的可解釋計分
+# --------------------------------------------------------------------------------------
+
+CONFIDENCE_COMPONENT_KEYS = (
+    "weighted_evidence_quality",
+    "domain_coverage",
+    "source_diversity",
+    "signal_consistency",
+    "counter_evidence_coverage",
+)
+
+# confidence = 0.30×weighted_evidence_quality + 0.25×domain_coverage + 0.20×source_diversity
+#            + 0.15×signal_consistency + 0.10×counter_evidence_coverage
+CONFIDENCE_WEIGHTS = MappingProxyType({
+    "weighted_evidence_quality": 0.30,
+    "domain_coverage": 0.25,
+    "source_diversity": 0.20,
+    "signal_consistency": 0.15,
+    "counter_evidence_coverage": 0.10,
+})
+
+# 只有一個 domain 支持時的上限；高品質支持與反對同時存在時的上限（與 HARD_CAPS 同一數值）；
+# domain coverage 低於門檻時必須輸出 insufficient_evidence。
+SINGLE_DOMAIN_CONFIDENCE_CAP = 0.60
+HIGH_QUALITY_CONFLICT_CONFIDENCE_CAP = HARD_CAPS["high_quality_conflict_claim_cap"]
+MIN_DOMAIN_COVERAGE = 0.40
+
+
+# --------------------------------------------------------------------------------------
+# T5 — 提交物檔名
+# --------------------------------------------------------------------------------------
+
+# 六項提交物；所有檔案使用同一個 run ID，路徑一律經由 ArtifactStore（見 src/ports.py）。
+ARTIFACT_FILENAMES = MappingProxyType({
+    "report": "report.md",
+    "evidence": "evidence.json",
+    "execution_log": "execution_log.json",
+    "research_plan": "research_plan.json",
+    "claims": "claims.json",
+    "manifest": "manifest.json",
+})
+REQUIRED_ARTIFACT_KEYS = tuple(ARTIFACT_FILENAMES)

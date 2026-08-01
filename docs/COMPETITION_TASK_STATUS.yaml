@@ -2,10 +2,10 @@ project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
 current_task: T2
-last_updated_at: 2026-08-01T10:05:00+08:00
+last_updated_at: 2026-08-01T10:32:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 149 tests, 149 passed, 0 failed, 0 errors
+full_suite_latest: 175 tests, 175 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -81,6 +81,32 @@ tasks:
       - Orchestrator 尚未改接 ArtifactStore（僅凍結介面）
       - src/app.py 的來源摘要仍內嵌 provider 呼叫（見 docs/COMPETITION_BLOCKERS.md）
       - lambda_handler.py 仍硬編 /tmp/outputs（待 S3／T7 處理）
+
+  T0.6:
+    title: Freeze competition data schema contract (out-of-plan insertion)
+    status: PASS
+    depends_on: [T0.5]
+    target_minutes: 45
+    started_at: 2026-08-01T10:12:00+08:00
+    completed_at: 2026-08-01T10:31:40+08:00
+    commit: PENDING
+    test_summary: 26 targeted tests OK（tests/test_schema_contract.py）；完整套件 175 tests OK
+    note: >-
+      原始 T0-T8 計畫沒有這個 Task，由使用者臨時插入。目的是在 T2-T5 平行開發前先凍結三條線
+      共用的資料形狀（ResearchPlan／Hypothesis、Claim／Fact／ClaimConfidence、credibility 與
+      confidence 的 component key 與權重、hard caps、六項提交物檔名），避免各模組各自猜欄位名。
+      只加介面、常數與測試，不實作任何計分、規劃、建圖或 citation gate 邏輯，也不取代 T2-T5。
+    artifacts:
+      - src/schemas.py
+      - src/day1_mvp.py
+      - tests/test_schema_contract.py
+    blockers: []
+    known_limitations:
+      - 只凍結形狀，credibility／confidence 計分與 planner／claim graph 全部仍未實作（T2-T5）
+      - Evidence 新增 11 個有 default 的欄位，evidence.json 因此多出 11 個 key（既有 key 的值與 report.md 內容經比對不變）
+      - src/day1_mvp.py 刻意不 import src/schemas.py，兩邊字面值一致由 tests/test_schema_contract.py 擋住
+      - claim_type 的合法值尚未在任何文件列舉，僅凍結 market_judgment 作為預設
+      - VERIFICATION_STATUSES 的 partially_confirmed／verified 分別取自 design.md 與 steering，用詞尚未收斂
 
   T2:
     title: Add question-driven research planner

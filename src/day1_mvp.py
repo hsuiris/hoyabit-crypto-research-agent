@@ -26,6 +26,23 @@ class Evidence:
     content_reference: dict = field(default_factory=dict)
     related_claim: str = ""
 
+    # --- 以下為 T3 credibility 欄位（T0.6 凍結，尚未有人填值） ---
+    # 既有呼叫端全部使用 positional constructor，所以這些欄位一律追加在尾端且都有 default；
+    # 不得刪除或重新排序上方任何欄位。名稱與預設值同時定義在 src/schemas.py
+    # （EVIDENCE_CREDIBILITY_FIELDS 等常數），由 tests/test_schema_contract.py 擋住兩邊漂移。
+    # 此處刻意不 import src.schemas，避免這個檔案的 __main__ 直接執行路徑多一個相對匯入相依。
+    source_type: str = "unknown"
+    published_at: str | None = None
+    event_time: str | None = None
+    verification_status: str = "unverified"
+    source_lineage_id: str = ""
+    claim_relevance: float = 0.0
+    independence_factor: float = 1.0
+    score_breakdown: dict = field(default_factory=dict)
+    score_limiters: list = field(default_factory=list)
+    related_claim_ids: list = field(default_factory=list)
+    scoring_version: str = ""
+
     def __post_init__(self):
         if not self.content_reference:
             self.content_reference = {"summary": self.content, "time_range": self.time_range}
