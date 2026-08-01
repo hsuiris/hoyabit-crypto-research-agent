@@ -1,8 +1,8 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T5
-last_updated_at: 2026-08-01T15:24:00+08:00
+current_task: T6
+last_updated_at: 2026-08-01T13:37:23+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
 full_suite_latest: 488 tests, 488 passed, 0 failed, 0 errors
@@ -326,15 +326,22 @@ tasks:
 
   T6:
     title: Expose competition data in existing Web Demo
-    status: TODO
+    status: PASS
     depends_on: [T5]
     target_minutes: 60
-    started_at: null
-    completed_at: null
-    commit: null
-    test_summary: null
+    started_at: 2026-08-01T13:30:00+08:00
+    completed_at: 2026-08-01T13:37:23+08:00
+    # 一個 Task 一個 commit，實際 hash 見 `git log --grep "feat(T6)"`。
+    commit: 'feat(T6): expose competition evidence and claims in web demo'
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_t6_web_demo -v → 7 tests OK；
+      syntax：python3 -m py_compile src/app.py tests/test_t6_web_demo.py → OK；
+      完整套件：python3 -m unittest discover -s tests → 495 tests, 495 passed, 0 failed, 0 errors；
+      offline smoke：ETH 離線模式產出六項提交物，manifest 五個 SHA-256 全部驗證相符。
     blockers: []
-    known_limitations: []
+    known_limitations:
+      - 產物檢視僅限本機 outputs-day5／comparison 中的已知檔名；正式 run lifecycle 與不可覆寫輸出由 T7 處理。
+      - 未執行 live API 或真實 LLM；offline fallback 展示與測試均已驗證。
 
   T7:
     title: Harden formal run lifecycle and deadline

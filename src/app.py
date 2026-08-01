@@ -14,6 +14,7 @@ from urllib.request import Request, urlopen
 
 from .backtest import compare_variants
 from .errors import AgentInputError
+from .schemas import ARTIFACT_FILENAMES
 from .llm import configured_provider, llm_is_configured, llm_runtime_info
 from .ohlcv import load_ohlcv
 from .orchestrator import run, run_comparison
@@ -430,7 +431,12 @@ def _home_page() -> str:
     <option>BTC</option><option>ETH</option><option>SOL</option><option>BNB</option><option>XRP</option>
     </select></div><div><label>比較模式說明</label>
     <div class="muted" style="font-size:13px;line-height:1.6">選擇第二個幣種後，系統會分別完成兩份完整分析，
-    再產出「流動性 / 風險敞口 / 市場關注度」三個維度的並列比較。兩者共用同一組時間預算。</div></div></div>
+    再產出「流動性 / 風險敞口 / 市場關注度」三個維度的並列比較。兩者共用同一組時間範圍與時間預算。</div></div></div>
+    <div class="form-grid" style="margin-top:18px"><div><label for="live">資料模式</label>
+    <select id="live" name="live"><option value="true" selected>Live（連線取得資料）</option>
+    <option value="false">Offline（固定 fallback）</option></select></div><div><label for="use_llm">LLM 推理</label>
+    <select id="use_llm" name="use_llm"><option value="true" selected>On（失敗時自動 fallback）</option>
+    <option value="false">Off（確定性離線推理）</option></select></div></div>
     <button class="primary" type="submit">開始研究分析</button></form>
     <div class="feature-row"><span class="feature">Evidence ID 可追溯</span><span class="feature">九類資料來源</span>
     <span class="feature">總經與官方公告</span><span class="feature">雙幣比較</span>
@@ -448,8 +454,115 @@ def _home_page() -> str:
     document.getElementById("loading").classList.add("show");this.querySelector("button").disabled=true;}});</script></body></html>"""
 
 
+def _competition_sections(result: dict, evidence: list[dict], execution: dict) -> tuple[str, str, str]:
+    """渲染 T6 競賽資訊；所有欄位皆可缺省，舊 fixture 與 partial run 不會中斷頁面。"""
+    def value(item, fallback: str = "N/A") -> str:
+        if item is None or item == "":
+            return fallback
+        return str(item)
+
+    def text_list(items) -> str:
+        entries = items if isinstance(items, list) else []
+        return "".join(f"<li>{html.escape(value(entry))}</li>" for entry in entries) or "<li>N/A</li>"
+
+    def evidence_links(ids) -> str:
+        entries = ids if isinstance(ids, list) else []
+        return "、".join(
+            f'<a href="#evidence-{quote(str(evidence_id), safe="")}">{html.escape(str(evidence_id))}</a>'
+            for evidence_id in entries
+        ) or "N/A"
+
+    plan = result.get("research_plan") if isinstance(result.get("research_plan"), dict) else {}
+    time_window = plan.get("time_window") if isinstance(plan.get("time_window"), dict) else {}
+    planning = result.get("planning") if isinstance(result.get("planning"), dict) else {}
+    hypotheses = plan.get("hypotheses") if isinstance(plan.get("hypotheses"), list) else []
+    hypothesis_html = "".join(
+        f'<li><strong>{html.escape(value(item.get("hypothesis_id")))}</strong>：{html.escape(value(item.get("statement")))}</li>'
+        for item in hypotheses if isinstance(item, dict)
+    ) or "<li>N/A</li>"
+    plan_html = f'''<article class="insight-block sec accent"><div class="sec-head"><div class="sec-num">P</div>
+    <div><h3 class="sec-title">Research Plan</h3><div class="sec-sub">研究計畫</div></div></div>
+    <div class="metrics"><div class="card"><div class="metric-label">Task modes</div><div class="metric-value small">{html.escape("、".join(map(str, plan.get("task_modes") or [])) or "N/A")}</div></div>
+    <div class="card"><div class="metric-label">Time window</div><div class="metric-value small">{html.escape(value(time_window.get("days")))} 天</div><div class="metric-sub">來源：{html.escape(value(time_window.get("source")))}</div></div>
+    <div class="card"><div class="metric-label">Planner fallback</div><div class="metric-value small">{html.escape(value(planning.get("fallback_used")))}</div><div class="metric-sub">{html.escape(value(planning.get("path")))}</div></div></div>
+    <div class="report-grid"><div><strong>Hypotheses</strong><ul class="insight-list" style="margin-top:10px">{hypothesis_html}</ul></div>
+    <div><strong>Required domains</strong><ul class="insight-list" style="margin-top:10px">{text_list(plan.get("required_domains"))}</ul>
+    <strong style="display:block;margin-top:14px">Assumptions</strong><ul class="insight-list" style="margin-top:10px">{text_list(plan.get("assumptions"))}</ul></div></div></article>'''
+
+    claims = result.get("claims") if isinstance(result.get("claims"), list) else []
+    claim_cards = []
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        confidence = claim.get("confidence") if isinstance(claim.get("confidence"), dict) else {}
+        components = confidence.get("components") if isinstance(confidence.get("components"), dict) else {}
+        component_labels = {"weighted_evidence_quality": "Evidence quality", "domain_coverage": "Coverage", "source_diversity": "Diversity", "signal_consistency": "Consistency", "counter_evidence_coverage": "Counter evidence coverage"}
+        breakdown = "".join(
+            f'<li>{label}：{float(components.get(key, 0) or 0):.2f}</li>'
+            for key, label in component_labels.items()
+        )
+        facts = claim.get("facts") if isinstance(claim.get("facts"), list) else []
+        facts_html = "".join(
+            f'<li>{html.escape(value(fact.get("statement")))}（{evidence_links(fact.get("evidence_ids"))}）</li>'
+            for fact in facts if isinstance(fact, dict)
+        ) or "<li>N/A</li>"
+        claim_cards.append(f'''<article class="insight-block sec"><div class="sec-head"><div class="sec-num">C</div><div>
+        <h3 class="sec-title">{html.escape(value(claim.get("claim_id")))}</h3><div class="sec-sub">{html.escape(value(claim.get("verdict")))}</div></div>
+        <span class="conf-badge mid">{float(confidence.get("score", 0) or 0):.0%} · {html.escape(value(confidence.get("type")))}</span></div>
+        <p><strong>Claim：</strong>{html.escape(value(claim.get("statement")))}</p><strong>Fact</strong><ul class="insight-list" style="margin:10px 0">{facts_html}</ul>
+        <p><strong>Inference：</strong>{html.escape(value(claim.get("inference")))}</p><p><strong>Conclusion：</strong>{html.escape(value(claim.get("conclusion")))}</p>
+        <div class="report-grid"><div><strong>Supporting Evidence</strong><p>{evidence_links(claim.get("supporting_evidence_ids"))}</p><strong>Limitations</strong><ul class="insight-list">{text_list(claim.get("limitations"))}</ul></div>
+        <div><strong>Contradicting Evidence</strong><p>{evidence_links(claim.get("contradicting_evidence_ids"))}</p><strong>Invalidation Conditions</strong><ul class="insight-list">{text_list(claim.get("invalidation_conditions"))}</ul></div></div>
+        <details><summary>Confidence Breakdown（heuristic）</summary><ul class="insight-list" style="margin-top:10px">{breakdown or "<li>N/A</li>"}</ul>
+        <div class="metric-sub">Hard-cap limiters：{html.escape("、".join(map(str, confidence.get("limiters") or [])) or "N/A")}</div></details>
+        <strong style="display:block;margin-top:14px">Watchpoints</strong><ul class="insight-list">{text_list(claim.get("watchpoints"))}</ul></article>''')
+    claims_html = "".join(claim_cards) or '<article class="insight-block sec"><h3>Claim Cards</h3><p class="muted">本次沒有可展示的 Claim；partial run 仍可從 Evidence 與 report.md 追溯。</p></article>'
+
+    evidence_detail = "".join(
+        f'''<details class="insight-block" id="evidence-{quote(value(item.get("evidence_id")), safe="")}"><summary><strong>{html.escape(value(item.get("evidence_id")))}</strong> · {html.escape(value(item.get("source")))}</summary>
+        <div class="table-wrap" style="margin-top:12px"><table><tbody><tr><th>Source type</th><td>{html.escape(value(item.get("source_type")))}</td></tr><tr><th>Locator</th><td>{html.escape(value(item.get("source_url")))}</td></tr><tr><th>Fetched at</th><td>{html.escape(value(item.get("fetched_at")))}</td></tr><tr><th>Published/event time</th><td>{html.escape(value(item.get("published_at") or item.get("event_time")))}</td></tr><tr><th>Content reference</th><td>{html.escape(json.dumps(item.get("content_reference"), ensure_ascii=False)[:800])}</td></tr><tr><th>Reliability</th><td>{html.escape(value(item.get("reliability_score")))}</td></tr><tr><th>Verification status</th><td>{html.escape(value(item.get("verification_status")))}</td></tr><tr><th>Related Claim</th><td>{evidence_links(item.get("related_claim_ids"))}</td></tr><tr><th>Score limiters</th><td>{html.escape("、".join(map(str, item.get("score_limiters") or [])) or "N/A")}</td></tr></tbody></table></div>
+        <div class="metric-sub" style="margin-top:10px">內容摘要：{html.escape(json.dumps(item.get("content"), ensure_ascii=False)[:500])}</div></details>'''
+        for item in evidence if isinstance(item, dict)
+    ) or '<p class="muted">N/A</p>'
+
+    execution_rows = "".join(
+        f'<tr><td>{html.escape(value(step.get("name")))}</td><td>{html.escape(value(step.get("status")))}</td><td>{html.escape(value(step.get("duration_ms")))} ms</td><td>{html.escape(value(step.get("fallback_reason")))}</td><td>{html.escape(value(step.get("tool") or step.get("model") or step.get("provider")))}</td><td>{html.escape("、".join(map(str, step.get("evidence_ids_created") or [])) or "N/A")}</td></tr>'
+        for step in (execution.get("steps") or []) if isinstance(step, dict)
+    ) or '<tr><td colspan="6">N/A</td></tr>'
+    artifacts = "".join(
+        f'<a class="back" target="_blank" href="/artifact?path={quote(filename)}">{html.escape(filename)}</a>'
+        for filename in ARTIFACT_FILENAMES.values()
+    )
+    evidence_html = f'<article class="insight-block sec"><h3>Evidence Traceability</h3><p class="muted">大型 Evidence content 預設只顯示摘要；展開個別項目可查看可追溯 metadata。</p>{evidence_detail}</article>'
+    execution_html = f'''<article class="insight-block" style="margin-bottom:16px"><span class="section-tag">Competition execution log</span><h3>Execution Log</h3><div class="table-wrap"><table><thead><tr><th>Stage</th><th>Status</th><th>Duration</th><th>Fallback</th><th>Model / tool</th><th>Created Evidence IDs</th></tr></thead><tbody>{execution_rows}</tbody></table></div></article>
+    <article class="insight-block"><span class="section-tag">Artifacts</span><h3>檢視／下載輸出</h3><div class="feature-row">{artifacts}</div></article>'''
+    return plan_html + claims_html, evidence_html, execution_html
+
+
 def _result_page(result: dict, report: str, evidence: list[dict], execution: dict) -> str:
     metric = _metric
+    result = result if isinstance(result, dict) else {}
+    execution = execution if isinstance(execution, dict) else {}
+    normalized_evidence = []
+    for raw in evidence if isinstance(evidence, list) else []:
+        item = dict(raw) if isinstance(raw, dict) else {}
+        item.setdefault("evidence_id", "N/A")
+        item.setdefault("source", "N/A")
+        item.setdefault("source_url", "")
+        item.setdefault("data_type", "N/A")
+        item.setdefault("fetched_at", "N/A")
+        item.setdefault("reliability_score", "N/A")
+        item.setdefault("content", {})
+        normalized_evidence.append(item)
+    evidence = normalized_evidence
+    result.setdefault("coin", "N/A")
+    result.setdefault("question", "N/A")
+    reasoning_data = result.get("reasoning") if isinstance(result.get("reasoning"), dict) else {}
+    for key, default in {"confidence": 0, "market_judgment": "N/A", "conclusion": "N/A", "facts": [], "inferences": [], "counter_evidence": [], "observation_points": []}.items():
+        reasoning_data.setdefault(key, default)
+    result["reasoning"] = reasoning_data
+    execution.setdefault("steps", [])
+    competition_overview, competition_evidence, competition_execution = _competition_sections(result, evidence, execution)
 
     def clock(value) -> str:
         """Trim an ISO timestamp to minutes so tooltips, tables and captions stay readable.
@@ -896,6 +1009,7 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <div class="report-head"><div><div class="report-kicker">Professional Research Brief</div><h2 style="margin:7px 0 0">完整研究報告</h2></div>
     <div class="report-meta"><span class="meta-chip">{html.escape(result['coin'])}</span><span class="meta-chip">{len(evidence)} 筆 Evidence</span>
     <span class="meta-chip">{duration_seconds} 秒完成</span><span class="meta-chip">{html.escape(str(llm_step.get('model', 'AI reasoning')))}</span></div></div>
+    {competition_overview}
     <article class="insight-block sec" style="margin-top:22px">
     <div class="sec-head"><div class="sec-num">1</div><div><h3 class="sec-title">結論</h3><div class="sec-sub">Conclusion</div></div>
     <span class="conf-badge{confidence_class}">信心 {confidence_label}／{confidence}%</span></div>
@@ -1010,7 +1124,8 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <div class="metric-sub" style="margin-top:10px">僅追蹤已知大型交易所/機構地址的即時餘額，非全網即時巨鯨偵測；目前僅支援 BTC/ETH/BNB。
     增減為兩次查詢之間的餘額差，交易所錢包的流入流出成因很多，不等同買賣方向。</div></article></section>
     <section class="panel tab-panel" id="evidence" role="tabpanel" hidden><h2>Evidence 資料清單</h2>
-    <div class="table-wrap"><table><thead><tr><th>Evidence ID</th><th>資料來源</th><th>類型</th><th>取得時間</th><th>可靠度</th></tr></thead><tbody>{rows}</tbody></table></div></section>
+    <div class="table-wrap"><table><thead><tr><th>Evidence ID</th><th>資料來源</th><th>類型</th><th>取得時間</th><th>可靠度</th></tr></thead><tbody>{rows}</tbody></table></div>
+    {competition_evidence}</section>
     <section class="panel tab-panel" id="execution" role="tabpanel" hidden><div class="run-summary"><div>
     <span class="badge{'' if pipeline_clean else ' fail'}">{'Pipeline Success' if pipeline_clean else 'Pipeline Degraded'}</span>
     <h2 style="margin:12px 0 5px">{'所有 Agent 步驟均成功完成' if pipeline_clean else '流程完成，但部分來源以 fallback 或逾時跳過'}</h2>
@@ -1032,7 +1147,8 @@ def _result_page(result: dict, report: str, evidence: list[dict], execution: dic
     <tbody>{agent_rows}</tbody></table></div></article>
     <div class="muted" style="margin-bottom:14px">來源收集結果：{html.escape("、".join(execution.get("collection") or []))}</div>
     <div class="steps">{steps}</div><details><summary>查看原始 Execution Log</summary>
-    <pre class="raw">{html.escape(json.dumps(execution, ensure_ascii=False, indent=2))}</pre></details></section></main>
+    <pre class="raw">{html.escape(json.dumps(execution, ensure_ascii=False, indent=2))}</pre></details>
+    {competition_execution}</section></main>
     <script>const tabs=[...document.querySelectorAll('[role="tab"]')];const panels=[...document.querySelectorAll('[role="tabpanel"]')];
     tabs.forEach(tab=>tab.addEventListener("click",()=>{{tabs.forEach(t=>t.setAttribute("aria-selected","false"));
     panels.forEach(p=>p.hidden=true);tab.setAttribute("aria-selected","true");document.getElementById(tab.getAttribute("aria-controls")).hidden=false;}}));</script>
@@ -1043,6 +1159,9 @@ def _comparison_page(payload: dict) -> str:
     coin_a, coin_b = payload["coins"]
     comparison = payload["comparison"]
     profiles = payload["profiles"]
+    plan = payload.get("research_plan") if isinstance(payload.get("research_plan"), dict) else {}
+    time_window = plan.get("time_window") if isinstance(plan.get("time_window"), dict) else {}
+    shared_window = f"{time_window.get('days', 'N/A')} 天（{time_window.get('source', 'N/A')}）"
 
     def cell(value) -> str:
         if value is None:
@@ -1102,7 +1221,9 @@ def _comparison_page(payload: dict) -> str:
     <div class="report-head"><div><div class="report-kicker">Comparative Research Brief</div>
     <h2 style="margin:7px 0 0">三維度並列比較</h2></div>
     <div class="report-meta"><span class="meta-chip">{round(payload['duration_ms'] / 1000, 1)} 秒完成</span>
-    <span class="meta-chip">共用單一時間預算</span></div></div>
+    <span class="meta-chip">共用單一時間預算</span><span class="meta-chip">共用時間範圍：{html.escape(shared_window)}</span></div></div>
+    <article class="insight-block accent" style="margin-top:20px"><span class="section-tag">Research Plan</span><h3>共用研究計畫</h3>
+    <div class="metric-sub">Task modes：{html.escape('、'.join(map(str, plan.get('task_modes') or [])) or 'N/A')}<br>Required domains：{html.escape('、'.join(map(str, plan.get('required_domains') or [])) or 'N/A')}<br>Comparison dimensions：{html.escape('、'.join(map(str, plan.get('comparison_dimensions') or [])) or 'N/A')}</div></article>
     <article class="conclusion" style="margin-top:20px"><span class="section-tag">Comparative conclusion</span><h3>比較結論</h3>
     <p>{html.escape(comparison['summary'])}</p></article>
     {liquidity_html}{risk_html}{attention_html}
@@ -1247,6 +1368,9 @@ def _backtest_page(payload: dict) -> str:
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         route = urlparse(self.path)
+        if route.path == "/artifact":
+            self._send_artifact(parse_qs(route.query).get("path", [""])[0])
+            return
         if route.path.rstrip("/") == "/backtest":
             coin = (parse_qs(route.query).get("coin", ["ETH"])[0] or "ETH").upper()
             try:
@@ -1269,6 +1393,8 @@ class Handler(BaseHTTPRequestHandler):
         coin = values.get("coin", ["ETH"])[0].upper()
         question = values.get("question", ["Market analysis"])[0]
         compare_with = values.get("compare_with", [""])[0].strip().upper()
+        live = values.get("live", ["true"])[0].lower() == "true"
+        use_llm = values.get("use_llm", ["true"])[0].lower() == "true"
         try:
             if compare_with:
                 payload = run_comparison(
@@ -1276,8 +1402,8 @@ class Handler(BaseHTTPRequestHandler):
                     compare_with,
                     question,
                     Path("outputs-day5/comparison"),
-                    live=True,
-                    use_llm=llm_is_configured(),
+                    live=live,
+                    use_llm=use_llm,
                 )
                 self._send(_comparison_page(payload))
                 return
@@ -1286,8 +1412,8 @@ class Handler(BaseHTTPRequestHandler):
                 coin,
                 question,
                 Path("outputs-day5"),
-                live=True,
-                use_llm=llm_is_configured(),
+                live=live,
+                use_llm=use_llm,
                 # The 5-year CSV is local and free: always use it for long-horizon context, while
                 # the live market adapter keeps supplying the 14-day series the indicators run on.
                 history_path=history_path if history_path.is_file() else None,
@@ -1305,6 +1431,27 @@ class Handler(BaseHTTPRequestHandler):
         evidence = json.loads(Path("outputs-day5/evidence.json").read_text(encoding="utf-8"))
         execution = json.loads(Path("outputs-day5/execution_log.json").read_text(encoding="utf-8"))
         self._send(_result_page(result, report, evidence, execution))
+
+    def _send_artifact(self, relative_path: str):
+        """只提供已知提交物，且拒絕任何跨出 Web 輸出目錄的路徑。"""
+        requested = Path(str(relative_path))
+        allowed_names = set(ARTIFACT_FILENAMES.values()) | {"comparison.md", "comparison.json"}
+        roots = (Path("outputs-day5").resolve(), Path("outputs-day5/comparison").resolve())
+        if requested.is_absolute() or ".." in requested.parts or requested.name not in allowed_names:
+            self._send("找不到指定輸出檔案", status=404)
+            return
+        for root in roots:
+            candidate = (root / requested).resolve()
+            if candidate.is_file() and candidate.is_relative_to(root):
+                content_type = "application/json; charset=utf-8" if candidate.suffix == ".json" else "text/plain; charset=utf-8"
+                payload = candidate.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+        self._send("指定輸出檔案尚未產生", status=404)
 
     def _send(self, body: str, status: int = 200):
         payload = body.encode("utf-8")
