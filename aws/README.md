@@ -118,22 +118,35 @@ offline fallback，執行仍然成功、報告仍然產出，只是模型路徑�
 
 ## us-west-2 的固有限制：Binance 來源會降級
 
-**這不是 bug，改程式碼修不掉。** Binance 封鎖美國 IP，而 `us-west-2` 是美國 region，
-因此三個 collector 在雲端一律取不到資料，改用可靠度 0.20 的 fallback fixture：
+Binance 封鎖美國 IP，而 `us-west-2` 是美國 region。三個 collector 原本都只打 Binance；
+T8.4 之後其中一個補了備援鏈，剩下兩個仍會取不到資料並改用可靠度 0.20 的 fallback fixture：
 
-| Collector | 端點 |
-|---|---|
-| `derivatives` | `fapi.binance.com/fapi/v1/premiumIndex` |
-| `vegas_channel` | `api.binance.com/api/v3/klines` |
-| `long_short_ratio` | `fapi.binance.com/futures/data/topLongShortPositionRatio` |
+| Collector | 端點 | 雲端狀態 |
+|---|---|---|
+| `derivatives` | `fapi.binance.com/fapi/v1/premiumIndex` | **已救回**，改由 Kraken Futures 回答 |
+| `vegas_channel` | `api.binance.com/api/v3/klines` | fallback（無可行替代，見下） |
+| `long_short_ratio` | `fapi.binance.com/futures/data/topLongShortPositionRatio` | fallback（無等價端點） |
 
 已實測對比（2026-08-01）：本機（台灣 IP）對上述端點回 `HTTP 200`，
 雲端 `us-west-2` 回 `HTTPError`。
 
+`derivatives` 的備援鏈是 `Binance → Kraken Futures → dYdX v4`（見 `src/day2_sources.py` 的
+`FUNDING_RATE_PROVIDERS`）。Kraken 是美國合規交易所、dYdX 為去中心化服務，兩者實測皆可從
+`us-west-2` 取得。這一項的意義不只是多一筆證據：`derivatives` **領域**只有這兩個 collector，
+兩個都掛掉時整個研究領域會從報告中消失。
+
+另兩個維持單一來源的理由：
+
+- `long_short_ratio`：大戶多空比在 Kraken Futures 與 dYdX 都沒有等價端點。改用未平倉量
+  替代會把一個指標偽裝成另一個，因此不做。
+- `vegas_channel`：Vegas 通道需要約 1000 根 K 線來暖身 EMA987，Kraken 現貨 OHLC 上限
+  720 根，不足以支撐。
+
 實際影響：
 
-- 11 個 collector 變成 **8 個 success + 3 個 fallback**，仍有 8 筆實質證據。
-- `run_status` 因此一律是 `COMPLETED_DEGRADED`，`degradation_reasons` 會列出這三項。
+- 11 個 collector 變成 **9 個 success + 2 個 fallback**，有 9 筆實質證據。
+- 六個研究領域全部有真實證據（`derivatives` 由資金費率補回，`market` 由 CoinGecko 撐著）。
+- `run_status` 因此仍是 `COMPLETED_DEGRADED`，`degradation_reasons` 會列出這兩項。
   **這是誠實標示，不是失敗**——系統的單一來源失敗隔離機制正常運作。
 - Citation Gate 仍 `PASS`，因為 fallback 證據不會成為任何主要 Claim 的唯一支持。
 
@@ -141,9 +154,13 @@ offline fallback，執行仍然成功、報告仍然產出，只是模型路徑�
 
 | 做法 | 代價 |
 |---|---|
-| 接受降級（目前採用） | 少 3 筆衍生品／技術面證據，須在 Demo 中說明 |
+| 接受降級（目前採用） | 少 2 筆技術面／持倉證據，須在 Demo 中說明 |
 | 換到非美國 region | 需重跑 `verify-permissions.sh` 確認 Bedrock 模型可用形式；競賽環境指定 us-west-2 |
 | 本機執行 Demo | 11/11 collector 都成功，但失去「部署在 AWS」的展示點 |
+
+> 注意：不同交易所的資金費率是各自市場的狀態。實測同一時點 ETH 在 Binance 為 `balanced`、
+> 在 Kraken 為 `short_crowded`。因此**本機（Binance）與雲端（Kraken）的衍生品訊號可能不一致**，
+> 現場若要對照兩邊結果需先說明這點。證據的 `scope_note` 已標明該費率為單一交易所報價。
 
 現場 Demo 建議直接說明這一點：它剛好展示了 per-source fallback 的設計價值。
 
