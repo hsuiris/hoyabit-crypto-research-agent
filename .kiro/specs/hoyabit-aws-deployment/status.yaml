@@ -1,0 +1,433 @@
+project: hoyabit-aws-deployment
+spec_path: .kiro/specs/hoyabit-aws-deployment
+branch: okByYaya0801            # 與 hackathon/competition-ready 同一 commit
+baseline_commit: 5f369ce        # test(T8): freeze competition-ready demo
+current_task: D3
+last_updated_at: 2026-08-01T16:45:00+08:00
+
+# 本機驗證環境（實測，非推定）
+environment:
+  aws_cli: aws-cli/2.36.2 Python/3.14.6 Darwin/23.4.0
+  python_command: python3       # 版本 3.9.6，低於專案要求的 3.10+
+  boto3: 1.42.97                # ~/Library/Python/3.9；bedrock-runtime 含 Converse operation
+  pwsh: absent                  # aws/deploy.ps1 無法在本機執行，故需 D3 的 deploy.sh
+  aws_credentials: absent       # aws sts get-caller-identity → NoCredentials (exit 253)
+  aws_region_configured: false
+
+full_suite_command: python3 -m unittest discover -s tests
+full_suite_baseline: 541 tests, 541 passed, 0 failed, 0 errors
+
+allowed_statuses:
+  - TODO
+  - READY
+  - IN_PROGRESS
+  - REVIEW
+  - PASS
+  - FAIL
+  - BLOCKED
+  - PARTIAL
+
+executors:
+  HUMAN: 只能由帳號持有者在 AWS Console 或本機終端執行
+  KIRO: Kiro 可直接完成，產出程式碼或文件
+  BOTH: Kiro 準備命令與檔案，由人執行並回報輸出
+
+rules:
+  one_task_at_a_time: true
+  require_dependency_pass: true
+  require_full_test_suite: true
+  require_commit: true          # HUMAN-only 任務例外，見各 task 的 commit 欄位
+  auto_start_next_task: false
+  blocker_timebox_minutes: 20
+  blocker_document: docs/COMPETITION_BLOCKERS.md
+  minimum_demonstrable_task: D5
+  # D0-D7 不得修改 docs/COMPETITION_TASK_STATUS.yaml；該檔屬於
+  # hoyabit-competition-ready spec，只有 D8 回寫其中的 T8。
+  cross_spec_writeback_task: D8
+  # 任何 D 任務都不得刪除 deterministic offline fallback、六項提交物或既有備案 fixture。
+  protect_offline_fallback: true
+  protect_demo_fixtures: true
+
+# 部署變數。實際值由 D0／D2 實測填入，不得寫入任何憑證。
+deployment_parameters:
+  account_id: '<ACCOUNT_ID>'    # AWS Workshop Studio 臨時帳號（非機密）
+  region: us-west-2             # 競賽環境指定；已實測 Bedrock 可呼叫
+  model_id: amazon.nova-lite-v1:0
+  model_id_form: foundation_model    # 裸 ID 即可，不需 inference profile
+  stack_name: hoyabit-agent-mvp
+  function_name: hoyabit-market-research-agent
+  function_url: null            # D5 填入
+  deploy_bucket: null           # hoyabit-agent-deploy-<ACCOUNT_ID>-us-west-2（D5 建立）
+  artifact_bucket: null         # D6 才建立，未做則保持 null
+
+# 環境約束：Workshop Studio 帳號既有資源，不可動用或覆寫。
+environment_constraints:
+  caller_arn: arn:aws:sts::<ACCOUNT_ID>:assumed-role/WSParticipantRole/Participant
+  credentials_lifetime: 臨時憑證，活動結束或數小時後失效；部署後應盡快存證
+  do_not_touch:
+    - WSParticipantRole                      # 目前使用的參與者角色
+    - WSLambdaCurtailerRole                  # Workshop 的 Lambda 併發抑制角色
+    - WSConcurrencyCurtailer-DO-NOT-USE      # Lambda，名稱明示不可使用
+  note: >-
+    WSConcurrencyCurtailer 的存在說明環境會監控並限制 Lambda 併發，
+    因此 D7 設定 reserved concurrency 時不可假設能取用帳號全部併發額度。
+
+tasks:
+  D0:
+    title: AWS account and region decision
+    status: PASS
+    executor: HUMAN
+    depends_on: []
+    target_minutes: 15
+    completed_at: 2026-08-01T16:35:00+08:00
+    requirements: [1.1, 1.4, 2.1]
+    guide_section: aws-permissions-guide.md §0-§1
+    commit: null                # 純決策，無檔案變更
+    deliverables:
+      - account_id <ACCOUNT_ID>（AWS Workshop Studio 臨時帳號）
+      - region us-west-2（競賽環境指定）
+      - stack_name hoyabit-agent-mvp（沿用專案預設）
+      - 帳號類型：競賽方提供的 Workshop Studio 環境，身分為 WSParticipantRole/Participant
+    blockers: []
+    notes: >-
+      帳號為臨時環境，憑證含 AWS_SESSION_TOKEN 且會於活動結束或數小時後失效。
+      使用者明確要求要部署到此環境，因此 D5-D9 照計畫執行，但部署後應盡快存證。
+
+  D1:
+    title: Land deployer IAM policy and permission preflight
+    status: PASS
+    executor: KIRO + HUMAN
+    depends_on: [D0]
+    target_minutes: 45
+    completed_at: 2026-08-01T16:40:00+08:00
+    requirements: [1.1, 1.2, 1.3, 1.5]
+    guide_section: aws-permissions-guide.md §2-§4, §6
+    commit: 'chore(D1): add deployer iam policy and permission preflight'
+    in_scope:
+      - aws/iam/deployer-policy.json
+      - aws/verify-permissions.sh
+      - aws/README.md
+    out_of_scope:
+      - aws/template.yaml（D2 才改）
+      - 任何 src/ 檔案
+    acceptance:
+      - 'PASS: aws sts get-caller-identity 回傳 Account <ACCOUNT_ID> 與 WSParticipantRole ARN'
+      - 'PASS: aws/verify-permissions.sh 在 us-west-2 為 12 PASS / 0 FAIL / 0 SKIP'
+      - 'PASS: 未附加 AdministratorAccess（Workshop 提供的角色，未自行擴權）'
+      - 'PASS: deployer-policy.json 為合法 JSON，11 個 Statement，不含真實 account ID'
+      - 'PASS: 完整測試套件 541 tests, 541 passed, 0 failed, 0 errors'
+    test_summary: >-
+      python3 -m unittest discover -s tests → 541 tests OK；
+      AWS_PROFILE=hoyabit AWS_REGION=us-west-2 bash aws/verify-permissions.sh → 12 PASS 0 FAIL 0 SKIP；
+      python3 -c "json.load(...)" 驗證 deployer-policy.json 合法且 account id 出現 0 次。
+    permission_findings:
+      simulate_source_arn_fix: >-
+        simulate-principal-policy 不接受 STS 的 assumed-role ARN，腳本已改為先轉成
+        arn:aws:iam::<acct>:role/<RoleName> 再送出；修正前該項誤報為 SKIP。
+      allowed_actions:        # 全部 allowed，因此無需改用預建角色
+        - iam:CreateRole
+        - iam:PassRole
+        - iam:GetRole
+        - lambda:CreateFunction
+        - lambda:CreateFunctionUrlConfig
+        - lambda:UpdateFunctionCode
+        - cloudformation:CreateStack
+        - s3:CreateBucket
+        - s3:PutObject
+        - logs:CreateLogGroup
+    blockers: []
+    notes: >-
+      iam:CreateRole 為 allowed，這是部署路線的分水嶺：aws/template.yaml 可維持原設計
+      讓 CloudFormation 自建 Lambda 執行角色，不需要改用 WSLambdaCurtailerRole 等既有角色。
+      policy JSON 保持佔位符形式，未寫入真實 account ID。
+
+  D2:
+    title: Verify Bedrock model access and backfill configuration
+    status: PASS
+    executor: BOTH
+    depends_on: [D1]
+    target_minutes: 45
+    completed_at: 2026-08-01T16:45:00+08:00
+    requirements: [2.1, 2.2, 2.3, 2.4, 2.5]
+    guide_section: aws-permissions-guide.md §5, §7
+    design_decision: D-1
+    commit: 'fix(D2): align bedrock model id and iam resources with tested region'
+    in_scope:
+      - .env.example
+      - aws/template.yaml
+      - aws/README.md
+      - aws/verify-permissions.sh（預設 region）
+    out_of_scope:
+      - src/llm.py 的呼叫邏輯
+      - stack 部署
+    acceptance:
+      - 'PASS: Converse 實測回傳非空文字（amazon.nova-lite-v1:0 於 us-west-2）'
+      - 'PASS: validate-template 於 us-west-2 通過，7 個參數解析正常'
+      - 'N/A: 不需要擴充 inference profile 資源 —— 實測證明裸 foundation model ID 可用'
+      - 'PASS: .env.example 只有變數名稱與非敏感預設值'
+      - 'PASS: 完整測試套件 541 tests OK'
+    test_summary: >-
+      Converse 實測（us-west-2）：amazon.nova-lite-v1:0 成功、us.amazon.nova-lite-v1:0 成功、
+      us.amazon.nova-micro-v1:0 成功；apac.amazon.nova-lite-v1:0 與 amazon.nova-micro-v1:0 失敗。
+      AWS_PROFILE=hoyabit aws cloudformation validate-template --region us-west-2 → 通過。
+      python3 -m unittest discover -s tests → 541 tests, 541 passed, 0 failed, 0 errors。
+    region_findings:
+      decided_region: us-west-2
+      decided_model_id: amazon.nova-lite-v1:0
+      model_id_form: foundation_model
+      cross_region_profile_needed: false
+      observed_region_difference: >-
+        amazon.nova-micro-v1:0 的裸 ID 在 us-east-1 可呼叫，在 us-west-2 回報
+        "on-demand throughput isn't supported"，必須改用 us.amazon.nova-micro-v1:0。
+        這把「模型可用性依 region 而異」從理論擔憂變成已觀測的失敗模式，
+        因此切換 region 必須重跑 verify-permissions.sh 第 3 項。
+    resolved_gap: >-
+      原記錄擔憂 aws/template.yaml 的 InvokeConfiguredBedrockModel 只授權
+      arn:...:bedrock:${AWS::Region}::foundation-model/${BedrockModelId} 會不足。
+      實測證明 us-west-2 的 amazon.nova-lite-v1:0 支援 ON_DEMAND，裸 ID 即可呼叫，
+      因此該資源條件正確且最小，不需擴充。design.md §1.3 的缺口 G3 據此關閉。
+      亞太區的擔憂記錄保留，因為改用 ap-northeast-1 時仍然適用。
+    blockers: []
+
+  D3:
+    title: Add POSIX deploy script and bedrock parameters
+    status: TODO
+    executor: KIRO
+    depends_on: []              # 不需要任何 AWS 權限，可與 D0-D2 並行
+    target_minutes: 60
+    requirements: [3.1, 3.2, 3.3, 3.4, 3.5, 3.6]
+    design_decision: D-5
+    commit: 'feat(D3): add posix deploy script and bedrock parameters'
+    in_scope:
+      - aws/deploy.sh（新增）
+      - aws/deploy.ps1（補 bedrock 與 BedrockModelId 參數）
+      - aws/README.md
+    out_of_scope:
+      - 實際部署
+      - aws/template.yaml
+      - 任何 src/ 檔案
+    acceptance:
+      - bash -n aws/deploy.sh 通過
+      - --dry-run 在無 AWS 憑證下成功產生 zip
+      - zip 含 lambda_handler.py、src/、data/
+      - zip 不含 .env、__pycache__、outputs-*、.git、tests
+      - --help 列出所有參數
+      - deploy.ps1 接受 bedrock 且能傳 BedrockModelId
+      - 完整測試套件通過
+    blockers: []
+    notes: >-
+      本機無 pwsh，deploy.ps1 完全無法執行，因此 deploy.sh 不是便利性改善而是必要條件。
+      deploy.ps1 保留不刪除（Windows 環境仍可能用到）。
+
+  D4:
+    title: Ensure Lambda AWS SDK supports Bedrock Converse
+    status: TODO
+    executor: KIRO
+    depends_on: [D2]
+    target_minutes: 45
+    requirements: [4.1, 4.2, 4.3, 4.4, 4.5]
+    design_decision: D-2
+    commit: 'fix(D4): pin aws sdk in lambda package for bedrock converse'
+    in_scope:
+      - aws/deploy.sh
+      - aws/deploy.ps1
+      - aws/template.yaml（僅在選 Layer 方式時）
+      - lambda_handler.py（botocore 版本 log）
+      - aws/README.md
+    out_of_scope:
+      - 新增 requirements.txt 作為專案相依
+      - src/llm.py 的 Bedrock 呼叫邏輯
+      - 讓任何 src/ 模組把 boto3 變成硬性 import
+    acceptance:
+      - 部署包內含或 Layer 提供 pin 版 boto3／botocore
+      - 打包版本經確認含 Converse operation
+      - 無 boto3 的隔離環境下完整測試套件通過
+      - 無 boto3 的隔離環境下離線端到端產出六項提交物且 manifest hash 相符
+      - zip 大小在 Lambda 限制內
+    blockers: []
+    notes: >-
+      與零第三方相依原則的關係必須在 aws/README.md 說明：boto3 只出現在部署包與 AWS 執行環境，
+      屬於部署目標環境的一部分，不是專案原始碼的相依。src/llm.py 對它是 optional import，
+      tests/ 全程 mock。這一點有對應驗收項目，不能只在文件裡宣稱。
+
+  D5:
+    title: Execute and verify the first AWS deployment
+    status: TODO
+    executor: BOTH
+    depends_on: [D2, D3, D4]
+    target_minutes: 60
+    requirements: [5.1, 5.2, 5.3, 5.4, 5.5, 5.6]
+    design_decision: D-3
+    commit: 'feat(D5): verify first aws deployment and guard response size'
+    milestone: 最小可展示雲端路徑
+    in_scope:
+      - 部署執行
+      - lambda_handler.py（僅在回應超過 6 MB 時調整為摘要＋產物參照）
+    out_of_scope:
+      - src/orchestrator.py
+      - 新增 AWS 資源（D6／D7 的事）
+    acceptance:
+      - describe-stacks 為 CREATE_COMPLETE 或 UPDATE_COMPLETE
+      - GET Function URL 回 200 且含輸入表單
+      - POST mode=test 在 timeout 內回應且含六項提交物或產物參照
+      - manifest 五個 SHA-256 可驗證相符
+      - Citation Gate PASS
+      - 同題目連續兩次 mode=formal，第二次回 409
+      - CloudWatch Logs 找得到該 run_id
+      - CloudWatch Logs 不含任何 API key、access key 或 token
+      - execution_log.json 的分析與 Critic stage 狀態如實記錄
+      - 完整測試套件通過
+    blockers: []
+    notes: >-
+      「命令沒報錯」不算部署成功，必須逐項對照上面的 acceptance。
+      Function URL 的 buffered 回應上限是 6 MB，超限時管線其實已成功、產物也已落地，
+      只是回應失敗，所以要分開處理回應形狀與產物落點。
+
+  D6:
+    title: Persist artifacts to S3
+    status: TODO
+    executor: KIRO
+    depends_on: [D5]
+    target_minutes: 60
+    requirements: [6.1, 6.2, 6.3, 6.4, 6.5]
+    optional: true              # 可延後；未做時必須誠實標示產物為容器暫存
+    commit: 'feat(D6): add s3 artifact store for cloud runs'
+    in_scope:
+      - src/artifact_store.py（新增 S3ArtifactStore）
+      - aws/template.yaml（產物 bucket 與 execution role 的 s3:PutObject）
+      - lambda_handler.py（依環境變數選擇 store）
+      - src/run_context.py（若需新環境變數名稱）
+      - 新增測試
+    out_of_scope:
+      - src/orchestrator.py 的產出邏輯
+      - manifest 結構
+      - S3 生命週期規則
+    acceptance:
+      - 新增測試全程 mock，不呼叫真實 S3
+      - S3ArtifactStore 與 LocalArtifactStore 的 manifest 結構一致
+      - manifest URI 指向實際 S3 落點且 SHA-256 相符
+      - bucket 已啟用 public access block
+      - 未設定 bucket 時自動退回 LocalArtifactStore
+      - 雲端執行後六項提交物可用 aws s3 cp 取回
+      - 完整測試套件通過（測試數增加）
+    blockers: []
+    notes: >-
+      透過 T0.5 已凍結的 ArtifactStore Protocol 擴充，這正是當時凍結介面的目的，
+      所以 src/orchestrator.py 不需要改。
+      跳過本 Task 時不得因為 Lambda 回應含六檔內容就宣稱產物已持久化。
+
+  D7:
+    title: Add security and cost guardrails
+    status: TODO
+    executor: KIRO + HUMAN
+    depends_on: [D5]
+    target_minutes: 45
+    requirements: [7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3]
+    design_decision: D-4
+    guide_section: aws-permissions-guide.md §8
+    commit: 'feat(D7): add concurrency, log retention and auth guardrails'
+    in_scope:
+      - aws/template.yaml（ReservedConcurrentExecutions、LogGroup RetentionInDays、可選 AuthType 參數）
+      - aws/README.md（公開端點風險說明）
+      - tests/（template 字串檢查）
+    out_of_scope:
+      - WAF、CloudFront、Cognito、自訂網域
+      - 預設啟用 IAM 認證
+    acceptance:
+      - validate-template 通過
+      - get-function-concurrency 回報已設定的上限
+      - log group 的 retentionInDays 非空
+      - Budgets 告警已建立（HUMAN 回報）
+      - aws/README.md 含公開端點風險說明與三種收斂手段
+      - 部署更新後 D5 的驗收項目重測全部通過
+      - 完整測試套件通過
+    blockers: []
+    notes: >-
+      AuthType NONE 意味著任何取得 URL 的人都能觸發完整執行並消耗模型配額。
+      不在 Demo 前改認證機制（現場改認證的風險高於它降低的風險），
+      改用 reserved concurrency、log 保留期、Budgets 告警與 Demo 後拆除四層護欄。
+
+  D8:
+    title: Live Bedrock smoke, B2 resolution and doc sync
+    status: TODO
+    executor: BOTH
+    depends_on: [D7]
+    target_minutes: 45
+    requirements: [9.1, 9.2, 9.3, 9.4, 9.5, 10.1, 10.2, 10.3]
+    commit: 'docs(D8): record live bedrock smoke and sync aws architecture'
+    in_scope:
+      - docs/COMPETITION_BLOCKERS.md（B2）
+      - docs/COMPETITION_TASK_STATUS.yaml（T8）
+      - docs/aws-architecture.md
+      - demo-fixtures/competition-ready/live-success/README.md
+      - demo-fixtures/competition-ready/live-success/（六項提交物，僅在成功時放入）
+    out_of_scope:
+      - docs/COMPETITION_BASELINE.md（保留 T0 歷史）
+      - 刪除任何既有備案 fixture
+      - 新增產品功能
+    acceptance:
+      - live smoke 只執行一次
+      - analyst stage status = success
+      - critic stage status = success
+      - 六項提交物齊備且 manifest 五個 SHA-256 相符
+      - Citation Gate PASS
+      - B2 狀態依實際結果更新
+      - docs/aws-architecture.md 與實際部署一致
+      - offline-backup 與 comparison-backup 仍存在
+      - 完整測試套件通過
+    blockers: []
+    blocker_writeback:
+      - id: B2
+        stale_root_cause_locations:
+          - docs/COMPETITION_BLOCKERS.md（Active Blockers 表與 B2 段落）
+          - docs/COMPETITION_TASK_STATUS.yaml（T8 的 known_limitations）
+          - demo-fixtures/competition-ready/live-success/README.md
+        current_record: >-
+          三處都把根因記為「本機依零第三方相依限制未安裝 boto3」。
+        correction_required: >-
+          實測顯示本機 python3 已有 boto3 1.42.97 且 bedrock-runtime 含 Converse operation
+          （見 design.md §1.2）。現行阻塞點是缺少 AWS credentials 與模型存取權，不是缺少 SDK。
+          本 Task 更新 B2 時必須一併更正這三處的根因，否則後續讀者會照錯誤的方向去裝套件。
+    notes: >-
+      live smoke 仍降級時不得宣稱 B2 解除，不得把降級輸出放進 live-success/，
+      必須記錄實際失敗原因並保留 PARTIAL。
+      docs/aws-architecture.md 已知落後：仍寫 OpenAI Responses API 與 300 秒 timeout。
+
+  D9:
+    title: Tear down resources and revoke credentials
+    status: TODO
+    executor: HUMAN
+    depends_on: [D8]
+    target_minutes: 20
+    requirements: [7.5]
+    guide_section: aws-permissions-guide.md §9
+    commit: null                # 純 AWS 端操作
+    acceptance:
+      - delete-stack 完成且 stack 不存在
+      - 部署 bucket 與產物 bucket 已清空並刪除
+      - Lambda 函式、Function URL、log group 均已消失
+      - 若走 access key 路線則該 key 已刪除
+      - Cost Explorer 確認無新增計費資源
+      - 本機 aws/.build/ 已清除
+    blockers: []
+    notes: >-
+      順序重要：先刪 stack（權限還在才刪得掉），再撤權限。
+      兩個 S3 bucket 不是 stack 資源，delete-stack 不會自動刪除它們。
+
+# 緊急切線（時間嚴重不足時的取捨順序）
+emergency_cut_line:
+  must_do: [D0, D1, D2, D3, D5]
+  skippable:
+    - task: D4
+      cost: 雲端可能降級為 offline fallback，必須誠實標示，不得宣稱 live 成功
+    - task: D6
+      cost: 產物只在容器 /tmp，必須標示為暫存
+  minimise:
+    - task: D7
+      keep: reserved concurrency
+      defer: [log retention, Budgets 告警]
+  final_fallback: >-
+    連 D5 都無法完成時改以本機 Demo 展示，使用
+    demo-fixtures/competition-ready/offline-backup/ 與 comparison-backup/，
+    並把 D 任務整體標記為 BLOCKED，附上實際卡點。
+  always_do: [D9]               # 避免遺留計費資源

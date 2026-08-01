@@ -22,6 +22,11 @@ Parameters:
   BedrockModelId:
     Type: String
     # A same-region foundation model ID: keep this in sync with the Lambda deployment region.
+    # Verified 2026-08-01 in us-west-2 (the deployment Region): this model supports ON_DEMAND,
+    # so the bare foundation model ID works with Converse and no cross-Region inference profile
+    # is required.  Model availability differs per Region and this has been observed, not just
+    # assumed: amazon.nova-micro-v1:0 accepts the bare ID in us-east-1 but rejects it in
+    # us-west-2.  Re-run aws/verify-permissions.sh before changing Region.
     Default: amazon.nova-lite-v1:0
 
 Conditions:
