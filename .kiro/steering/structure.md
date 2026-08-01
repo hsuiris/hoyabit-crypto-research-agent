@@ -41,3 +41,7 @@ aws/                 CloudFormation 範本與部署腳本
 
 使用標準庫 `unittest`。測試檔以 `test_dayN_*.py` 命名，對應開發階段。
 新增功能時務必涵蓋：正常路徑、空資料、逾時／失敗降級三種情況。
+
+## 競賽基線驗收邊界
+
+T0 baseline commit：`b38c43369efbf27aeff841b4ca0e15fd9db22aa0`。基線驗證產物位於被忽略的 `outputs-t0-baseline/`，包含 `report.md`、`evidence.json`、`execution_log.json`；固定展示 fixture 位於 `demo-fixtures/`，不可誤刪。新增功能應維持既有目錄職責邊界，且先以 `python3 -m unittest discover -s tests -v` 確認基線沒有回歸。

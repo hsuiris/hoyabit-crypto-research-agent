@@ -27,3 +27,7 @@ Return assumptions, logical zones, L1-L2 component responsibilities, end-to-end 
 Use `flowchart LR`, named zone subgraphs, L1/L2 labels, and link styles for the four path types. Do not imply that control/config data travels on the market-data line. When an image is requested, use a white-background, flat enterprise technical architecture style with rectangular components, restrained path colors, clear boundaries, no 3D icons, no decorative illustration, and no invented components. Treat Mermaid as authoritative if generated text is unreliable.
 
 Load `references/architecture-patterns.md` when canonical zones, flows, or decision prompts are needed.
+
+## 競賽基線與架構審查門檻
+
+架構變更應以 T0 baseline commit `b38c43369efbf27aeff841b4ca0e15fd9db22aa0` 為比較起點，並保留以下可運作路徑：offline evidence fixture → deterministic reasoning → `report.md`／`evidence.json`／`execution_log.json`，以及 stdlib `http.server` 首頁。架構圖與審查結論應明確區分既有基線、T1 新增元件與尚未驗證的 live／AWS 路徑；不能把基線 smoke test 誤寫成 live API、LLM 或部署驗證。

@@ -146,3 +146,12 @@ LLM 必須回傳固定 JSON，主要結論必須帶 `evidence_ids`；JSON 解析
 ## 完成定義
 
 可從乾淨環境依 README 啟動，成功產出三個 MVP 輸出檔，並準備真實 Demo 與預先產生的備用 Demo。
+
+---
+
+# 競賽升級工作規則（T0 之後）
+
+- 目前交付基線：`hackathon/competition-ready`，commit `b38c43369efbf27aeff841b4ca0e15fd9db22aa0`。
+- T0 已驗收 117/117 測試、offline 三檔輸出與 Web 首頁；任何角色新增功能前，必須保留這些驗收條件。
+- 任務若涉及產品功能，需明確標示 owner、輸入／輸出契約、測試方式與 fallback；不得直接把未驗證的 live API 或 LLM 結果當成基線通過。
+- T0 文件與 steering 規則是基線紀錄，不是 T1 功能需求；後續變更應另行記錄，不覆寫歷史驗收結果。

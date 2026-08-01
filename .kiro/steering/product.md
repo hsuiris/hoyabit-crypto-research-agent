@@ -28,3 +28,7 @@ Evidence-first 的加密貨幣市場研究 Agent。輸入幣種與研究問題�
 - 不是投資建議，不產生可執行的買賣訊號
 - 不宣稱預測能力（回測樣本數為 1–3 筆／幣，不足以證明策略有效）
 - 不追求資料來源數量最大化；差異化在可稽核性
+
+## 競賽升級基線狀態（T0）
+
+T0 已凍結於 `hackathon/competition-ready`，baseline commit 為 `b38c43369efbf27aeff841b4ca0e15fd9db22aa0`。目前已驗證離線端到端流程、三個標準輸出檔與 Web 首頁；後續升級不得降低既有 117/117 測試、offline fallback、Evidence 可追溯性或單一來源失敗隔離能力。完整紀錄見 `docs/COMPETITION_BASELINE.md`。

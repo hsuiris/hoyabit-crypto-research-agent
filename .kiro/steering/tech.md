@@ -57,3 +57,7 @@ GEMINI_MODEL=gemini-3.6-flash
 - **送給 LLM 的證據會移除長數列**（`_llm_evidence_payload()`），文字內容完整保留。
   這讓 prompt 從 62k 降到 21k 字元。新增含長序列的來源時記得比照處理。
 - **爬取前必須檢查 robots.txt**，且僅限 `FULLTEXT_DOMAINS` 白名單。
+
+## T0 基線驗證與升級規則
+
+競賽升級從 `hackathon/competition-ready` 的 T0 baseline commit `b38c43369efbf27aeff841b4ca0e15fd9db22aa0` 開始。基線完整測試為 117 passed、0 failed、0 errors；offline smoke test 必須繼續使用 `live=False, use_llm=False`，並產出三個標準檔案。基線機器的 `python3` 是 3.9.6，低於本專案 3.10+ 要求；新驗證環境應使用 Python 3.10 以上。
