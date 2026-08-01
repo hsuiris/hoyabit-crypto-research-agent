@@ -111,6 +111,37 @@ offline fallback，執行仍然成功、報告仍然產出，只是模型路徑�
   reserved concurrency 上限、CloudWatch log 保留期、AWS Budgets 告警，
   以及可選的 `AuthType: AWS_IAM`。
 
+## us-west-2 的固有限制：Binance 來源會降級
+
+**這不是 bug，改程式碼修不掉。** Binance 封鎖美國 IP，而 `us-west-2` 是美國 region，
+因此三個 collector 在雲端一律取不到資料，改用可靠度 0.20 的 fallback fixture：
+
+| Collector | 端點 |
+|---|---|
+| `derivatives` | `fapi.binance.com/fapi/v1/premiumIndex` |
+| `vegas_channel` | `api.binance.com/api/v3/klines` |
+| `long_short_ratio` | `fapi.binance.com/futures/data/topLongShortPositionRatio` |
+
+已實測對比（2026-08-01）：本機（台灣 IP）對上述端點回 `HTTP 200`，
+雲端 `us-west-2` 回 `HTTPError`。
+
+實際影響：
+
+- 11 個 collector 變成 **8 個 success + 3 個 fallback**，仍有 8 筆實質證據。
+- `run_status` 因此一律是 `COMPLETED_DEGRADED`，`degradation_reasons` 會列出這三項。
+  **這是誠實標示，不是失敗**——系統的單一來源失敗隔離機制正常運作。
+- Citation Gate 仍 `PASS`，因為 fallback 證據不會成為任何主要 Claim 的唯一支持。
+
+可選的處置方式：
+
+| 做法 | 代價 |
+|---|---|
+| 接受降級（目前採用） | 少 3 筆衍生品／技術面證據，須在 Demo 中說明 |
+| 換到非美國 region | 需重跑 `verify-permissions.sh` 確認 Bedrock 模型可用形式；競賽環境指定 us-west-2 |
+| 本機執行 Demo | 11/11 collector 都成功，但失去「部署在 AWS」的展示點 |
+
+現場 Demo 建議直接說明這一點：它剛好展示了 per-source fallback 的設計價值。
+
 ## 環境約束
 
 目前使用的 Workshop Studio 帳號中已存在這些資源，**不要動它們**：

@@ -280,6 +280,37 @@ def _bedrock_output_text(raw: dict) -> str:
     return "".join(texts)
 
 
+def strip_json_fence(text: str) -> str:
+    """剝除模型輸出外層的 markdown code fence，其餘內容原樣保留。
+
+    為什麼需要這個：Bedrock 的 Converse 沒有等同 Gemini `response_mime_type` 或 OpenAI
+    `response_format` 的強制 JSON 模式，因此模型可以自行決定要不要用 markdown 包裹輸出。
+    實測 `amazon.nova-lite-v1:0`（us-west-2）會固定回傳：
+
+        ```json\\n{...}\\n```
+
+    直接 `json.loads()` 會拋 `Expecting value: line 1 column 1 (char 0)`，而且**重試無效**
+    ——模型行為一致，重試只會拿到同一個 fence，於是整個分析降級成 offline fallback。
+    這在雲端特別隱蔽：報告照樣產出，只有 stage status 記著 `fallback:ValueError`。
+
+    Prompt 已明確要求不要使用 code fence，但 prompt 是請求、不是保證，因此程式端仍必須容錯。
+    Gemini 與 OpenAI 走各自的結構化輸出模式，不會經過這個函式。
+
+    只處理最外層的 fence；若內容本來就沒有 fence，只做 strip，不改變任何字元。
+    """
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    first_newline = stripped.find("\n")
+    if first_newline == -1:
+        # 整個回應就是一行 fence，沒有內容可取，交給呼叫端的 JSON 解析報錯。
+        return stripped
+    body = stripped[first_newline + 1:].rstrip()
+    if body.endswith("```"):
+        body = body[: -len("```")]
+    return body.strip()
+
+
 def _generate_gemini(prompt: str, schema: dict, timeout_seconds: int) -> str:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -334,7 +365,9 @@ def _generate_openai(prompt: str, schema: dict, schema_name: str, timeout_second
 def _bedrock_retry_prompt(prompt: str, schema: dict) -> str:
     return (
         f"{prompt}\n\nYour previous response was invalid. Return only one valid JSON object that "
-        f"includes every required field and conforms to this JSON Schema:\n{json.dumps(schema, ensure_ascii=False)}"
+        f"includes every required field and conforms to this JSON Schema. Output raw JSON only: "
+        f"do not wrap it in markdown code fences and do not add any text before or after it.\n"
+        f"{json.dumps(schema, ensure_ascii=False)}"
     )
 
 
@@ -353,7 +386,8 @@ def _generate_bedrock(prompt: str, schema: dict, schema_name: str, timeout_secon
         )
     client = boto3.client("bedrock-runtime", **client_kwargs)
     request_prompt = prompt + (
-        "\n\nReturn only one valid JSON object. It must conform to this JSON Schema:\n"
+        "\n\nReturn only one valid JSON object. Output raw JSON only: do not wrap it in markdown "
+        "code fences and do not add any text before or after it. It must conform to this JSON Schema:\n"
         + json.dumps(schema, ensure_ascii=False)
     )
     for attempt in range(2):
@@ -366,7 +400,11 @@ def _generate_bedrock(prompt: str, schema: dict, schema_name: str, timeout_secon
             },
         )
         try:
-            return _parse_json_object(_bedrock_output_text(response), schema, schema_name)
+            # Converse 沒有強制 JSON 模式，因此必須容忍模型自行加上的 markdown fence，
+            # 否則會拿到 Expecting value: line 1 column 1 而且重試無效（見 strip_json_fence）。
+            return _parse_json_object(
+                strip_json_fence(_bedrock_output_text(response)), schema, schema_name
+            )
         except (json.JSONDecodeError, ValueError) as error:
             if attempt:
                 raise ValueError(f"Bedrock {schema_name} response was invalid after one retry: {error}") from error

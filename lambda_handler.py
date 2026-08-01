@@ -113,6 +113,38 @@ def _html(status: int, body: str) -> dict:
     return {"statusCode": status, "headers": {"content-type": "text/html; charset=utf-8"}, "body": body}
 
 
+def log_run_summary(event_name: str, payload: dict) -> None:
+    """輸出一行可搜尋的執行摘要到 CloudWatch。
+
+    沒有這行的話，log 裡只有 Lambda 自己的 START／END／REPORT 與冷啟動的 `[sdk]`，
+    無法從 CloudWatch 回溯到特定 `run_id`，也無法在不取得回應內容的情況下判斷模型路徑
+    是否降級——而降級的報告看起來與正常的一模一樣。
+
+    刻意**不記錄題目原文**，只記 `question_hash`：log 的保留期比單次請求長得多，
+    不該把使用者輸入寫進去。同樣地也不記錄任何 Evidence 內容或憑證。
+    """
+    print(f"[{event_name}] {json.dumps(payload, ensure_ascii=False)}")
+
+
+def _run_summary(record, manifest: dict, log: dict) -> dict:
+    """組出摘要欄位。只取判斷「這次執行是否可信」所需的最小集合。"""
+    stages = {
+        name: (info.get("status") or info.get("provider"))
+        for name, info in (manifest.get("stage_providers") or {}).items()
+    }
+    return {
+        "run_id": record.run_id,
+        "mode": record.mode,
+        "status": record.status,
+        "question_hash": manifest.get("question_hash"),
+        "duration_ms": manifest.get("duration_ms"),
+        "citation_gate": (manifest.get("validation") or {}).get("citation_gate_status"),
+        "degradation_reasons": log.get("degradation_reasons") or [],
+        "stages": stages,
+        "converse_available": SDK_CAPABILITY["converse_available"],
+    }
+
+
 def handler(event, context):
     method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
     if method == "GET":
@@ -147,6 +179,9 @@ def handler(event, context):
     try:
         record, output_dir = _prepare_run(question, [coin], mode)
     except FormalRunAlreadyExistsError as error:
+        # 正式執行被 lock 擋下是預期行為，但仍要留痕：否則現場只會看到 409 而無從得知
+        # 是哪一題被擋、以及原本那次正式執行是哪一個 run。
+        log_run_summary("run-rejected", {"reason": "formal_run_already_exists", "detail": str(error)})
         return _html(409, f"<meta charset='utf-8'><h1>正式執行已存在</h1><p>{error}</p>")
     csv_path = Path(__file__).parent / "data" / f"{coin.upper()}.csv"
     try:
@@ -159,6 +194,7 @@ def handler(event, context):
         for key, name in ARTIFACT_FILENAMES.items()
     }
     report, log = artifacts["report"], artifacts["execution_log"]
+    log_run_summary("run", _run_summary(record, artifacts["manifest"], log))
     if "application/json" in content_type:
         # 六項提交物一次回傳，呼叫端不需要再回頭讀容器裡的檔案。
         # sdk_capability 讓呼叫端能程式化區分「模型成功」與「SDK 太舊而靜默降級」，

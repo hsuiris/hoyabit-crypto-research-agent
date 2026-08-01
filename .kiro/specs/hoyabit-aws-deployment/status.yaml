@@ -2,8 +2,8 @@ project: hoyabit-aws-deployment
 spec_path: .kiro/specs/hoyabit-aws-deployment
 branch: okByYaya0801            # 與 hackathon/competition-ready 同一 commit
 baseline_commit: 5f369ce        # test(T8): freeze competition-ready demo
-current_task: D5
-last_updated_at: 2026-08-01T17:30:00+08:00
+current_task: D6
+last_updated_at: 2026-08-01T17:45:00+08:00
 
 # 本機驗證環境（實測，非推定）
 environment:
@@ -15,7 +15,7 @@ environment:
   aws_region_configured: false
 
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_baseline: 555 tests, 555 passed, 0 failed, 0 errors   # D4 新增 14 個
+full_suite_baseline: 570 tests, 570 passed, 0 failed, 0 errors   # D4 +14, D5 +15
 
 allowed_statuses:
   - TODO
@@ -56,8 +56,8 @@ deployment_parameters:
   model_id_form: foundation_model    # 裸 ID 即可，不需 inference profile
   stack_name: hoyabit-agent-mvp
   function_name: hoyabit-market-research-agent
-  function_url: null            # D5 填入
-  deploy_bucket: null           # hoyabit-agent-deploy-<ACCOUNT_ID>-us-west-2（D5 建立）
+  function_url: https://<FUNCTION_URL_HOST>/
+  deploy_bucket: hoyabit-agent-deploy-<ACCOUNT_ID>-us-west-2
   artifact_bucket: null         # D6 才建立，未做則保持 null
 
 # 環境約束：Workshop Studio 帳號既有資源，不可動用或覆寫。
@@ -307,36 +307,100 @@ tasks:
 
   D5:
     title: Execute and verify the first AWS deployment
-    status: TODO
+    status: PASS
     executor: BOTH
     depends_on: [D2, D3, D4]
     target_minutes: 60
+    completed_at: 2026-08-01T17:25:00+08:00
     requirements: [5.1, 5.2, 5.3, 5.4, 5.5, 5.6]
     design_decision: D-3
-    commit: 'feat(D5): verify first aws deployment and guard response size'
-    milestone: 最小可展示雲端路徑
+    commit: 'fix(D5): deploy to aws and repair bedrock json fence and run observability'
+    milestone: 最小可展示雲端路徑（已達成）
+    deployed:
+      stack_status: CREATE_COMPLETE
+      function_url: https://<FUNCTION_URL_HOST>/
+      deploy_bucket: hoyabit-agent-deploy-<ACCOUNT_ID>-us-west-2
+      package_size: 377 KB 壓縮 / 1.2 MB 解壓（Lambda 上限 250 MB）
+      lambda_botocore: 1.42.97（內建即支援 Converse，因此未啟用 --bundle-sdk）
     in_scope:
       - 部署執行
-      - lambda_handler.py（僅在回應超過 6 MB 時調整為摘要＋產物參照）
+      - src/llm.py（範圍擴充，見 scope_extension）
+      - lambda_handler.py（執行摘要 log）
+      - tests/test_d5_bedrock_json_fence.py（新增）
+      - aws/README.md（us-west-2 的 Binance 限制）
     out_of_scope:
-      - src/orchestrator.py
+      - src/orchestrator.py（未改動）
       - 新增 AWS 資源（D6／D7 的事）
+    scope_extension:
+      what: 修改 src/llm.py 與 lambda_handler.py，原本不在 D5 的 in_scope。
+      why: >-
+        首次部署技術上成功（stack CREATE_COMPLETE、GET 200、六檔齊備、manifest hash 全相符），
+        但 planner／analyst／critic 三個階段全部是 fallback:ValueError——模型路徑完全沒跑。
+        部署成功而模型不通，不能算 D5 驗收通過，因此修復屬於達成 D5 目標的必要工作而非額外功能。
+      root_cause: >-
+        amazon.nova-lite-v1:0 在 Converse 下會把 JSON 包成 markdown code fence
+        （```json ... ```），src/llm.py 直接 json.loads() 因此拋
+        JSONDecodeError: Expecting value: line 1 column 1 (char 0)，且既有的單次重試無效
+        ——模型行為一致，重試只會拿到同一個 fence。已在本機用同一模型重現，錯誤訊息與雲端一字不差。
+        根因是 Converse 沒有等同 Gemini response_mime_type 或 OpenAI response_format 的
+        強制 JSON 模式，所以模型可自行決定輸出格式。
+      fix: >-
+        新增 src.llm.strip_json_fence() 只剝除最外層 fence，並在 prompt 明確要求不要使用
+        code fence（prompt 是請求不是保證，因此程式端仍必須容錯）。Gemini／OpenAI 走各自的
+        結構化輸出模式，不經過此函式，行為完全未變（既有 13 個 bedrock 測試全部仍通過）。
+      second_fix: >-
+        首次驗收發現 CloudWatch 找不到 run_id：log 裡只有 Lambda 自己的 START／END／REPORT
+        與冷啟動的 [sdk]，因此降級的執行與正常的執行在 log 上無法區分。新增一行
+        [run] JSON 摘要（run_id／mode／status／citation_gate／stages／degradation_reasons），
+        刻意只記 question_hash 不記題目原文——log 保留期比單次請求長得多。
     acceptance:
-      - describe-stacks 為 CREATE_COMPLETE 或 UPDATE_COMPLETE
-      - GET Function URL 回 200 且含輸入表單
-      - POST mode=test 在 timeout 內回應且含六項提交物或產物參照
-      - manifest 五個 SHA-256 可驗證相符
-      - Citation Gate PASS
-      - 同題目連續兩次 mode=formal，第二次回 409
-      - CloudWatch Logs 找得到該 run_id
-      - CloudWatch Logs 不含任何 API key、access key 或 token
-      - execution_log.json 的分析與 Critic stage 狀態如實記錄
-      - 完整測試套件通過
+      - 'PASS: describe-stacks = CREATE_COMPLETE'
+      - 'PASS: GET Function URL = HTTP 200，含輸入表單與執行性質選單，並顯示 SDK 能力'
+      - 'PASS: POST mode=test = HTTP 200，六項提交物齊備（ETH 94 KB／BNB 117 KB，遠低於 6 MB buffered 上限）'
+      - 'PASS: manifest 五個 SHA-256 全部與回應內容相符（比對 report.md 與四個 JSON）'
+      - 'PASS: Citation Gate = PASS_WITH_WARNINGS，0 error、0 warning、11 項 check 全 pass'
+      - 'PASS: 同題目連續兩次 mode=formal，第一次 200、第二次 409'
+      - 'PASS: CloudWatch 找得到 run_id（修復後；修復前為 FAIL）'
+      - 'PASS: CloudWatch 無憑證外洩（AKIA／ASIA／SecretAccessKey／SessionToken／Bearer 六類全部乾淨）'
+      - 'PASS: execution_log 如實記錄——修復前記 fallback:ValueError，修復後記 success'
+      - 'PASS: 完整測試套件 570 tests OK'
+      - 'PASS: 模型路徑真的跑了——planner/analyst/critic 皆 provider=bedrock 且 success'
+    test_summary: >-
+      部署：AWS_PROFILE=hoyabit bash aws/deploy.sh --region us-west-2 --provider bedrock
+      --model-id amazon.nova-lite-v1:0 → CREATE_COMPLETE，共部署三次（初次、fence 修復、log 修復）。
+      GET / → HTTP 200，801 bytes，首頁顯示「botocore 1.42.97／Bedrock Converse 可用」。
+      POST ETH test → HTTP 200，94 KB，17.7 秒；POST BNB test → HTTP 200，117 KB，34.6 秒。
+      formal lock → SOL 第一次 200、第二次 409。
+      manifest hash → 5/5 MATCH。CloudWatch → [run] 摘要含 run_id 且無憑證。
+      完整套件：python3 -m unittest discover -s tests → 570 tests, 570 passed, 0 failed, 0 errors。
+      targeted：tests/test_d5_bedrock_json_fence.py 15 tests OK；
+      既有 tests/test_bedrock_adapter.py 13 tests 全部仍通過（確認未破壞 Gemini／OpenAI 路徑）。
+    environment_limitation:
+      id: BINANCE-GEO
+      severity: 已知限制，非 bug，改程式碼無法修復
+      detail: >-
+        Binance 封鎖美國 IP，us-west-2 是美國 region，因此 derivatives、vegas_channel、
+        long_short_ratio 三個 collector 在雲端一律取不到資料（HTTPError），改用可靠度 0.20
+        的 fallback fixture。已實測對比：本機（台灣 IP）對 api.binance.com 與 fapi.binance.com
+        回 HTTP 200，雲端 us-west-2 回 HTTPError。
+      impact: >-
+        11 個 collector 變成 8 success + 3 fallback，仍有 8 筆實質證據；run_status 因此一律是
+        COMPLETED_DEGRADED 並在 degradation_reasons 列出這三項。這是誠實標示而非失敗——
+        單一來源失敗隔離機制正常運作，Citation Gate 仍 PASS，fallback 證據不會成為任何
+        主要 Claim 的唯一支持。
+      options: >-
+        接受降級（目前採用，Demo 中說明）／換非美國 region（須重跑 verify-permissions.sh
+        確認 Bedrock 模型可用形式，但競賽環境指定 us-west-2）／本機執行（11/11 成功但失去
+        部署展示點）。
     blockers: []
     notes: >-
-      「命令沒報錯」不算部署成功，必須逐項對照上面的 acceptance。
-      Function URL 的 buffered 回應上限是 6 MB，超限時管線其實已成功、產物也已落地，
-      只是回應失敗，所以要分開處理回應形狀與產物落點。
+      「命令沒報錯」不算部署成功：初次部署每一項基礎設施驗收都通過，但模型路徑三個階段
+      全部靜默降級。這正是 D4 的 sdk_capability 與本 Task 新增的 [run] 摘要要解決的問題
+      ——降級的報告與正常的報告在外觀上完全相同。
+      D-3 決策擔心的 6 MB 回應上限未觸發：實測單幣回應 94-120 KB，因此 lambda_handler
+      的回應形狀維持原樣，未改為產物參照。
+      claims 階段顯示 provider=deterministic 是正確行為：claim confidence 依設計必須由
+      deterministic Python 計算，不能由模型決定。
 
   D6:
     title: Persist artifacts to S3
