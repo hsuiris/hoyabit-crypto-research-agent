@@ -17,3 +17,6 @@ outputs-*/
 
 # demo-fixtures/ is deliberately NOT ignored: the offline demo tier depends on those files being
 # committed. Regenerate them with scripts, never delete them as "generated output".
+
+# macOS Finder 產生的系統檔
+.DS_Store

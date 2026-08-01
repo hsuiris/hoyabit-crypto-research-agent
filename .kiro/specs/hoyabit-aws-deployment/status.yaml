@@ -48,7 +48,21 @@ rules:
   protect_offline_fallback: true
   protect_demo_fixtures: true
 
-# 部署變數。實際值由 D0／D2 實測填入，不得寫入任何憑證。
+# 部署變數。
+#
+# 這個 repository 是公開的，因此以下欄位一律使用佔位符，不寫入真實值：
+#   <ACCOUNT_ID>          AWS 帳號 ID
+#   <FUNCTION_URL_HOST>   Lambda Function URL 的主機名
+#
+# Function URL 特別不能公開：它的 AuthType 是 NONE，任何取得網址的人都能觸發完整
+# 研究執行並消耗 Bedrock 配額。帳號 ID 雖然不是密鑰，但公開它沒有好處。
+#
+# 需要實際值時從 AWS 取得，不要回填進本檔：
+#   aws sts get-caller-identity --query Account --output text
+#   aws cloudformation describe-stacks --region <REGION> --stack-name hoyabit-agent-mvp \
+#     --query "Stacks[0].Outputs[?OutputKey=='PublicUrl'].OutputValue" --output text
+#
+# 憑證（access key、secret、session token）在任何情況下都不得寫入本檔或任何版控檔案。
 deployment_parameters:
   account_id: '<ACCOUNT_ID>'    # AWS Workshop Studio 臨時帳號（非機密）
   region: us-west-2             # 競賽環境指定；已實測 Bedrock 可呼叫
