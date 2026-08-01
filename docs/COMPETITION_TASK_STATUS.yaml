@@ -1,0 +1,170 @@
+project: hoyabit-competition-ready
+spec_path: .kiro/specs/hoyabit-competition-ready
+branch: hackathon/competition-ready
+current_task: T2
+last_updated_at: 2026-08-01T10:05:00+08:00
+python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
+full_suite_command: python3 -m unittest discover -s tests
+full_suite_latest: 149 tests, 149 passed, 0 failed, 0 errors
+
+allowed_statuses:
+  - TODO
+  - READY
+  - IN_PROGRESS
+  - REVIEW
+  - PASS
+  - FAIL
+  - BLOCKED
+  - PARTIAL
+
+rules:
+  one_task_at_a_time: true
+  require_dependency_pass: true
+  require_targeted_tests: true
+  require_full_test_suite: true
+  require_commit: true
+  auto_start_next_task: false
+  blocker_timebox_minutes: 20
+  minimum_competition_ready_task: T5
+  feature_freeze_task: T8
+
+tasks:
+  T0:
+    title: Freeze competition upgrade baseline
+    status: PASS
+    depends_on: []
+    target_minutes: 30
+    started_at: 2026-08-01T09:00:00+08:00
+    completed_at: 2026-08-01T09:17:47+08:00
+    commit: b38c43369efbf27aeff841b4ca0e15fd9db22aa0
+    test_summary: 117 tests, 117 passed, 0 failed (python3 -m unittest discover -s tests -v)
+    artifacts: [docs/COMPETITION_BASELINE.md, .kiro/steering/competition-baseline.md]
+    blockers: []
+    known_limitations:
+      - 環境無 python 指令，使用 python3 3.9.6（低於專案要求的 3.10+）
+      - 未執行 live API、真實 LLM 或 AWS 部署驗證
+
+  T1:
+    title: Add Amazon Bedrock LLM adapter
+    status: PASS
+    depends_on: [T0]
+    target_minutes: 75
+    started_at: 2026-08-01T09:35:00+08:00
+    completed_at: 2026-08-01T09:47:22+08:00
+    commit: 6cf3905
+    test_summary: tests/test_bedrock_adapter.py（全程 mock，無真實 Bedrock 呼叫）；完整套件通過
+    artifacts: [src/llm.py, aws/template.yaml, lambda_handler.py, tests/test_bedrock_adapter.py]
+    blockers: []
+    known_limitations:
+      - 未執行真實 Bedrock live smoke（依 T8 規劃保留）
+      - Gemini／OpenAI／offline fallback 均保留未刪除
+
+  T0.5:
+    title: Define LLM and artifact storage boundaries (out-of-plan interface freeze)
+    status: PASS
+    depends_on: [T1]
+    target_minutes: 45
+    started_at: 2026-08-01T09:48:00+08:00
+    completed_at: 2026-08-01T09:55:55+08:00
+    commit: f0530c5
+    test_summary: 19 targeted tests OK；完整套件 149 tests OK
+    note: >-
+      原始 T0-T8 計畫沒有這個 Task，由使用者臨時指派，用於在接 Bedrock／S3 之前先凍結
+      LLMClient 與 ArtifactStore 介面，避免後續大規模重構。不取代 T2-T8 任何工作。
+    artifacts:
+      - src/ports.py
+      - src/artifact_store.py
+      - src/run_context.py
+      - tests/test_t05_boundaries.py
+    blockers: []
+    known_limitations:
+      - Orchestrator 尚未改接 ArtifactStore（僅凍結介面）
+      - src/app.py 的來源摘要仍內嵌 provider 呼叫（見 docs/COMPETITION_BLOCKERS.md）
+      - lambda_handler.py 仍硬編 /tmp/outputs（待 S3／T7 處理）
+
+  T2:
+    title: Add question-driven research planner
+    status: READY
+    depends_on: [T1]
+    target_minutes: 60
+    started_at: null
+    completed_at: null
+    commit: null
+    test_summary: null
+    blockers: []
+    known_limitations: []
+
+  T3:
+    title: Add explainable evidence credibility engine
+    status: TODO
+    depends_on: [T2]
+    target_minutes: 90
+    started_at: null
+    completed_at: null
+    commit: null
+    test_summary: null
+    blockers: []
+    known_limitations: []
+
+  T4:
+    title: Add Claim-Evidence Graph and confidence engine
+    status: TODO
+    depends_on: [T3]
+    target_minutes: 90
+    started_at: null
+    completed_at: null
+    commit: null
+    test_summary: null
+    blockers: []
+    known_limitations: []
+
+  T5:
+    title: Enforce Citation Gate and competition outputs
+    status: TODO
+    depends_on: [T4]
+    target_minutes: 75
+    milestone: minimum_competition_ready_core
+    started_at: null
+    completed_at: null
+    commit: null
+    test_summary: null
+    blockers: []
+    known_limitations: []
+
+  T6:
+    title: Expose competition data in existing Web Demo
+    status: TODO
+    depends_on: [T5]
+    target_minutes: 60
+    started_at: null
+    completed_at: null
+    commit: null
+    test_summary: null
+    blockers: []
+    known_limitations: []
+
+  T7:
+    title: Harden formal run lifecycle and deadline
+    status: TODO
+    depends_on: [T6]
+    target_minutes: 45
+    started_at: null
+    completed_at: null
+    commit: null
+    test_summary: null
+    blockers: []
+    known_limitations: []
+
+  T8:
+    title: Competition readiness tests and Demo Freeze
+    status: TODO
+    depends_on: [T7]
+    target_minutes: 90
+    feature_freeze: true
+    started_at: null
+    completed_at: null
+    commit: null
+    tag: null
+    test_summary: null
+    blockers: []
+    known_limitations: []
