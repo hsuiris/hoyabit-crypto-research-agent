@@ -1,0 +1,142 @@
+{
+  "manifest_version": "competition-manifest-v1",
+  "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5",
+  "started_at": "2026-08-01T06:39:01.735382+00:00",
+  "completed_at": "2026-08-01T06:39:01.748827+00:00",
+  "as_of": "2026-08-01T06:39:01.735382+00:00",
+  "duration_ms": 16.27,
+  "question": "市場認為 ETH 短期將維持盤整，請蒐集支持與反對證據。",
+  "question_hash": "d15440cd7e04c508ad61b473975baddfdc490252ffcd4d7479e8034d3ebb79ca",
+  "coins": [
+    "ETH"
+  ],
+  "mode": "offline",
+  "run_mode": null,
+  "status": "COMPLETED_DEGRADED",
+  "degradation_reasons": [
+    "all_evidence_is_fallback_fixture"
+  ],
+  "run_lifecycle": null,
+  "deadline": {
+    "hard_deadline_seconds": 720.0,
+    "finalization_deadline_seconds": 672.0,
+    "competition_hard_ceiling_seconds": 900.0,
+    "competition_finalization_ceiling_seconds": 840.0,
+    "elapsed_seconds_at_finalization": 0.0,
+    "remaining_seconds_at_finalization": 720.0,
+    "reason": "within_budget",
+    "follow_up_collection_skipped": false,
+    "critic_skipped_for_deadline": false,
+    "llm_skipped_for_deadline": false,
+    "claim_model_skipped_for_deadline": false
+  },
+  "execution_flags": {
+    "live": false,
+    "use_llm": false
+  },
+  "model": {
+    "provider": "none",
+    "model": null,
+    "region": null
+  },
+  "stage_providers": {
+    "planner": {
+      "provider": "deterministic",
+      "model": null
+    },
+    "analyst": {
+      "provider": "deterministic",
+      "model": null,
+      "status": "offline_fallback"
+    },
+    "critic": {
+      "provider": "deterministic",
+      "model": null,
+      "status": "skipped:disabled"
+    },
+    "claims": {
+      "provider": "deterministic",
+      "model": null,
+      "scored_by": "deterministic_rules"
+    }
+  },
+  "code_commit": "c05ce61bb85aa47095f1e26812895a047dc3465a",
+  "config_version": "t0.5",
+  "versions": {
+    "schema": "competition-schema-v1",
+    "credibility_scoring": "credibility-v1",
+    "claim_confidence_scoring": "claim-confidence-v1",
+    "citation_gate": "citation-gate-v1",
+    "source_registry": "source-registry-v1"
+  },
+  "artifact_filenames": {
+    "report": "report.md",
+    "evidence": "evidence.json",
+    "execution_log": "execution_log.json",
+    "research_plan": "research_plan.json",
+    "claims": "claims.json",
+    "manifest": "manifest.json"
+  },
+  "artifact_root": "/Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/offline-backup",
+  "files": [
+    {
+      "path": "claims.json",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/offline-backup/claims.json",
+      "bytes": 4509,
+      "sha256": "1d3874c5ac2cf920ad8bc5bc1d50bd6414e9375774a2923546f78ac47c077d08",
+      "written_at": "2026-08-01T06:39:01.751146+00:00"
+    },
+    {
+      "path": "evidence.json",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/offline-backup/evidence.json",
+      "bytes": 29280,
+      "sha256": "86ab3bb9f184fd926c613adbed869fad2044a4722f4e41cd99ce19546af51950",
+      "written_at": "2026-08-01T06:39:01.750724+00:00"
+    },
+    {
+      "path": "execution_log.json",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/offline-backup/execution_log.json",
+      "bytes": 14470,
+      "sha256": "7a66e8c0142894f7cdd9e253a10e4f25cc3b6a24baa8e8f00ee13f9e0a756878",
+      "written_at": "2026-08-01T06:39:01.751646+00:00"
+    },
+    {
+      "path": "report.md",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/offline-backup/report.md",
+      "bytes": 13954,
+      "sha256": "5b15624c722896c80c9a28ca797fb113fc6212e34596d85fdbaa31ea24bc7a74",
+      "written_at": "2026-08-01T06:39:01.749548+00:00"
+    },
+    {
+      "path": "research_plan.json",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/offline-backup/research_plan.json",
+      "bytes": 1591,
+      "sha256": "2f2a4fb8ff2a913385c09ff5848263d4b65dc6cf157b563d6775874c65a4b9d1",
+      "written_at": "2026-08-01T06:39:01.750902+00:00"
+    }
+  ],
+  "manifest_file": "manifest.json",
+  "validation": {
+    "evidence_error_count": 0,
+    "citation_gate_status": "PASS",
+    "citation_gate_error_count": 0,
+    "citation_gate_warning_count": 0,
+    "citation_gate_checks": {
+      "claim_structure": "pass",
+      "evidence_id_exists": "pass",
+      "evidence_belongs_to_run": "pass",
+      "evidence_required_fields": "pass",
+      "evidence_not_rejected": "pass",
+      "fallback_not_sole_support": "pass",
+      "support_contradiction_exclusive": "pass",
+      "claim_has_supporting_evidence": "pass",
+      "confidence_within_cap": "pass",
+      "related_claim_ids_consistent": "pass",
+      "no_cross_run_citation": "pass"
+    },
+    "semantic_finding_count": 0
+  },
+  "rerun_of": null,
+  "rerun_reason": null,
+  "authorized_rerun": false
+}

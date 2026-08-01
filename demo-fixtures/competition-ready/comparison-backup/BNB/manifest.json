@@ -1,0 +1,142 @@
+{
+  "manifest_version": "competition-manifest-v1",
+  "run_id": "RUN-20260801T063901Z-BNB-4422e867",
+  "started_at": "2026-08-01T06:39:01.765852+00:00",
+  "completed_at": "2026-08-01T06:39:01.776339+00:00",
+  "as_of": "2026-08-01T06:39:01.765852+00:00",
+  "duration_ms": 12.76,
+  "question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+  "question_hash": "b2637e9708f26aec488747f3b3eaa59fb961e920e45b1976ca4dd99248444196",
+  "coins": [
+    "BNB"
+  ],
+  "mode": "offline",
+  "run_mode": null,
+  "status": "COMPLETED_DEGRADED",
+  "degradation_reasons": [
+    "all_evidence_is_fallback_fixture"
+  ],
+  "run_lifecycle": null,
+  "deadline": {
+    "hard_deadline_seconds": 720.0,
+    "finalization_deadline_seconds": 672.0,
+    "competition_hard_ceiling_seconds": 900.0,
+    "competition_finalization_ceiling_seconds": 840.0,
+    "elapsed_seconds_at_finalization": 0.0,
+    "remaining_seconds_at_finalization": 720.0,
+    "reason": "within_budget",
+    "follow_up_collection_skipped": false,
+    "critic_skipped_for_deadline": false,
+    "llm_skipped_for_deadline": false,
+    "claim_model_skipped_for_deadline": false
+  },
+  "execution_flags": {
+    "live": false,
+    "use_llm": false
+  },
+  "model": {
+    "provider": "none",
+    "model": null,
+    "region": null
+  },
+  "stage_providers": {
+    "planner": {
+      "provider": "deterministic",
+      "model": null
+    },
+    "analyst": {
+      "provider": "deterministic",
+      "model": null,
+      "status": "offline_fallback"
+    },
+    "critic": {
+      "provider": "deterministic",
+      "model": null,
+      "status": "skipped:disabled"
+    },
+    "claims": {
+      "provider": "deterministic",
+      "model": null,
+      "scored_by": "deterministic_rules"
+    }
+  },
+  "code_commit": "c05ce61bb85aa47095f1e26812895a047dc3465a",
+  "config_version": "t0.5",
+  "versions": {
+    "schema": "competition-schema-v1",
+    "credibility_scoring": "credibility-v1",
+    "claim_confidence_scoring": "claim-confidence-v1",
+    "citation_gate": "citation-gate-v1",
+    "source_registry": "source-registry-v1"
+  },
+  "artifact_filenames": {
+    "report": "report.md",
+    "evidence": "evidence.json",
+    "execution_log": "execution_log.json",
+    "research_plan": "research_plan.json",
+    "claims": "claims.json",
+    "manifest": "manifest.json"
+  },
+  "artifact_root": "/Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB",
+  "files": [
+    {
+      "path": "claims.json",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/claims.json",
+      "bytes": 2259,
+      "sha256": "be30f6947a3de1036fb5377df4576e28dd466890b912bf5337f9c50d9043db30",
+      "written_at": "2026-08-01T06:39:01.778146+00:00"
+    },
+    {
+      "path": "evidence.json",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/evidence.json",
+      "bytes": 29256,
+      "sha256": "c4c58faefba30bbe56ea9d8258e7e855ffac3aa5979bc515508d1928f493a9ee",
+      "written_at": "2026-08-01T06:39:01.777825+00:00"
+    },
+    {
+      "path": "execution_log.json",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/execution_log.json",
+      "bytes": 13916,
+      "sha256": "ba62108102ea35d666b757a38df17c93e94c27d70883e7ecf02cb52ae2d8c08a",
+      "written_at": "2026-08-01T06:39:01.778611+00:00"
+    },
+    {
+      "path": "report.md",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/report.md",
+      "bytes": 12453,
+      "sha256": "473f5b0d497b988915233450882d18e28b000f8f91ea7aeacc922aa11ef25029",
+      "written_at": "2026-08-01T06:39:01.776831+00:00"
+    },
+    {
+      "path": "research_plan.json",
+      "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/research_plan.json",
+      "bytes": 753,
+      "sha256": "c03af38f5a89bd71985354c26418baf99346df5d14aab35943ac6e2643dc640c",
+      "written_at": "2026-08-01T06:39:01.777985+00:00"
+    }
+  ],
+  "manifest_file": "manifest.json",
+  "validation": {
+    "evidence_error_count": 0,
+    "citation_gate_status": "PASS",
+    "citation_gate_error_count": 0,
+    "citation_gate_warning_count": 0,
+    "citation_gate_checks": {
+      "claim_structure": "pass",
+      "evidence_id_exists": "pass",
+      "evidence_belongs_to_run": "pass",
+      "evidence_required_fields": "pass",
+      "evidence_not_rejected": "pass",
+      "fallback_not_sole_support": "pass",
+      "support_contradiction_exclusive": "pass",
+      "claim_has_supporting_evidence": "pass",
+      "confidence_within_cap": "pass",
+      "related_claim_ids_consistent": "pass",
+      "no_cross_run_citation": "pass"
+    },
+    "semantic_finding_count": 0
+  },
+  "rerun_of": null,
+  "rerun_reason": null,
+  "authorized_rerun": false
+}

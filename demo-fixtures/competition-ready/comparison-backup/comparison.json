@@ -1,0 +1,1421 @@
+{
+  "mode": "comparison",
+  "coins": [
+    "SOL",
+    "BNB"
+  ],
+  "question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+  "run_id": "RUN-20260801T063901Z-SOL-BNB-891c7d86",
+  "research_plan": {
+    "coins": [
+      "SOL",
+      "BNB"
+    ],
+    "task_modes": [
+      "describe_market_state",
+      "compare_assets",
+      "identify_risks"
+    ],
+    "primary_question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+    "time_window": {
+      "days": 14,
+      "source": "default"
+    },
+    "hypotheses": [],
+    "required_domains": [
+      "market",
+      "derivatives"
+    ],
+    "comparison_dimensions": [
+      "price_performance",
+      "volatility",
+      "market_cap_liquidity",
+      "risk_signals"
+    ],
+    "assumptions": [
+      "題目未明確指定時間範圍，沿用產品預設的 14 天作為研究窗口；這個天數不是題目要求的，只是預設假設。"
+    ],
+    "stop_conditions": {
+      "max_evidence": 36,
+      "max_followup_rounds": 1
+    }
+  },
+  "planning": {
+    "path": "fallback",
+    "fallback_used": true,
+    "fallback_reason": "no_client_injected",
+    "duration_seconds": 0.0
+  },
+  "results": {
+    "SOL": {
+      "coin": "SOL",
+      "question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+      "research_plan": {
+        "coins": [
+          "SOL",
+          "BNB"
+        ],
+        "task_modes": [
+          "describe_market_state",
+          "compare_assets",
+          "identify_risks"
+        ],
+        "primary_question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+        "time_window": {
+          "days": 14,
+          "source": "default"
+        },
+        "hypotheses": [],
+        "required_domains": [
+          "market",
+          "derivatives"
+        ],
+        "comparison_dimensions": [
+          "price_performance",
+          "volatility",
+          "market_cap_liquidity",
+          "risk_signals"
+        ],
+        "assumptions": [
+          "題目未明確指定時間範圍，沿用產品預設的 14 天作為研究窗口；這個天數不是題目要求的，只是預設假設。"
+        ],
+        "stop_conditions": {
+          "max_evidence": 36,
+          "max_followup_rounds": 1
+        }
+      },
+      "planning": {
+        "path": "shared",
+        "fallback_used": false,
+        "fallback_reason": null,
+        "duration_seconds": 0.0
+      },
+      "credibility": {
+        "scoring_version": "credibility-v1",
+        "registry_version": "source-registry-v1",
+        "evidence_count": 9,
+        "substantive_count": 0,
+        "fallback_ids": [
+          "EV-001",
+          "EV-002",
+          "EV-003",
+          "EV-004",
+          "EV-005",
+          "EV-006",
+          "EV-007",
+          "EV-008",
+          "EV-009"
+        ],
+        "rejected_ids": [],
+        "capped_ids": [
+          "EV-001",
+          "EV-002",
+          "EV-003",
+          "EV-004",
+          "EV-005",
+          "EV-006",
+          "EV-007",
+          "EV-008",
+          "EV-009"
+        ],
+        "limiter_counts": {
+          "fallback_fixture": 9,
+          "unverifiable_entity_attribution": 1
+        },
+        "source_type_counts": {
+          "fallback_fixture": 9
+        },
+        "independent_lineage_count": 9,
+        "shared_lineages": {},
+        "mean_final_score": 0.1956
+      },
+      "summary": "SOL has a positive market signal; news, on-chain and social evidence require further validation.",
+      "signals": {
+        "market": "available",
+        "news": "positive",
+        "social": "mixed",
+        "derivatives": "available",
+        "whale": "available",
+        "vegas_channel": "available",
+        "long_short_ratio": "available",
+        "macro": "available",
+        "announcement": "available"
+      },
+      "indicators": {
+        "return_pct": 8.2,
+        "rsi": 61.4,
+        "start_price": 140.0,
+        "end_price": 150.92,
+        "prices": [
+          140.0,
+          140.84,
+          141.68,
+          142.52,
+          143.36,
+          144.2,
+          145.04,
+          145.88,
+          146.72,
+          147.56,
+          148.4,
+          149.24,
+          150.08,
+          150.92
+        ],
+        "volumes": [
+          1400000000.0,
+          1428000000.0,
+          1456000000.0,
+          1484000000.0,
+          1512000000.0,
+          1400000000.0,
+          1428000000.0,
+          1456000000.0,
+          1484000000.0,
+          1512000000.0,
+          1400000000.0,
+          1428000000.0,
+          1456000000.0,
+          1484000000.0
+        ],
+        "dates": [
+          "2026-01-01",
+          "2026-01-02",
+          "2026-01-03",
+          "2026-01-04",
+          "2026-01-05",
+          "2026-01-06",
+          "2026-01-07",
+          "2026-01-08",
+          "2026-01-09",
+          "2026-01-10",
+          "2026-01-11",
+          "2026-01-12",
+          "2026-01-13",
+          "2026-01-14"
+        ]
+      },
+      "risk_factors": [
+        "4H 與 1H 時區方向不一致，策略層面屬於不進場條件，任何方向性結論的可信度都應下修。",
+        "本 MVP 僅建立訊號的同時性關聯，不足以建立因果關係。",
+        "社群與新聞來源的可靠度低於市場與鏈上資料，權重已相應調低。",
+        "本次全部 9 筆證據皆為離線 fixture 或降級來源（可信度上限 0.2），只足以示範流程，不足以支撐方向性結論。",
+        "以下可信度上限已生效，相關敘述不得超過證據能證明的範圍：unverifiable_entity_attribution×1。"
+      ],
+      "evidence_ids": [
+        "EV-001",
+        "EV-002",
+        "EV-003",
+        "EV-004",
+        "EV-005",
+        "EV-006",
+        "EV-007",
+        "EV-008",
+        "EV-009"
+      ],
+      "disclaimer": "For research demonstration only; not investment advice.",
+      "collection_log": [
+        "mock_mode"
+      ],
+      "stance": {
+        "stance": "bullish",
+        "label": "偏多",
+        "label_en": "Bullish",
+        "bull_weight": 2.2,
+        "bear_weight": 0.9,
+        "net_margin_pct": 41.9,
+        "signal_count": 7,
+        "basis": "多方權重 2.2 領先空方 0.9，淨優勢 42%",
+        "drivers": [
+          {
+            "text": "4H Vegas 通道為多頭排列，中期趨勢向上",
+            "evidence_id": "EV-006",
+            "weight": 1.2
+          },
+          {
+            "text": "期間報酬 +8.2%，價格動能為正",
+            "evidence_id": "EV-001",
+            "weight": 1.0
+          }
+        ]
+      },
+      "consistency": {
+        "label": "矛盾",
+        "state": "conflicting",
+        "agreement_pct": 50.0,
+        "domain_count": 4,
+        "directional_domain_count": 2,
+        "domain_sides": {
+          "market": "偏多（多 2.2 / 空 0.0）",
+          "derivatives": "偏空（多 0.0 / 空 0.9）",
+          "macro": "無方向（多 0.0 / 空 0.0）",
+          "news": "無方向（多 0.0 / 空 0.0）"
+        },
+        "conflicting_domains": [],
+        "basis": "偏多領域 1 個、偏空領域 1 個，跨來源訊號互相矛盾。"
+      },
+      "reasoning": {
+        "market_judgment": "SOL 整體訊號偏多（多方權重 2.2 / 空方 0.9）；技術面大小時區訊號不一致，RSI 位於中性區間，1H 成交量無異常爆量。支持該方向的獨立訊號 2 項，反向訊號 1 項。",
+        "confidence": 0.55,
+        "facts": [
+          "EV-001: 已取得市場價格資料（期間報酬率 8.2%）。",
+          "EV-002: 近期新聞標題包含 『SOL network activity remains elevated』；『SOL developer activity steady week over week』。",
+          "EV-003: 公開討論情緒為 mixed（依據：正向關鍵字：adoption；負向關鍵字：drop）。",
+          "EV-004: 資金費率 0.008%，多空接近平衡。",
+          "EV-005: 已知大戶錢包餘額（Demo Exchange Wallet 持有 500,000）。",
+          "EV-006: Vegas 通道 4H 趨勢為多頭排列，1H RSI(6) 48.0，1H 成交量無異常爆量，最近訊號為無明確訊號（None 根K棒前），4h為多頭，1h為訊號不一(mixed)，方向不一致。",
+          "EV-007: 大戶多空比 55.0% 多 / 45.0% 空（多方持倉佔優），近期一致性 80.0%。",
+          "EV-008: 全市場恐懼貪婪指數 52（Neutral），14 天變化 +5，聯準會最新貨幣政策發布為『Federal Reserve issues FOMC statement』。",
+          "EV-009: 官方公告（第一方官方 feed）近期 1 則，包含 『SOL protocol update published』。"
+        ],
+        "inferences": [
+          "期間報酬 +8.2%，價格動能為正，故此項支持偏多判讀（EV-001）。",
+          "4H Vegas 通道為多頭排列，中期趨勢向上，故此項支持偏多判讀（EV-006）。",
+          "4H 與 1H 方向不一致，趨勢訊號本身互相矛盾（EV-006），此項不提供方向性資訊，僅調整信心水準。",
+          "資金費率 0.008%，多空成本接近平衡，衍生品未顯示明顯偏斜（EV-004），此項不提供方向性資訊，僅調整信心水準。",
+          "由於同時存在 1 項反向訊號，上述方向僅為權重加總後的淨結果，而非一致性結論；信心分數已因此下修至 0.55。"
+        ],
+        "conclusion": "SOL 整體訊號偏多（多方權重 2.2 / 空方 0.9）；技術面大小時區訊號不一致，RSI 位於中性區間，1H 成交量無異常爆量。支持該方向的獨立訊號 2 項，反向訊號 1 項。",
+        "counter_evidence": [
+          "反方訊號｜大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升（EV-007）",
+          "未定訊號｜4H 與 1H 方向不一致，趨勢訊號本身互相矛盾（EV-006）",
+          "未定訊號｜資金費率 0.008%，多空成本接近平衡，衍生品未顯示明顯偏斜（EV-004）",
+          "未定訊號｜全市場恐懼貪婪指數 52，情緒位於中性區間（EV-008）",
+          "推理模式｜LLM disabled，本結論由規則式訊號加總產生，未經 LLM 語意推理交叉檢驗。"
+        ],
+        "observation_points": [
+          "優先追蹤反向訊號是否強化：大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升（EV-007）。",
+          "確認下一個 24 小時價格與成交量是否延續偏多方向，否則視為假突破。",
+          "追蹤全市場恐懼貪婪指數是否脫離目前的 52 區間，總體風險偏好轉向會同步改變個別幣種的訊號解讀。",
+          "追蹤官方公告與鏈上活躍度是否與價格方向同步，若背離則優先相信鏈上與官方事件。"
+        ],
+        "cited_evidence_ids": [
+          "EV-001",
+          "EV-002",
+          "EV-003",
+          "EV-004",
+          "EV-005",
+          "EV-006",
+          "EV-007",
+          "EV-008",
+          "EV-009"
+        ],
+        "signal_inventory": [
+          {
+            "side": "bull",
+            "text": "期間報酬 +8.2%，價格動能為正",
+            "evidence_id": "EV-001",
+            "weight": 1.0
+          },
+          {
+            "side": "bull",
+            "text": "4H Vegas 通道為多頭排列，中期趨勢向上",
+            "evidence_id": "EV-006",
+            "weight": 1.2
+          },
+          {
+            "side": "neutral",
+            "text": "4H 與 1H 方向不一致，趨勢訊號本身互相矛盾",
+            "evidence_id": "EV-006",
+            "weight": 1.0
+          },
+          {
+            "side": "neutral",
+            "text": "資金費率 0.008%，多空成本接近平衡，衍生品未顯示明顯偏斜",
+            "evidence_id": "EV-004",
+            "weight": 0.5
+          },
+          {
+            "side": "bear",
+            "text": "大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升",
+            "evidence_id": "EV-007",
+            "weight": 0.9
+          },
+          {
+            "side": "neutral",
+            "text": "全市場恐懼貪婪指數 52，情緒位於中性區間",
+            "evidence_id": "EV-008",
+            "weight": 0.5
+          },
+          {
+            "side": "neutral",
+            "text": "官方管道近期有 1 則發布，最新為『SOL protocol update published』，屬事件面背景而非方向性訊號",
+            "evidence_id": "EV-009",
+            "weight": 0.4
+          }
+        ]
+      },
+      "critique": null,
+      "critic_status": "skipped:disabled",
+      "claims": [
+        {
+          "claim_id": "CL-001",
+          "statement": "SOL 目前訊號偏多（支持側權重 2.20，反向側 0.90）",
+          "claim_type": "market_judgment",
+          "verdict": "insufficient_evidence",
+          "facts": [
+            {
+              "statement": "期間報酬 +8.2%，價格動能為正",
+              "evidence_ids": [
+                "EV-001"
+              ]
+            },
+            {
+              "statement": "4H Vegas 通道為多頭排列，中期趨勢向上",
+              "evidence_ids": [
+                "EV-006"
+              ]
+            }
+          ],
+          "inference": "支持側與反向側的權重差距構成本次方向判讀；權重來自既有訊號盤點，非模型自由生成。",
+          "conclusion": "針對「比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。」，本次證據偏多，但仍保留反向側證據供讀者檢視。",
+          "supporting_evidence_ids": [
+            "EV-001",
+            "EV-006"
+          ],
+          "contradicting_evidence_ids": [
+            "EV-007"
+          ],
+          "confidence": {
+            "score": 0.35,
+            "level": "low",
+            "type": "heuristic",
+            "components": {
+              "weighted_evidence_quality": 0.1905,
+              "domain_coverage": 1.0,
+              "source_diversity": 0.6667,
+              "signal_consistency": 0.6552,
+              "counter_evidence_coverage": 1.0
+            },
+            "limiters": [
+              "single_supporting_domain",
+              "fallback_only_primary_support"
+            ]
+          },
+          "limitations": [
+            "本 Claim 由 deterministic fallback 產生，未經模型敘事分層。",
+            "立場判定依據：多方權重 2.2 領先空方 0.9，淨優勢 42%"
+          ],
+          "invalidation_conditions": [
+            "反向側權重超過支持側時，本判斷即被推翻。"
+          ],
+          "watchpoints": [
+            "大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升"
+          ]
+        }
+      ],
+      "citation_gate": {
+        "gate_version": "citation-gate-v1",
+        "status": "PASS",
+        "run_id": "RUN-20260801T063901Z-SOL-abbb6ca3",
+        "claim_count": 1,
+        "evidence_count": 9,
+        "cited_evidence_count": 9,
+        "uncited_evidence_ids": [],
+        "checks": {
+          "claim_structure": "pass",
+          "evidence_id_exists": "pass",
+          "evidence_belongs_to_run": "pass",
+          "evidence_required_fields": "pass",
+          "evidence_not_rejected": "pass",
+          "fallback_not_sole_support": "pass",
+          "support_contradiction_exclusive": "pass",
+          "claim_has_supporting_evidence": "pass",
+          "confidence_within_cap": "pass",
+          "related_claim_ids_consistent": "pass",
+          "no_cross_run_citation": "pass"
+        },
+        "related_claim_ids_checked": true,
+        "error_count": 0,
+        "warning_count": 0,
+        "errors": [],
+        "warnings": [],
+        "findings": [],
+        "semantic_finding_count": 0,
+        "semantic_categories": [],
+        "semantic_findings": []
+      },
+      "claim_graph": {
+        "source": "deterministic_fallback",
+        "fallback_reason": "no llm client supplied",
+        "claim_count": 1,
+        "verdicts": {
+          "CL-001": "insufficient_evidence"
+        },
+        "hypothesis_assessments": [],
+        "linked_evidence_count": 3,
+        "scoring_version": "claim-confidence-v1"
+      },
+      "manifest": {
+        "manifest_version": "competition-manifest-v1",
+        "run_id": "RUN-20260801T063901Z-SOL-abbb6ca3",
+        "started_at": "2026-08-01T06:39:01.752341+00:00",
+        "completed_at": "2026-08-01T06:39:01.762993+00:00",
+        "as_of": "2026-08-01T06:39:01.752341+00:00",
+        "duration_ms": 12.88,
+        "question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+        "question_hash": "a5f507b0edcef86015d7a33500b4f5c1a6cb58427891f48aaa314bb57ed5f463",
+        "coins": [
+          "SOL"
+        ],
+        "mode": "offline",
+        "run_mode": null,
+        "status": "COMPLETED_DEGRADED",
+        "degradation_reasons": [
+          "all_evidence_is_fallback_fixture"
+        ],
+        "run_lifecycle": null,
+        "deadline": {
+          "hard_deadline_seconds": 720.0,
+          "finalization_deadline_seconds": 672.0,
+          "competition_hard_ceiling_seconds": 900.0,
+          "competition_finalization_ceiling_seconds": 840.0,
+          "elapsed_seconds_at_finalization": 0.0,
+          "remaining_seconds_at_finalization": 720.0,
+          "reason": "within_budget",
+          "follow_up_collection_skipped": false,
+          "critic_skipped_for_deadline": false,
+          "llm_skipped_for_deadline": false,
+          "claim_model_skipped_for_deadline": false
+        },
+        "execution_flags": {
+          "live": false,
+          "use_llm": false
+        },
+        "model": {
+          "provider": "none",
+          "model": null,
+          "region": null
+        },
+        "stage_providers": {
+          "planner": {
+            "provider": "deterministic",
+            "model": null
+          },
+          "analyst": {
+            "provider": "deterministic",
+            "model": null,
+            "status": "offline_fallback"
+          },
+          "critic": {
+            "provider": "deterministic",
+            "model": null,
+            "status": "skipped:disabled"
+          },
+          "claims": {
+            "provider": "deterministic",
+            "model": null,
+            "scored_by": "deterministic_rules"
+          }
+        },
+        "code_commit": "c05ce61bb85aa47095f1e26812895a047dc3465a",
+        "config_version": "t0.5",
+        "versions": {
+          "schema": "competition-schema-v1",
+          "credibility_scoring": "credibility-v1",
+          "claim_confidence_scoring": "claim-confidence-v1",
+          "citation_gate": "citation-gate-v1",
+          "source_registry": "source-registry-v1"
+        },
+        "artifact_filenames": {
+          "report": "report.md",
+          "evidence": "evidence.json",
+          "execution_log": "execution_log.json",
+          "research_plan": "research_plan.json",
+          "claims": "claims.json",
+          "manifest": "manifest.json"
+        },
+        "artifact_root": "/Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/SOL",
+        "files": [
+          {
+            "path": "claims.json",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/SOL/claims.json",
+            "bytes": 2259,
+            "sha256": "721f6ac6b548325c99f81b80388d3bf627e13a9fe14141f97faed654a34b3f9c",
+            "written_at": "2026-08-01T06:39:01.764755+00:00"
+          },
+          {
+            "path": "evidence.json",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/SOL/evidence.json",
+            "bytes": 29256,
+            "sha256": "c095a79d98ee92ed0c4272599110ce935855f582b1bde5fbf7b15071589bd4f0",
+            "written_at": "2026-08-01T06:39:01.764476+00:00"
+          },
+          {
+            "path": "execution_log.json",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/SOL/execution_log.json",
+            "bytes": 13916,
+            "sha256": "4dda982f0c12578cdb7553bd0764822942895188875b554306894201776e581f",
+            "written_at": "2026-08-01T06:39:01.765215+00:00"
+          },
+          {
+            "path": "report.md",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/SOL/report.md",
+            "bytes": 12453,
+            "sha256": "38b7ea5408496e29305c1fd0aa58ff0ee159370d523f8666d87b7fff474f35e5",
+            "written_at": "2026-08-01T06:39:01.763469+00:00"
+          },
+          {
+            "path": "research_plan.json",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/SOL/research_plan.json",
+            "bytes": 753,
+            "sha256": "c03af38f5a89bd71985354c26418baf99346df5d14aab35943ac6e2643dc640c",
+            "written_at": "2026-08-01T06:39:01.764604+00:00"
+          }
+        ],
+        "manifest_file": "manifest.json",
+        "validation": {
+          "evidence_error_count": 0,
+          "citation_gate_status": "PASS",
+          "citation_gate_error_count": 0,
+          "citation_gate_warning_count": 0,
+          "citation_gate_checks": {
+            "claim_structure": "pass",
+            "evidence_id_exists": "pass",
+            "evidence_belongs_to_run": "pass",
+            "evidence_required_fields": "pass",
+            "evidence_not_rejected": "pass",
+            "fallback_not_sole_support": "pass",
+            "support_contradiction_exclusive": "pass",
+            "claim_has_supporting_evidence": "pass",
+            "confidence_within_cap": "pass",
+            "related_claim_ids_consistent": "pass",
+            "no_cross_run_citation": "pass"
+          },
+          "semantic_finding_count": 0
+        },
+        "rerun_of": null,
+        "rerun_reason": null,
+        "authorized_rerun": false
+      },
+      "run_id": "RUN-20260801T063901Z-SOL-abbb6ca3",
+      "run_status": "COMPLETED_DEGRADED",
+      "question_hash": "a5f507b0edcef86015d7a33500b4f5c1a6cb58427891f48aaa314bb57ed5f463",
+      "degradation_reasons": [
+        "all_evidence_is_fallback_fixture"
+      ],
+      "deadline": {
+        "hard_deadline_seconds": 720.0,
+        "finalization_deadline_seconds": 672.0,
+        "competition_hard_ceiling_seconds": 900.0,
+        "competition_finalization_ceiling_seconds": 840.0,
+        "elapsed_seconds_at_finalization": 0.0,
+        "remaining_seconds_at_finalization": 720.0,
+        "reason": "within_budget",
+        "follow_up_collection_skipped": false,
+        "critic_skipped_for_deadline": false,
+        "llm_skipped_for_deadline": false,
+        "claim_model_skipped_for_deadline": false
+      }
+    },
+    "BNB": {
+      "coin": "BNB",
+      "question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+      "research_plan": {
+        "coins": [
+          "SOL",
+          "BNB"
+        ],
+        "task_modes": [
+          "describe_market_state",
+          "compare_assets",
+          "identify_risks"
+        ],
+        "primary_question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+        "time_window": {
+          "days": 14,
+          "source": "default"
+        },
+        "hypotheses": [],
+        "required_domains": [
+          "market",
+          "derivatives"
+        ],
+        "comparison_dimensions": [
+          "price_performance",
+          "volatility",
+          "market_cap_liquidity",
+          "risk_signals"
+        ],
+        "assumptions": [
+          "題目未明確指定時間範圍，沿用產品預設的 14 天作為研究窗口；這個天數不是題目要求的，只是預設假設。"
+        ],
+        "stop_conditions": {
+          "max_evidence": 36,
+          "max_followup_rounds": 1
+        }
+      },
+      "planning": {
+        "path": "shared",
+        "fallback_used": false,
+        "fallback_reason": null,
+        "duration_seconds": 0.0
+      },
+      "credibility": {
+        "scoring_version": "credibility-v1",
+        "registry_version": "source-registry-v1",
+        "evidence_count": 9,
+        "substantive_count": 0,
+        "fallback_ids": [
+          "EV-001",
+          "EV-002",
+          "EV-003",
+          "EV-004",
+          "EV-005",
+          "EV-006",
+          "EV-007",
+          "EV-008",
+          "EV-009"
+        ],
+        "rejected_ids": [],
+        "capped_ids": [
+          "EV-001",
+          "EV-002",
+          "EV-003",
+          "EV-004",
+          "EV-005",
+          "EV-006",
+          "EV-007",
+          "EV-008",
+          "EV-009"
+        ],
+        "limiter_counts": {
+          "fallback_fixture": 9,
+          "unverifiable_entity_attribution": 1
+        },
+        "source_type_counts": {
+          "fallback_fixture": 9
+        },
+        "independent_lineage_count": 9,
+        "shared_lineages": {},
+        "mean_final_score": 0.1956
+      },
+      "summary": "BNB has a positive market signal; news, on-chain and social evidence require further validation.",
+      "signals": {
+        "market": "available",
+        "news": "positive",
+        "social": "mixed",
+        "derivatives": "available",
+        "whale": "available",
+        "vegas_channel": "available",
+        "long_short_ratio": "available",
+        "macro": "available",
+        "announcement": "available"
+      },
+      "indicators": {
+        "return_pct": 8.2,
+        "rsi": 61.4,
+        "start_price": 110.0,
+        "end_price": 118.58,
+        "prices": [
+          110.0,
+          110.66,
+          111.32,
+          111.98,
+          112.64,
+          113.3,
+          113.96,
+          114.62,
+          115.28,
+          115.94,
+          116.6,
+          117.26,
+          117.92,
+          118.58
+        ],
+        "volumes": [
+          1100000000.0,
+          1122000000.0,
+          1144000000.0,
+          1166000000.0,
+          1188000000.0,
+          1100000000.0,
+          1122000000.0,
+          1144000000.0,
+          1166000000.0,
+          1188000000.0,
+          1100000000.0,
+          1122000000.0,
+          1144000000.0,
+          1166000000.0
+        ],
+        "dates": [
+          "2026-01-01",
+          "2026-01-02",
+          "2026-01-03",
+          "2026-01-04",
+          "2026-01-05",
+          "2026-01-06",
+          "2026-01-07",
+          "2026-01-08",
+          "2026-01-09",
+          "2026-01-10",
+          "2026-01-11",
+          "2026-01-12",
+          "2026-01-13",
+          "2026-01-14"
+        ]
+      },
+      "risk_factors": [
+        "4H 與 1H 時區方向不一致，策略層面屬於不進場條件，任何方向性結論的可信度都應下修。",
+        "本 MVP 僅建立訊號的同時性關聯，不足以建立因果關係。",
+        "社群與新聞來源的可靠度低於市場與鏈上資料，權重已相應調低。",
+        "本次全部 9 筆證據皆為離線 fixture 或降級來源（可信度上限 0.2），只足以示範流程，不足以支撐方向性結論。",
+        "以下可信度上限已生效，相關敘述不得超過證據能證明的範圍：unverifiable_entity_attribution×1。"
+      ],
+      "evidence_ids": [
+        "EV-001",
+        "EV-002",
+        "EV-003",
+        "EV-004",
+        "EV-005",
+        "EV-006",
+        "EV-007",
+        "EV-008",
+        "EV-009"
+      ],
+      "disclaimer": "For research demonstration only; not investment advice.",
+      "collection_log": [
+        "mock_mode"
+      ],
+      "stance": {
+        "stance": "bullish",
+        "label": "偏多",
+        "label_en": "Bullish",
+        "bull_weight": 2.2,
+        "bear_weight": 0.9,
+        "net_margin_pct": 41.9,
+        "signal_count": 7,
+        "basis": "多方權重 2.2 領先空方 0.9，淨優勢 42%",
+        "drivers": [
+          {
+            "text": "4H Vegas 通道為多頭排列，中期趨勢向上",
+            "evidence_id": "EV-006",
+            "weight": 1.2
+          },
+          {
+            "text": "期間報酬 +8.2%，價格動能為正",
+            "evidence_id": "EV-001",
+            "weight": 1.0
+          }
+        ]
+      },
+      "consistency": {
+        "label": "矛盾",
+        "state": "conflicting",
+        "agreement_pct": 50.0,
+        "domain_count": 4,
+        "directional_domain_count": 2,
+        "domain_sides": {
+          "market": "偏多（多 2.2 / 空 0.0）",
+          "derivatives": "偏空（多 0.0 / 空 0.9）",
+          "macro": "無方向（多 0.0 / 空 0.0）",
+          "news": "無方向（多 0.0 / 空 0.0）"
+        },
+        "conflicting_domains": [],
+        "basis": "偏多領域 1 個、偏空領域 1 個，跨來源訊號互相矛盾。"
+      },
+      "reasoning": {
+        "market_judgment": "BNB 整體訊號偏多（多方權重 2.2 / 空方 0.9）；技術面大小時區訊號不一致，RSI 位於中性區間，1H 成交量無異常爆量。支持該方向的獨立訊號 2 項，反向訊號 1 項。",
+        "confidence": 0.55,
+        "facts": [
+          "EV-001: 已取得市場價格資料（期間報酬率 8.2%）。",
+          "EV-002: 近期新聞標題包含 『BNB network activity remains elevated』；『BNB developer activity steady week over week』。",
+          "EV-003: 公開討論情緒為 mixed（依據：正向關鍵字：adoption；負向關鍵字：drop）。",
+          "EV-004: 資金費率 0.008%，多空接近平衡。",
+          "EV-005: 已知大戶錢包餘額（Demo Exchange Wallet 持有 500,000）。",
+          "EV-006: Vegas 通道 4H 趨勢為多頭排列，1H RSI(6) 48.0，1H 成交量無異常爆量，最近訊號為無明確訊號（None 根K棒前），4h為多頭，1h為訊號不一(mixed)，方向不一致。",
+          "EV-007: 大戶多空比 55.0% 多 / 45.0% 空（多方持倉佔優），近期一致性 80.0%。",
+          "EV-008: 全市場恐懼貪婪指數 52（Neutral），14 天變化 +5，聯準會最新貨幣政策發布為『Federal Reserve issues FOMC statement』。",
+          "EV-009: 官方公告（第一方官方 feed）近期 1 則，包含 『BNB protocol update published』。"
+        ],
+        "inferences": [
+          "期間報酬 +8.2%，價格動能為正，故此項支持偏多判讀（EV-001）。",
+          "4H Vegas 通道為多頭排列，中期趨勢向上，故此項支持偏多判讀（EV-006）。",
+          "4H 與 1H 方向不一致，趨勢訊號本身互相矛盾（EV-006），此項不提供方向性資訊，僅調整信心水準。",
+          "資金費率 0.008%，多空成本接近平衡，衍生品未顯示明顯偏斜（EV-004），此項不提供方向性資訊，僅調整信心水準。",
+          "由於同時存在 1 項反向訊號，上述方向僅為權重加總後的淨結果，而非一致性結論；信心分數已因此下修至 0.55。"
+        ],
+        "conclusion": "BNB 整體訊號偏多（多方權重 2.2 / 空方 0.9）；技術面大小時區訊號不一致，RSI 位於中性區間，1H 成交量無異常爆量。支持該方向的獨立訊號 2 項，反向訊號 1 項。",
+        "counter_evidence": [
+          "反方訊號｜大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升（EV-007）",
+          "未定訊號｜4H 與 1H 方向不一致，趨勢訊號本身互相矛盾（EV-006）",
+          "未定訊號｜資金費率 0.008%，多空成本接近平衡，衍生品未顯示明顯偏斜（EV-004）",
+          "未定訊號｜全市場恐懼貪婪指數 52，情緒位於中性區間（EV-008）",
+          "推理模式｜LLM disabled，本結論由規則式訊號加總產生，未經 LLM 語意推理交叉檢驗。"
+        ],
+        "observation_points": [
+          "優先追蹤反向訊號是否強化：大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升（EV-007）。",
+          "確認下一個 24 小時價格與成交量是否延續偏多方向，否則視為假突破。",
+          "追蹤全市場恐懼貪婪指數是否脫離目前的 52 區間，總體風險偏好轉向會同步改變個別幣種的訊號解讀。",
+          "追蹤官方公告與鏈上活躍度是否與價格方向同步，若背離則優先相信鏈上與官方事件。"
+        ],
+        "cited_evidence_ids": [
+          "EV-001",
+          "EV-002",
+          "EV-003",
+          "EV-004",
+          "EV-005",
+          "EV-006",
+          "EV-007",
+          "EV-008",
+          "EV-009"
+        ],
+        "signal_inventory": [
+          {
+            "side": "bull",
+            "text": "期間報酬 +8.2%，價格動能為正",
+            "evidence_id": "EV-001",
+            "weight": 1.0
+          },
+          {
+            "side": "bull",
+            "text": "4H Vegas 通道為多頭排列，中期趨勢向上",
+            "evidence_id": "EV-006",
+            "weight": 1.2
+          },
+          {
+            "side": "neutral",
+            "text": "4H 與 1H 方向不一致，趨勢訊號本身互相矛盾",
+            "evidence_id": "EV-006",
+            "weight": 1.0
+          },
+          {
+            "side": "neutral",
+            "text": "資金費率 0.008%，多空成本接近平衡，衍生品未顯示明顯偏斜",
+            "evidence_id": "EV-004",
+            "weight": 0.5
+          },
+          {
+            "side": "bear",
+            "text": "大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升",
+            "evidence_id": "EV-007",
+            "weight": 0.9
+          },
+          {
+            "side": "neutral",
+            "text": "全市場恐懼貪婪指數 52，情緒位於中性區間",
+            "evidence_id": "EV-008",
+            "weight": 0.5
+          },
+          {
+            "side": "neutral",
+            "text": "官方管道近期有 1 則發布，最新為『BNB protocol update published』，屬事件面背景而非方向性訊號",
+            "evidence_id": "EV-009",
+            "weight": 0.4
+          }
+        ]
+      },
+      "critique": null,
+      "critic_status": "skipped:disabled",
+      "claims": [
+        {
+          "claim_id": "CL-001",
+          "statement": "BNB 目前訊號偏多（支持側權重 2.20，反向側 0.90）",
+          "claim_type": "market_judgment",
+          "verdict": "insufficient_evidence",
+          "facts": [
+            {
+              "statement": "期間報酬 +8.2%，價格動能為正",
+              "evidence_ids": [
+                "EV-001"
+              ]
+            },
+            {
+              "statement": "4H Vegas 通道為多頭排列，中期趨勢向上",
+              "evidence_ids": [
+                "EV-006"
+              ]
+            }
+          ],
+          "inference": "支持側與反向側的權重差距構成本次方向判讀；權重來自既有訊號盤點，非模型自由生成。",
+          "conclusion": "針對「比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。」，本次證據偏多，但仍保留反向側證據供讀者檢視。",
+          "supporting_evidence_ids": [
+            "EV-001",
+            "EV-006"
+          ],
+          "contradicting_evidence_ids": [
+            "EV-007"
+          ],
+          "confidence": {
+            "score": 0.35,
+            "level": "low",
+            "type": "heuristic",
+            "components": {
+              "weighted_evidence_quality": 0.1905,
+              "domain_coverage": 1.0,
+              "source_diversity": 0.6667,
+              "signal_consistency": 0.6552,
+              "counter_evidence_coverage": 1.0
+            },
+            "limiters": [
+              "single_supporting_domain",
+              "fallback_only_primary_support"
+            ]
+          },
+          "limitations": [
+            "本 Claim 由 deterministic fallback 產生，未經模型敘事分層。",
+            "立場判定依據：多方權重 2.2 領先空方 0.9，淨優勢 42%"
+          ],
+          "invalidation_conditions": [
+            "反向側權重超過支持側時，本判斷即被推翻。"
+          ],
+          "watchpoints": [
+            "大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升"
+          ]
+        }
+      ],
+      "citation_gate": {
+        "gate_version": "citation-gate-v1",
+        "status": "PASS",
+        "run_id": "RUN-20260801T063901Z-BNB-4422e867",
+        "claim_count": 1,
+        "evidence_count": 9,
+        "cited_evidence_count": 9,
+        "uncited_evidence_ids": [],
+        "checks": {
+          "claim_structure": "pass",
+          "evidence_id_exists": "pass",
+          "evidence_belongs_to_run": "pass",
+          "evidence_required_fields": "pass",
+          "evidence_not_rejected": "pass",
+          "fallback_not_sole_support": "pass",
+          "support_contradiction_exclusive": "pass",
+          "claim_has_supporting_evidence": "pass",
+          "confidence_within_cap": "pass",
+          "related_claim_ids_consistent": "pass",
+          "no_cross_run_citation": "pass"
+        },
+        "related_claim_ids_checked": true,
+        "error_count": 0,
+        "warning_count": 0,
+        "errors": [],
+        "warnings": [],
+        "findings": [],
+        "semantic_finding_count": 0,
+        "semantic_categories": [],
+        "semantic_findings": []
+      },
+      "claim_graph": {
+        "source": "deterministic_fallback",
+        "fallback_reason": "no llm client supplied",
+        "claim_count": 1,
+        "verdicts": {
+          "CL-001": "insufficient_evidence"
+        },
+        "hypothesis_assessments": [],
+        "linked_evidence_count": 3,
+        "scoring_version": "claim-confidence-v1"
+      },
+      "manifest": {
+        "manifest_version": "competition-manifest-v1",
+        "run_id": "RUN-20260801T063901Z-BNB-4422e867",
+        "started_at": "2026-08-01T06:39:01.765852+00:00",
+        "completed_at": "2026-08-01T06:39:01.776339+00:00",
+        "as_of": "2026-08-01T06:39:01.765852+00:00",
+        "duration_ms": 12.76,
+        "question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+        "question_hash": "b2637e9708f26aec488747f3b3eaa59fb961e920e45b1976ca4dd99248444196",
+        "coins": [
+          "BNB"
+        ],
+        "mode": "offline",
+        "run_mode": null,
+        "status": "COMPLETED_DEGRADED",
+        "degradation_reasons": [
+          "all_evidence_is_fallback_fixture"
+        ],
+        "run_lifecycle": null,
+        "deadline": {
+          "hard_deadline_seconds": 720.0,
+          "finalization_deadline_seconds": 672.0,
+          "competition_hard_ceiling_seconds": 900.0,
+          "competition_finalization_ceiling_seconds": 840.0,
+          "elapsed_seconds_at_finalization": 0.0,
+          "remaining_seconds_at_finalization": 720.0,
+          "reason": "within_budget",
+          "follow_up_collection_skipped": false,
+          "critic_skipped_for_deadline": false,
+          "llm_skipped_for_deadline": false,
+          "claim_model_skipped_for_deadline": false
+        },
+        "execution_flags": {
+          "live": false,
+          "use_llm": false
+        },
+        "model": {
+          "provider": "none",
+          "model": null,
+          "region": null
+        },
+        "stage_providers": {
+          "planner": {
+            "provider": "deterministic",
+            "model": null
+          },
+          "analyst": {
+            "provider": "deterministic",
+            "model": null,
+            "status": "offline_fallback"
+          },
+          "critic": {
+            "provider": "deterministic",
+            "model": null,
+            "status": "skipped:disabled"
+          },
+          "claims": {
+            "provider": "deterministic",
+            "model": null,
+            "scored_by": "deterministic_rules"
+          }
+        },
+        "code_commit": "c05ce61bb85aa47095f1e26812895a047dc3465a",
+        "config_version": "t0.5",
+        "versions": {
+          "schema": "competition-schema-v1",
+          "credibility_scoring": "credibility-v1",
+          "claim_confidence_scoring": "claim-confidence-v1",
+          "citation_gate": "citation-gate-v1",
+          "source_registry": "source-registry-v1"
+        },
+        "artifact_filenames": {
+          "report": "report.md",
+          "evidence": "evidence.json",
+          "execution_log": "execution_log.json",
+          "research_plan": "research_plan.json",
+          "claims": "claims.json",
+          "manifest": "manifest.json"
+        },
+        "artifact_root": "/Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB",
+        "files": [
+          {
+            "path": "claims.json",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/claims.json",
+            "bytes": 2259,
+            "sha256": "be30f6947a3de1036fb5377df4576e28dd466890b912bf5337f9c50d9043db30",
+            "written_at": "2026-08-01T06:39:01.778146+00:00"
+          },
+          {
+            "path": "evidence.json",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/evidence.json",
+            "bytes": 29256,
+            "sha256": "c4c58faefba30bbe56ea9d8258e7e855ffac3aa5979bc515508d1928f493a9ee",
+            "written_at": "2026-08-01T06:39:01.777825+00:00"
+          },
+          {
+            "path": "execution_log.json",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/execution_log.json",
+            "bytes": 13916,
+            "sha256": "ba62108102ea35d666b757a38df17c93e94c27d70883e7ecf02cb52ae2d8c08a",
+            "written_at": "2026-08-01T06:39:01.778611+00:00"
+          },
+          {
+            "path": "report.md",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/report.md",
+            "bytes": 12453,
+            "sha256": "473f5b0d497b988915233450882d18e28b000f8f91ea7aeacc922aa11ef25029",
+            "written_at": "2026-08-01T06:39:01.776831+00:00"
+          },
+          {
+            "path": "research_plan.json",
+            "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/research_plan.json",
+            "bytes": 753,
+            "sha256": "c03af38f5a89bd71985354c26418baf99346df5d14aab35943ac6e2643dc640c",
+            "written_at": "2026-08-01T06:39:01.777985+00:00"
+          }
+        ],
+        "manifest_file": "manifest.json",
+        "validation": {
+          "evidence_error_count": 0,
+          "citation_gate_status": "PASS",
+          "citation_gate_error_count": 0,
+          "citation_gate_warning_count": 0,
+          "citation_gate_checks": {
+            "claim_structure": "pass",
+            "evidence_id_exists": "pass",
+            "evidence_belongs_to_run": "pass",
+            "evidence_required_fields": "pass",
+            "evidence_not_rejected": "pass",
+            "fallback_not_sole_support": "pass",
+            "support_contradiction_exclusive": "pass",
+            "claim_has_supporting_evidence": "pass",
+            "confidence_within_cap": "pass",
+            "related_claim_ids_consistent": "pass",
+            "no_cross_run_citation": "pass"
+          },
+          "semantic_finding_count": 0
+        },
+        "rerun_of": null,
+        "rerun_reason": null,
+        "authorized_rerun": false
+      },
+      "run_id": "RUN-20260801T063901Z-BNB-4422e867",
+      "run_status": "COMPLETED_DEGRADED",
+      "question_hash": "b2637e9708f26aec488747f3b3eaa59fb961e920e45b1976ca4dd99248444196",
+      "degradation_reasons": [
+        "all_evidence_is_fallback_fixture"
+      ],
+      "deadline": {
+        "hard_deadline_seconds": 720.0,
+        "finalization_deadline_seconds": 672.0,
+        "competition_hard_ceiling_seconds": 900.0,
+        "competition_finalization_ceiling_seconds": 840.0,
+        "elapsed_seconds_at_finalization": 0.0,
+        "remaining_seconds_at_finalization": 720.0,
+        "reason": "within_budget",
+        "follow_up_collection_skipped": false,
+        "critic_skipped_for_deadline": false,
+        "llm_skipped_for_deadline": false,
+        "claim_model_skipped_for_deadline": false
+      }
+    }
+  },
+  "profiles": {
+    "SOL": {
+      "coin": "SOL",
+      "liquidity": {
+        "avg_daily_volume_usd": 1452000000.0,
+        "latest_volume_usd": 1484000000.0,
+        "volume_trend_pct": 6.0,
+        "evidence_id": "EV-001",
+        "basis": "CoinGecko 14 天成交額（turnover proxy，非訂單簿深度）"
+      },
+      "risk_exposure": {
+        "components": {
+          "funding_stress": 16.0,
+          "positioning_crowding": 10.0,
+          "rsi_extremity": 4.0,
+          "timeframe_conflict": 100.0,
+          "realised_volatility": 0.3
+        },
+        "components_available": 5,
+        "composite_score": 26.1,
+        "cited_evidence_ids": [
+          "EV-004",
+          "EV-007",
+          "EV-006",
+          "EV-001"
+        ],
+        "basis": "資金費率擁擠度、大戶持倉偏斜、RSI 極端度、時區訊號衝突、已實現波動度的等權平均（0-100，越高代表暴險越大）"
+      },
+      "attention": {
+        "news_article_count": 2,
+        "official_announcement_count": 1,
+        "social_post_count": 2,
+        "social_engagement_total": 25,
+        "social_sentiment": "mixed",
+        "counts_are_capped": false,
+        "cited_evidence_ids": [
+          "EV-002",
+          "EV-009",
+          "EV-003"
+        ],
+        "basis": "以社群互動總量（無抓取上限）為主要判準；新聞／公告／貼文則數受抓取上限限制，僅作覆蓋度參考"
+      }
+    },
+    "BNB": {
+      "coin": "BNB",
+      "liquidity": {
+        "avg_daily_volume_usd": 1140857142.86,
+        "latest_volume_usd": 1166000000.0,
+        "volume_trend_pct": 6.0,
+        "evidence_id": "EV-001",
+        "basis": "CoinGecko 14 天成交額（turnover proxy，非訂單簿深度）"
+      },
+      "risk_exposure": {
+        "components": {
+          "funding_stress": 16.0,
+          "positioning_crowding": 10.0,
+          "rsi_extremity": 4.0,
+          "timeframe_conflict": 100.0,
+          "realised_volatility": 0.3
+        },
+        "components_available": 5,
+        "composite_score": 26.1,
+        "cited_evidence_ids": [
+          "EV-004",
+          "EV-007",
+          "EV-006",
+          "EV-001"
+        ],
+        "basis": "資金費率擁擠度、大戶持倉偏斜、RSI 極端度、時區訊號衝突、已實現波動度的等權平均（0-100，越高代表暴險越大）"
+      },
+      "attention": {
+        "news_article_count": 2,
+        "official_announcement_count": 1,
+        "social_post_count": 2,
+        "social_engagement_total": 25,
+        "social_sentiment": "mixed",
+        "counts_are_capped": false,
+        "cited_evidence_ids": [
+          "EV-002",
+          "EV-009",
+          "EV-003"
+        ],
+        "basis": "以社群互動總量（無抓取上限）為主要判準；新聞／公告／貼文則數受抓取上限限制，僅作覆蓋度參考"
+      }
+    }
+  },
+  "comparison": {
+    "coins": [
+      "SOL",
+      "BNB"
+    ],
+    "liquidity": {
+      "verdict": "SOL 成交量較高、進出較不易滑價（約 1.3 倍），BNB 相對較薄",
+      "leader": "SOL",
+      "a": 1452000000.0,
+      "b": 1140857142.86
+    },
+    "risk_exposure": {
+      "verdict": "兩者相當",
+      "leader": null,
+      "a": 26.1,
+      "b": 26.1
+    },
+    "attention": {
+      "verdict": "兩者相當",
+      "leader": null,
+      "a": 25,
+      "b": 25
+    },
+    "summary": "流動性方面 SOL 佔優。",
+    "caveat": "三個維度使用不同資料窗口（成交量 14 天、持倉與技術指標為當前值、社群為近 7 天），且各幣種的資料可用性可能不同；比較結果描述相對差異，不構成任何買賣建議。"
+  },
+  "claims_by_coin": {
+    "SOL": {
+      "scoring_version": "claim-confidence-v1",
+      "confidence_type": "heuristic",
+      "confidence_note": "heuristic evidence score，不是校準過的市場正確機率。",
+      "claim_source": "deterministic_fallback",
+      "fallback_reason": "no llm client supplied",
+      "claims": [
+        {
+          "claim_id": "CL-001",
+          "statement": "SOL 目前訊號偏多（支持側權重 2.20，反向側 0.90）",
+          "claim_type": "market_judgment",
+          "verdict": "insufficient_evidence",
+          "facts": [
+            {
+              "statement": "期間報酬 +8.2%，價格動能為正",
+              "evidence_ids": [
+                "EV-001"
+              ]
+            },
+            {
+              "statement": "4H Vegas 通道為多頭排列，中期趨勢向上",
+              "evidence_ids": [
+                "EV-006"
+              ]
+            }
+          ],
+          "inference": "支持側與反向側的權重差距構成本次方向判讀；權重來自既有訊號盤點，非模型自由生成。",
+          "conclusion": "針對「比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。」，本次證據偏多，但仍保留反向側證據供讀者檢視。",
+          "supporting_evidence_ids": [
+            "EV-001",
+            "EV-006"
+          ],
+          "contradicting_evidence_ids": [
+            "EV-007"
+          ],
+          "confidence": {
+            "score": 0.35,
+            "level": "low",
+            "type": "heuristic",
+            "components": {
+              "weighted_evidence_quality": 0.1905,
+              "domain_coverage": 1.0,
+              "source_diversity": 0.6667,
+              "signal_consistency": 0.6552,
+              "counter_evidence_coverage": 1.0
+            },
+            "limiters": [
+              "single_supporting_domain",
+              "fallback_only_primary_support"
+            ]
+          },
+          "limitations": [
+            "本 Claim 由 deterministic fallback 產生，未經模型敘事分層。",
+            "立場判定依據：多方權重 2.2 領先空方 0.9，淨優勢 42%"
+          ],
+          "invalidation_conditions": [
+            "反向側權重超過支持側時，本判斷即被推翻。"
+          ],
+          "watchpoints": [
+            "大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升"
+          ]
+        }
+      ],
+      "hypothesis_assessments": [],
+      "rejected_evidence_ids": []
+    },
+    "BNB": {
+      "scoring_version": "claim-confidence-v1",
+      "confidence_type": "heuristic",
+      "confidence_note": "heuristic evidence score，不是校準過的市場正確機率。",
+      "claim_source": "deterministic_fallback",
+      "fallback_reason": "no llm client supplied",
+      "claims": [
+        {
+          "claim_id": "CL-001",
+          "statement": "BNB 目前訊號偏多（支持側權重 2.20，反向側 0.90）",
+          "claim_type": "market_judgment",
+          "verdict": "insufficient_evidence",
+          "facts": [
+            {
+              "statement": "期間報酬 +8.2%，價格動能為正",
+              "evidence_ids": [
+                "EV-001"
+              ]
+            },
+            {
+              "statement": "4H Vegas 通道為多頭排列，中期趨勢向上",
+              "evidence_ids": [
+                "EV-006"
+              ]
+            }
+          ],
+          "inference": "支持側與反向側的權重差距構成本次方向判讀；權重來自既有訊號盤點，非模型自由生成。",
+          "conclusion": "針對「比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。」，本次證據偏多，但仍保留反向側證據供讀者檢視。",
+          "supporting_evidence_ids": [
+            "EV-001",
+            "EV-006"
+          ],
+          "contradicting_evidence_ids": [
+            "EV-007"
+          ],
+          "confidence": {
+            "score": 0.35,
+            "level": "low",
+            "type": "heuristic",
+            "components": {
+              "weighted_evidence_quality": 0.1905,
+              "domain_coverage": 1.0,
+              "source_diversity": 0.6667,
+              "signal_consistency": 0.6552,
+              "counter_evidence_coverage": 1.0
+            },
+            "limiters": [
+              "single_supporting_domain",
+              "fallback_only_primary_support"
+            ]
+          },
+          "limitations": [
+            "本 Claim 由 deterministic fallback 產生，未經模型敘事分層。",
+            "立場判定依據：多方權重 2.2 領先空方 0.9，淨優勢 42%"
+          ],
+          "invalidation_conditions": [
+            "反向側權重超過支持側時，本判斷即被推翻。"
+          ],
+          "watchpoints": [
+            "大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升"
+          ]
+        }
+      ],
+      "hypothesis_assessments": [],
+      "rejected_evidence_ids": []
+    }
+  },
+  "markdown": "## SOL vs BNB 並列比較\n\n流動性方面 SOL 佔優。\n\n| 維度 | SOL | BNB | 判讀 |\n|---|---|---|---|\n| 平均日成交額 (USD) | 1,452,000,000.00 | 1,140,857,142.86 | SOL 成交量較高、進出較不易滑價（約 1.3 倍），BNB 相對較薄 |\n| 綜合暴險分數 (0-100) | 26.10 | 26.10 | 兩者相當 |\n| 社群互動總量 | 25 | 25 | 兩者相當 |\n| 新聞則數（上限 5） | 2 | 2 |  |\n| 社群貼文數（上限 25） | 2 | 2 |  |\n| 官方公告則數（上限 5） | 1 | 1 |  |\n\n### 暴險分數組成\n- **SOL**（5 項可用）：funding_stress=16.0、positioning_crowding=10.0、rsi_extremity=4.0、timeframe_conflict=100.0、realised_volatility=0.3\n- **BNB**（5 項可用）：funding_stress=16.0、positioning_crowding=10.0、rsi_extremity=4.0、timeframe_conflict=100.0、realised_volatility=0.3\n\n> 三個維度使用不同資料窗口（成交量 14 天、持倉與技術指標為當前值、社群為近 7 天），且各幣種的資料可用性可能不同；比較結果描述相對差異，不構成任何買賣建議。\n",
+  "duration_ms": 27.67
+}

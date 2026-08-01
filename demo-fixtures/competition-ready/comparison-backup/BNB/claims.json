@@ -1,0 +1,66 @@
+{
+  "scoring_version": "claim-confidence-v1",
+  "confidence_type": "heuristic",
+  "confidence_note": "heuristic evidence score，不是校準過的市場正確機率。",
+  "claim_source": "deterministic_fallback",
+  "fallback_reason": "no llm client supplied",
+  "claims": [
+    {
+      "claim_id": "CL-001",
+      "statement": "BNB 目前訊號偏多（支持側權重 2.20，反向側 0.90）",
+      "claim_type": "market_judgment",
+      "verdict": "insufficient_evidence",
+      "facts": [
+        {
+          "statement": "期間報酬 +8.2%，價格動能為正",
+          "evidence_ids": [
+            "EV-001"
+          ]
+        },
+        {
+          "statement": "4H Vegas 通道為多頭排列，中期趨勢向上",
+          "evidence_ids": [
+            "EV-006"
+          ]
+        }
+      ],
+      "inference": "支持側與反向側的權重差距構成本次方向判讀；權重來自既有訊號盤點，非模型自由生成。",
+      "conclusion": "針對「比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。」，本次證據偏多，但仍保留反向側證據供讀者檢視。",
+      "supporting_evidence_ids": [
+        "EV-001",
+        "EV-006"
+      ],
+      "contradicting_evidence_ids": [
+        "EV-007"
+      ],
+      "confidence": {
+        "score": 0.35,
+        "level": "low",
+        "type": "heuristic",
+        "components": {
+          "weighted_evidence_quality": 0.1905,
+          "domain_coverage": 1.0,
+          "source_diversity": 0.6667,
+          "signal_consistency": 0.6552,
+          "counter_evidence_coverage": 1.0
+        },
+        "limiters": [
+          "single_supporting_domain",
+          "fallback_only_primary_support"
+        ]
+      },
+      "limitations": [
+        "本 Claim 由 deterministic fallback 產生，未經模型敘事分層。",
+        "立場判定依據：多方權重 2.2 領先空方 0.9，淨優勢 42%"
+      ],
+      "invalidation_conditions": [
+        "反向側權重超過支持側時，本判斷即被推翻。"
+      ],
+      "watchpoints": [
+        "大戶持倉 55.0% 偏多（近期一致性 80.0%），持倉過度集中於單邊時反向風險上升"
+      ]
+    }
+  ],
+  "hypothesis_assessments": [],
+  "rejected_evidence_ids": []
+}

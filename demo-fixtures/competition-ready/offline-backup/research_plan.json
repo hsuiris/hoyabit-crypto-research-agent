@@ -1,0 +1,45 @@
+{
+  "coins": [
+    "ETH"
+  ],
+  "task_modes": [
+    "describe_market_state",
+    "test_hypothesis"
+  ],
+  "primary_question": "市場認為 ETH 短期將維持盤整，請蒐集支持與反對證據。",
+  "time_window": {
+    "days": 14,
+    "source": "default"
+  },
+  "hypotheses": [
+    {
+      "hypothesis_id": "H1",
+      "statement": "市場認為 ETH 短期將維持盤整，請蒐集支持與反對證據。",
+      "support_questions": [
+        "是否有市場數據支持「市場認為 ETH 短期將維持盤整，請蒐集支持與反對證據。」？",
+        "ETH 近期價格與成交量是否與此判斷一致？",
+        "鏈上或衍生品訊號是否印證這個判斷？"
+      ],
+      "contradiction_questions": [
+        "是否有市場數據反對「市場認為 ETH 短期將維持盤整，請蒐集支持與反對證據。」？",
+        "ETH 是否出現與此判斷相反的資金流向？",
+        "新聞或社群情緒是否釋出相反訊號？"
+      ],
+      "falsification_conditions": [
+        "若價格出現顯著突破或跌破既有區間，此假設應視為被推翻。",
+        "若成交量、資金費率或鏈上訊號持續且一致地指向相反方向，應重新評估此假設。"
+      ]
+    }
+  ],
+  "required_domains": [
+    "market"
+  ],
+  "comparison_dimensions": [],
+  "assumptions": [
+    "題目未明確指定時間範圍，沿用產品預設的 14 天作為研究窗口；這個天數不是題目要求的，只是預設假設。"
+  ],
+  "stop_conditions": {
+    "max_evidence": 36,
+    "max_followup_rounds": 1
+  }
+}

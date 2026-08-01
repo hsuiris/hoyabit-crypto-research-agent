@@ -1,0 +1,1038 @@
+[
+  {
+    "evidence_id": "EV-001",
+    "source": "MockMarket",
+    "source_url": "https://example.com/market",
+    "fetched_at": "2026-08-01T06:39:01.736626+00:00",
+    "data_type": "market",
+    "coin": "ETH",
+    "time_range": "14d",
+    "content": {
+      "return_pct": 8.2,
+      "rsi": 61.4,
+      "start_price": 300.0,
+      "end_price": 323.4,
+      "prices": [
+        300.0,
+        301.8,
+        303.6,
+        305.4,
+        307.2,
+        309.0,
+        310.8,
+        312.6,
+        314.4,
+        316.2,
+        318.0,
+        319.8,
+        321.6,
+        323.4
+      ],
+      "volumes": [
+        3000000000.0,
+        3060000000.0,
+        3120000000.0,
+        3180000000.0,
+        3240000000.0,
+        3000000000.0,
+        3060000000.0,
+        3120000000.0,
+        3180000000.0,
+        3240000000.0,
+        3000000000.0,
+        3060000000.0,
+        3120000000.0,
+        3180000000.0
+      ],
+      "dates": [
+        "2026-01-01",
+        "2026-01-02",
+        "2026-01-03",
+        "2026-01-04",
+        "2026-01-05",
+        "2026-01-06",
+        "2026-01-07",
+        "2026-01-08",
+        "2026-01-09",
+        "2026-01-10",
+        "2026-01-11",
+        "2026-01-12",
+        "2026-01-13",
+        "2026-01-14"
+      ]
+    },
+    "reliability_score": 0.18,
+    "content_reference": {
+      "summary": {
+        "return_pct": 8.2,
+        "rsi": 61.4,
+        "start_price": 300.0,
+        "end_price": 323.4,
+        "prices": [
+          300.0,
+          301.8,
+          303.6,
+          305.4,
+          307.2,
+          309.0,
+          310.8,
+          312.6,
+          314.4,
+          316.2,
+          318.0,
+          319.8,
+          321.6,
+          323.4
+        ],
+        "volumes": [
+          3000000000.0,
+          3060000000.0,
+          3120000000.0,
+          3180000000.0,
+          3240000000.0,
+          3000000000.0,
+          3060000000.0,
+          3120000000.0,
+          3180000000.0,
+          3240000000.0,
+          3000000000.0,
+          3060000000.0,
+          3120000000.0,
+          3180000000.0
+        ],
+        "dates": [
+          "2026-01-01",
+          "2026-01-02",
+          "2026-01-03",
+          "2026-01-04",
+          "2026-01-05",
+          "2026-01-06",
+          "2026-01-07",
+          "2026-01-08",
+          "2026-01-09",
+          "2026-01-10",
+          "2026-01-11",
+          "2026-01-12",
+          "2026-01-13",
+          "2026-01-14"
+        ]
+      },
+      "time_range": "14d"
+    },
+    "related_claim": "ETH market evidence used in the market analysis",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": "2026-01-14T00:00:00+00:00",
+    "verification_status": "fallback",
+    "source_lineage_id": "lin:source_domain:6ccf5bd0f029",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.18,
+      "final_score": 0.18,
+      "components": {
+        "source_quality": 0.2,
+        "traceability": 0.2,
+        "freshness": 0.1,
+        "method_transparency": 0.2,
+        "independence": 0.2
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture"
+      ],
+      "freshness_basis": "event_time",
+      "age_days": 199.2771,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.8,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T06:39:01.739335+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture"
+    ],
+    "related_claim_ids": [
+      "CL-001",
+      "CL-002"
+    ],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5"
+  },
+  {
+    "evidence_id": "EV-002",
+    "source": "MockNews",
+    "source_url": "https://example.com/news",
+    "fetched_at": "2026-08-01T06:39:01.736626+00:00",
+    "data_type": "news",
+    "coin": "ETH",
+    "time_range": "14d",
+    "content": {
+      "headline": "Network activity remains elevated",
+      "sentiment": "positive",
+      "items": [
+        {
+          "title": "ETH network activity remains elevated",
+          "url": "https://example.com/news/1",
+          "published": "",
+          "lineage_id": "lin:normalized_title:690237c6d22a",
+          "duplicate_of_lineage": false
+        },
+        {
+          "title": "ETH developer activity steady week over week",
+          "url": "https://example.com/news/2",
+          "published": "",
+          "lineage_id": "lin:normalized_title:9919160d1904",
+          "duplicate_of_lineage": false
+        }
+      ],
+      "lineage_groups": {
+        "lin:normalized_title:690237c6d22a": [
+          "https://example.com/news/1"
+        ],
+        "lin:normalized_title:9919160d1904": [
+          "https://example.com/news/2"
+        ]
+      },
+      "independent_story_count": 2,
+      "duplicate_item_count": 0
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "summary": {
+        "headline": "Network activity remains elevated",
+        "sentiment": "positive",
+        "items": [
+          {
+            "title": "ETH network activity remains elevated",
+            "url": "https://example.com/news/1",
+            "published": "",
+            "lineage_id": "lin:normalized_title:690237c6d22a",
+            "duplicate_of_lineage": false
+          },
+          {
+            "title": "ETH developer activity steady week over week",
+            "url": "https://example.com/news/2",
+            "published": "",
+            "lineage_id": "lin:normalized_title:9919160d1904",
+            "duplicate_of_lineage": false
+          }
+        ],
+        "lineage_groups": {
+          "lin:normalized_title:690237c6d22a": [
+            "https://example.com/news/1"
+          ],
+          "lin:normalized_title:9919160d1904": [
+            "https://example.com/news/2"
+          ]
+        },
+        "independent_story_count": 2,
+        "duplicate_item_count": 0
+      },
+      "time_range": "14d"
+    },
+    "related_claim": "ETH news evidence used in the market analysis",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "fallback",
+    "source_lineage_id": "lin:normalized_title:690237c6d22a",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.36,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.2,
+        "traceability": 0.2,
+        "freshness": 1.0,
+        "method_transparency": 0.2,
+        "independence": 0.2
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.6,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T06:39:01.739335+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5"
+  },
+  {
+    "evidence_id": "EV-003",
+    "source": "MockSocial",
+    "source_url": "https://example.com/social",
+    "fetched_at": "2026-08-01T06:39:01.736626+00:00",
+    "data_type": "social",
+    "coin": "ETH",
+    "time_range": "14d",
+    "content": {
+      "sentiment": "mixed",
+      "confidence": 0.45,
+      "positive_terms": 3,
+      "negative_terms": 3,
+      "posts": [
+        {
+          "title": "ETH adoption thread",
+          "url": "https://example.com/social/1",
+          "score": 12,
+          "comments": 4,
+          "matched_positive": [
+            "adoption"
+          ],
+          "matched_negative": []
+        },
+        {
+          "title": "ETH drop discussion",
+          "url": "https://example.com/social/2",
+          "score": 7,
+          "comments": 2,
+          "matched_positive": [],
+          "matched_negative": [
+            "drop"
+          ]
+        }
+      ]
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "summary": {
+        "sentiment": "mixed",
+        "confidence": 0.45,
+        "positive_terms": 3,
+        "negative_terms": 3,
+        "posts": [
+          {
+            "title": "ETH adoption thread",
+            "url": "https://example.com/social/1",
+            "score": 12,
+            "comments": 4,
+            "matched_positive": [
+              "adoption"
+            ],
+            "matched_negative": []
+          },
+          {
+            "title": "ETH drop discussion",
+            "url": "https://example.com/social/2",
+            "score": 7,
+            "comments": 2,
+            "matched_positive": [],
+            "matched_negative": [
+              "drop"
+            ]
+          }
+        ]
+      },
+      "time_range": "14d"
+    },
+    "related_claim": "ETH social evidence used in the market analysis",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "fallback",
+    "source_lineage_id": "lin:normalized_title:3ecdc82246c3",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.36,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.2,
+        "traceability": 0.2,
+        "freshness": 1.0,
+        "method_transparency": 0.2,
+        "independence": 0.2
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.35,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T06:39:01.739335+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5"
+  },
+  {
+    "evidence_id": "EV-004",
+    "source": "MockDerivatives",
+    "source_url": "https://example.com/derivatives",
+    "fetched_at": "2026-08-01T06:39:01.736626+00:00",
+    "data_type": "derivatives",
+    "coin": "ETH",
+    "time_range": "current",
+    "content": {
+      "symbol": "ETHUSDT",
+      "funding_rate_pct": 0.008,
+      "bias": "balanced"
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "summary": {
+        "symbol": "ETHUSDT",
+        "funding_rate_pct": 0.008,
+        "bias": "balanced"
+      },
+      "time_range": "current"
+    },
+    "related_claim": "ETH derivatives evidence used in the market analysis",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "fallback",
+    "source_lineage_id": "lin:source_domain:12585507cf36",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.36,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.2,
+        "traceability": 0.2,
+        "freshness": 1.0,
+        "method_transparency": 0.2,
+        "independence": 0.2
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.75,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T06:39:01.739335+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5"
+  },
+  {
+    "evidence_id": "EV-005",
+    "source": "MockWhaleWatch",
+    "source_url": "https://example.com/whale",
+    "fetched_at": "2026-08-01T06:39:01.736626+00:00",
+    "data_type": "whale",
+    "coin": "ETH",
+    "time_range": "current",
+    "content": {
+      "wallets": [
+        {
+          "label": "Demo Exchange Wallet",
+          "address": "0xDEMO0000000000000000000000000000000000",
+          "balance": 500000,
+          "explorer_url": "https://example.com/whale"
+        }
+      ],
+      "note": "Demo fixture only"
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "summary": {
+        "wallets": [
+          {
+            "label": "Demo Exchange Wallet",
+            "address": "0xDEMO0000000000000000000000000000000000",
+            "balance": 500000,
+            "explorer_url": "https://example.com/whale"
+          }
+        ],
+        "note": "Demo fixture only"
+      },
+      "time_range": "current"
+    },
+    "related_claim": "ETH whale evidence used in the market analysis",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "fallback",
+    "source_lineage_id": "lin:source_domain:81e357ce724d",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.36,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.2,
+        "traceability": 0.2,
+        "freshness": 1.0,
+        "method_transparency": 0.2,
+        "independence": 0.2
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture",
+        "unverifiable_entity_attribution"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.65,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T06:39:01.739335+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture",
+      "unverifiable_entity_attribution"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5"
+  },
+  {
+    "evidence_id": "EV-006",
+    "source": "MockVegasChannel",
+    "source_url": "https://example.com/vegas",
+    "fetched_at": "2026-08-01T06:39:01.736626+00:00",
+    "data_type": "vegas_channel",
+    "coin": "ETH",
+    "time_range": "4h trend / 1h execution",
+    "content": {
+      "symbol": "ETHUSDT",
+      "trend_timeframe": "4h",
+      "execution_timeframe": "1h",
+      "4h": {
+        "trend": "bullish_aligned",
+        "tunnel_top": null,
+        "tunnel_bottom": null,
+        "in_tunnel": true,
+        "rsi": 55.0,
+        "volume_spike": false,
+        "last_signal": null,
+        "bars_since_signal": null
+      },
+      "1h": {
+        "trend": "mixed",
+        "tunnel_top": null,
+        "tunnel_bottom": null,
+        "in_tunnel": false,
+        "rsi": 48.0,
+        "volume_spike": false,
+        "last_signal": null,
+        "bars_since_signal": null
+      },
+      "alignment": {
+        "passed": false,
+        "4h_direction": "long",
+        "1h_direction": "neutral",
+        "note": "4h為多頭，1h為訊號不一(mixed)，方向不一致"
+      }
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "summary": {
+        "symbol": "ETHUSDT",
+        "trend_timeframe": "4h",
+        "execution_timeframe": "1h",
+        "4h": {
+          "trend": "bullish_aligned",
+          "tunnel_top": null,
+          "tunnel_bottom": null,
+          "in_tunnel": true,
+          "rsi": 55.0,
+          "volume_spike": false,
+          "last_signal": null,
+          "bars_since_signal": null
+        },
+        "1h": {
+          "trend": "mixed",
+          "tunnel_top": null,
+          "tunnel_bottom": null,
+          "in_tunnel": false,
+          "rsi": 48.0,
+          "volume_spike": false,
+          "last_signal": null,
+          "bars_since_signal": null
+        },
+        "alignment": {
+          "passed": false,
+          "4h_direction": "long",
+          "1h_direction": "neutral",
+          "note": "4h為多頭，1h為訊號不一(mixed)，方向不一致"
+        }
+      },
+      "time_range": "4h trend / 1h execution"
+    },
+    "related_claim": "ETH vegas_channel evidence used in the market analysis",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "fallback",
+    "source_lineage_id": "lin:source_domain:427332215234",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.375,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.2,
+        "traceability": 0.2,
+        "freshness": 1.0,
+        "method_transparency": 0.3,
+        "independence": 0.2
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ],
+      "notes": [],
+      "legacy_reliability_hint": 0.7,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T06:39:01.739335+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture"
+    ],
+    "related_claim_ids": [
+      "CL-001",
+      "CL-002"
+    ],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5"
+  },
+  {
+    "evidence_id": "EV-007",
+    "source": "MockLongShortRatio",
+    "source_url": "https://example.com/long_short_ratio",
+    "fetched_at": "2026-08-01T06:39:01.736626+00:00",
+    "data_type": "long_short_ratio",
+    "coin": "ETH",
+    "time_range": "last 24x1h",
+    "content": {
+      "symbol": "ETHUSDT",
+      "period": "1h",
+      "history": [
+        {
+          "time": "2026-08-01T06:39:01.736626+00:00",
+          "long_pct": 55.0,
+          "short_pct": 45.0,
+          "ratio": 1.2222
+        }
+      ],
+      "current": {
+        "time": "2026-08-01T06:39:01.736626+00:00",
+        "long_pct": 55.0,
+        "short_pct": 45.0,
+        "ratio": 1.2222
+      },
+      "bias": "long_dominant",
+      "consistency_pct": 80.0
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "summary": {
+        "symbol": "ETHUSDT",
+        "period": "1h",
+        "history": [
+          {
+            "time": "2026-08-01T06:39:01.736626+00:00",
+            "long_pct": 55.0,
+            "short_pct": 45.0,
+            "ratio": 1.2222
+          }
+        ],
+        "current": {
+          "time": "2026-08-01T06:39:01.736626+00:00",
+          "long_pct": 55.0,
+          "short_pct": 45.0,
+          "ratio": 1.2222
+        },
+        "bias": "long_dominant",
+        "consistency_pct": 80.0
+      },
+      "time_range": "last 24x1h"
+    },
+    "related_claim": "ETH long_short_ratio evidence used in the market analysis",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "fallback",
+    "source_lineage_id": "lin:source_domain:50816dca730d",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.375,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.2,
+        "traceability": 0.2,
+        "freshness": 1.0,
+        "method_transparency": 0.3,
+        "independence": 0.2
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ],
+      "notes": [],
+      "legacy_reliability_hint": 0.7,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T06:39:01.739335+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture"
+    ],
+    "related_claim_ids": [
+      "CL-001",
+      "CL-002"
+    ],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5"
+  },
+  {
+    "evidence_id": "EV-008",
+    "source": "MockMacro",
+    "source_url": "https://example.com/macro",
+    "fetched_at": "2026-08-01T06:39:01.736626+00:00",
+    "data_type": "macro",
+    "coin": "ETH",
+    "time_range": "14d",
+    "content": {
+      "fear_greed_value": 52,
+      "fear_greed_classification": "Neutral",
+      "fear_greed_history": [
+        {
+          "time": "2026-01-01",
+          "value": 47,
+          "classification": "Neutral"
+        },
+        {
+          "time": "2026-01-14",
+          "value": 52,
+          "classification": "Neutral"
+        }
+      ],
+      "fear_greed_change_14d": 5,
+      "risk_appetite_direction": "risk_appetite_stable",
+      "scope": "crypto market-wide (not coin-specific)",
+      "fed_releases": [
+        {
+          "title": "Federal Reserve issues FOMC statement",
+          "url": "https://example.com/fomc",
+          "published": ""
+        }
+      ],
+      "latest_fomc_release": {
+        "title": "Federal Reserve issues FOMC statement",
+        "url": "https://example.com/fomc",
+        "published": ""
+      },
+      "fed_status": "available"
+    },
+    "reliability_score": 0.18,
+    "content_reference": {
+      "summary": {
+        "fear_greed_value": 52,
+        "fear_greed_classification": "Neutral",
+        "fear_greed_history": [
+          {
+            "time": "2026-01-01",
+            "value": 47,
+            "classification": "Neutral"
+          },
+          {
+            "time": "2026-01-14",
+            "value": 52,
+            "classification": "Neutral"
+          }
+        ],
+        "fear_greed_change_14d": 5,
+        "risk_appetite_direction": "risk_appetite_stable",
+        "scope": "crypto market-wide (not coin-specific)",
+        "fed_releases": [
+          {
+            "title": "Federal Reserve issues FOMC statement",
+            "url": "https://example.com/fomc",
+            "published": ""
+          }
+        ],
+        "latest_fomc_release": {
+          "title": "Federal Reserve issues FOMC statement",
+          "url": "https://example.com/fomc",
+          "published": ""
+        },
+        "fed_status": "available"
+      },
+      "time_range": "14d"
+    },
+    "related_claim": "ETH macro evidence used in the market analysis",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": "2026-01-14T00:00:00+00:00",
+    "verification_status": "fallback",
+    "source_lineage_id": "lin:normalized_title:1906b1dd0c57",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.18,
+      "final_score": 0.18,
+      "components": {
+        "source_quality": 0.2,
+        "traceability": 0.2,
+        "freshness": 0.1,
+        "method_transparency": 0.2,
+        "independence": 0.2
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture"
+      ],
+      "freshness_basis": "event_time",
+      "age_days": 199.2771,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.8,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T06:39:01.739335+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5"
+  },
+  {
+    "evidence_id": "EV-009",
+    "source": "MockOfficialAnnouncements",
+    "source_url": "https://example.com/announcement",
+    "fetched_at": "2026-08-01T06:39:01.736626+00:00",
+    "data_type": "announcement",
+    "coin": "ETH",
+    "time_range": "recent",
+    "content": {
+      "items": [
+        {
+          "title": "ETH protocol update published",
+          "url": "https://example.com/announcement/1",
+          "published": "",
+          "lineage_id": "lin:normalized_title:2ec455fbfbac",
+          "duplicate_of_lineage": false
+        }
+      ],
+      "first_party": true,
+      "note": "Demo fixture only",
+      "lineage_groups": {
+        "lin:normalized_title:2ec455fbfbac": [
+          "https://example.com/announcement/1"
+        ]
+      },
+      "independent_story_count": 1,
+      "duplicate_item_count": 0
+    },
+    "reliability_score": 0.2,
+    "content_reference": {
+      "summary": {
+        "items": [
+          {
+            "title": "ETH protocol update published",
+            "url": "https://example.com/announcement/1",
+            "published": "",
+            "lineage_id": "lin:normalized_title:2ec455fbfbac",
+            "duplicate_of_lineage": false
+          }
+        ],
+        "first_party": true,
+        "note": "Demo fixture only",
+        "lineage_groups": {
+          "lin:normalized_title:2ec455fbfbac": [
+            "https://example.com/announcement/1"
+          ]
+        },
+        "independent_story_count": 1,
+        "duplicate_item_count": 0
+      },
+      "time_range": "recent"
+    },
+    "related_claim": "ETH announcement evidence used in the market analysis",
+    "source_type": "fallback_fixture",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "fallback",
+    "source_lineage_id": "lin:normalized_title:2ec455fbfbac",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.36,
+      "final_score": 0.2,
+      "components": {
+        "source_quality": 0.2,
+        "traceability": 0.2,
+        "freshness": 1.0,
+        "method_transparency": 0.2,
+        "independence": 0.2
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.2,
+      "score_limiters": [
+        "fallback_fixture"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0,
+      "lineage_size": 1,
+      "source_type": "fallback_fixture",
+      "known_limitations": [
+        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.85,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T06:39:01.739335+00:00"
+    },
+    "score_limiters": [
+      "fallback_fixture"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T063901Z-ETH-8a5a50c5"
+  }
+]

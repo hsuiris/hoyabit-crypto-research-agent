@@ -1,68 +1,71 @@
-# 匯入與啟動指南
+# 安裝與操作設定
 
-這是一份可直接複製使用的完整專案。**沒有 Git 歷史、沒有金鑰、沒有編譯快取。**
+## 需求與安裝
 
-## 30 秒啟動
+- Python 3.10 以上（本機驗收若只有 `python3` 3.9.6，僅作相容性檢查，不是正式支援版本）。
+- 僅使用 Python 標準函式庫，**不需要 `pip install`**。
+- clone 後於專案根目錄執行：
 
 ```bash
-python -m unittest discover -s tests    # 應為 488 passed
-python -m src.app                       # http://127.0.0.1:8000
+python3 -m unittest discover -s tests
+python3 -m src.app
 ```
 
-需要 Python 3.10 以上。**不需要 pip install** —— 本專案只使用標準函式庫。
+Web Demo 位於 <http://127.0.0.1:8000>。
 
-沒有設定 LLM 金鑰也能完整運作：系統會使用確定性離線推理，報告、圖表、回測、證據追溯全部正常，
-只有敘事文字改由規則產生，執行記錄會標為 `offline_fallback`。
+## AWS Bedrock（選用）
 
-## 啟用 LLM（選用）
+系統不讀取或保存 access key；請先使用正常 AWS credential chain（例如 AWS SSO、環境角色或 `~/.aws/credentials`）登入。確認競賽帳戶已在目標 region 取得模型存取權。
 
 ```bash
 cp .env.example .env
 ```
 
-填入 `GEMINI_API_KEY`（或 `OPENAI_API_KEY` 並設 `LLM_PROVIDER=openai`）。
+在 `.env` 設定，不要提交此檔：
 
-**配額提醒**：Gemini 免費方案每日 20 次呼叫，每次分析用掉 3 次（推理、消息面摘要、Critic 稽核），
-因此每天約只能跑 6 次完整分析。開發前端時建議用離線模式。
+```text
+LLM_PROVIDER=bedrock
+AWS_REGION=ap-northeast-1
+BEDROCK_MODEL_ID=amazon.nova-lite-v1:0
+BEDROCK_MAX_TOKENS=2048
+BEDROCK_TEMPERATURE=0.2
+```
 
-## 這份打包與原始倉庫的差異
+`BEDROCK_MODEL_ID` 必須替換為現場帳戶／region 實際允許的 model ID。CLI 指令不會自動載入 `.env`；先在 shell 匯出相同變數，或使用 Web 入口（它會載入根目錄 `.env`）。
 
-| 項目 | 原始倉庫 | 這份 |
-|---|---|---|
-| 專案根目錄 | 巢狀在 `agent團隊/`（中文目錄名） | **展平為根目錄、全 ASCII 路徑** |
-| Agent 設定 | `.agents/`（markdown 角色定義） | 轉換為 `.kiro/steering/`，原始檔一併保留於 `.agents/` |
-| `.env` | 含真實金鑰 | **已排除**，僅保留 `.env.example` |
-| `.git/` | 有 | 已排除 |
-| `__pycache__`、`outputs*` | 有 | 已排除 |
+## 離線 smoke
 
-中文目錄名是原倉庫最可能造成工具讀取問題的地方（Git 全程將其轉義為
-`agent\345\234\230\351\232\212`），因此這份打包改用 ASCII 路徑。
+```bash
+python3 -c "from pathlib import Path; from src.orchestrator import run; run('ETH', '市場認為 ETH 短期將維持盤整，請蒐集支持與反對證據。', Path('outputs-offline-smoke'), live=False, use_llm=False)"
+```
 
-## `.kiro/steering/` 內容
+確認六項輸出與 manifest：
 
-| 檔案 | 用途 |
-|---|---|
-| `product.md` | 產品定位、五條核心設計原則、明確的非目標 |
-| `tech.md` | 零第三方相依約束、常用指令、LLM 設定、修改時的注意事項 |
-| `structure.md` | 目錄結構、各層職責邊界、資料契約、測試慣例 |
-| `team-roles.md` | 原專案的多角色分工（由 `.agents/` 轉換） |
-| `architecture-review.md` | 架構圖繪製指引（由架構師 skill 轉換） |
+```bash
+python3 -c "import hashlib,json; from pathlib import Path; out=Path('outputs-offline-smoke'); m=json.loads((out/'manifest.json').read_text()); [print(x['path'], hashlib.sha256((out/x['path']).read_bytes()).hexdigest()==x['sha256']) for x in m['files']]"
+```
 
-> 這些檔案是依 Kiro 的 steering 慣例（`.kiro/steering/*.md`）放置的。若你的 Kiro 版本
-> 使用不同的目錄或檔名慣例，直接搬移即可 —— 內容是純 markdown，沒有任何工具專屬語法。
-> 原始的 `.agents/` 與 `AGENTS.md` 也一併保留，其他讀 `AGENTS.md` 慣例的工具可直接使用。
+## 一次 live smoke
 
-## 主要入口
+僅在 AWS credentials、region 與 model ID 都已確認時執行一次：
 
-- `src/app.py` — 網頁與所有頁面渲染
-- `src/orchestrator.py` — 三階段管線的核心
-- `docs/project-report.md` — 完整專案報告（含 32 條限制總表）
-- `docs/demo-script.md` — 5 分鐘 Demo 腳本
+```bash
+LLM_PROVIDER=bedrock AWS_REGION=ap-northeast-1 BEDROCK_MODEL_ID='你的現場模型 ID' python3 -c "from pathlib import Path; from src.orchestrator import run; run('BTC', '分析 BTC 過去兩週市場表現，整合價格、鏈上、主要新聞與討論熱度，說明訊號一致程度。', Path('demo-fixtures/competition-ready/live-success'), live=True, use_llm=True)"
+```
 
-## 已知限制
+若結果的 `execution_log.json` 出現 fallback，保留該診斷輸出，但不要把它當作 live-success；改以 `offline-backup` 展示。
 
-完整清單見 `docs/project-report.md` 第 8 節。最需要先知道的三項：
+## Formal run 與授權重跑
 
-1. 每次分析消耗 3 次 LLM 呼叫，免費配額每日僅約 6 次
-2. Critic 稽核的真實 API 往返尚未驗證（單元測試已覆蓋解析、調整與降級）
-3. 回測樣本數僅 1–3 筆／幣，不足以證明策略有效
+```bash
+python3 -c "from pathlib import Path; from src.run_manager import RunManager, RUN_MODE_FORMAL; from src.orchestrator import run; m=RunManager(Path('outputs-formal')); r=m.create_run('分析 XRP 當前市場狀態、主要風險與後續觀察條件。',['XRP'],mode=RUN_MODE_FORMAL); run('XRP','分析 XRP 當前市場狀態、主要風險與後續觀察條件。',m.run_directory(r),live=False,use_llm=False,run_record=r); print(r.run_id,r.status)"
+```
+
+同題正式重跑必須明確帶上前一個 `run_id`、理由及授權：
+
+```python
+rerun = manager.create_run(question, ['XRP'], mode=RUN_MODE_FORMAL,
+    rerun_of=previous_run_id, rerun_reason='已授權的原因', authorized_rerun=True)
+```
+
+完整現場步驟與 fallback 展示方式見 `docs/DEMO_RUNBOOK.md`。

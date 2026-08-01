@@ -1,0 +1,34 @@
+{
+  "coins": [
+    "SOL",
+    "BNB"
+  ],
+  "task_modes": [
+    "describe_market_state",
+    "compare_assets",
+    "identify_risks"
+  ],
+  "primary_question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+  "time_window": {
+    "days": 14,
+    "source": "default"
+  },
+  "hypotheses": [],
+  "required_domains": [
+    "market",
+    "derivatives"
+  ],
+  "comparison_dimensions": [
+    "price_performance",
+    "volatility",
+    "market_cap_liquidity",
+    "risk_signals"
+  ],
+  "assumptions": [
+    "題目未明確指定時間範圍，沿用產品預設的 14 天作為研究窗口；這個天數不是題目要求的，只是預設假設。"
+  ],
+  "stop_conditions": {
+    "max_evidence": 36,
+    "max_followup_rounds": 1
+  }
+}

@@ -410,14 +410,22 @@ tasks:
 
   T8:
     title: Competition readiness tests and Demo Freeze
-    status: TODO
+    status: PARTIAL
     depends_on: [T7]
     target_minutes: 90
     feature_freeze: true
-    started_at: null
-    completed_at: null
-    commit: null
-    tag: null
-    test_summary: null
-    blockers: []
-    known_limitations: []
+    started_at: 2026-08-01T14:30:00+08:00
+    completed_at: 2026-08-01T14:43:00+08:00
+    commit: 'test(T8): freeze competition-ready demo'
+    tag: null  # 不建立：唯一 live Bedrock smoke 未能實際呼叫模型
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_competition_readiness -v → 6 tests OK；
+      完整套件：python3 -m unittest discover -s tests → 541 tests, 541 passed, 0 failed, 0 errors；
+      五幣 offline E2E：BTC／ETH／SOL／BNB／XRP 均產出六檔、Citation Gate PASS、manifest hash 全相符；
+      comparison smoke：SOL vs BNB 共用時間窗、pair manifest hash PASS；Web smoke：HTTP 200。
+      唯一 live BTC smoke：11 個 collector success、Citation Gate PASS、2.9 秒，但本機缺少 boto3，
+      Bedrock 分析與 Critic 降級為 deterministic fallback，未保存為 live-success。
+    blockers: [B2]
+    known_limitations:
+      - 本機只含 Python 標準函式庫且無 boto3，無法實際呼叫 Bedrock；需在含 AWS SDK 與授權 credentials 的 Lambda／競賽環境只重做一次 live smoke
+      - 現場展示必須使用 demo-fixtures/competition-ready/offline-backup 或 comparison-backup，不得將此次降級 live run 宣稱為模型成功
