@@ -3,41 +3,15 @@
     "evidence_id": "EV-MARKET-001",
     "source": "CoinGecko",
     "source_url": "https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=14",
-    "fetched_at": "2026-07-31T12:42:56.089037+00:00",
+    "fetched_at": "2026-08-01T14:29:17.881090+00:00",
     "data_type": "market",
     "coin": "ETH",
     "time_range": "14d",
     "content": {
-      "start_price": 1827.8652401571812,
-      "end_price": 1875.8552815709122,
-      "return_pct": 2.63,
+      "start_price": 1844.7415112609306,
+      "end_price": 1870.697705010294,
+      "return_pct": 1.41,
       "prices": [
-        1827.8652401571812,
-        1823.7138073804665,
-        1821.0809249978518,
-        1829.1441306790862,
-        1834.8748565541334,
-        1842.9977240232618,
-        1845.717725487278,
-        1841.8939524205073,
-        1842.4133425524121,
-        1841.2438989258974,
-        1839.2009034583243,
-        1840.7681193183653,
-        1840.1796856903952,
-        1841.9527276612769,
-        1841.5395861865816,
-        1845.0254539378313,
-        1843.853772185493,
-        1845.228327495484,
-        1844.164071918405,
-        1843.1939503372098,
-        1846.7046834582006,
-        1844.5413802028736,
-        1844.8719865256423,
-        1844.9039867892157,
-        1843.8912392483865,
-        1841.0863217340957,
         1844.7415112609306,
         1843.2350583406615,
         1844.7697273812487,
@@ -344,39 +318,39 @@
         1903.811872751147,
         1899.4038683267172,
         1888.9396939969017,
-        1888.7049375047743,
-        1881.8962173793495,
-        1885.7037052239464,
-        1882.2568779318656,
-        1875.8552815709122
+        1888.7782026257757,
+        1880.7389435092277,
+        1886.7576503639555,
+        1881.1962872500346,
+        1882.273983853628,
+        1864.1799337837645,
+        1856.4754744389027,
+        1860.7827118181046,
+        1864.7991937588972,
+        1873.0768205800964,
+        1870.8314601931484,
+        1866.7334586396619,
+        1858.4479776305789,
+        1859.0949168158936,
+        1861.0757480910654,
+        1863.142662703628,
+        1864.5042950888585,
+        1865.4780454367935,
+        1866.3181575518536,
+        1868.1269049104678,
+        1867.998019965757,
+        1865.4433531452137,
+        1868.672417278124,
+        1867.762660186393,
+        1867.3628102559064,
+        1864.3753127405016,
+        1865.5263187689707,
+        1865.223010580646,
+        1867.3475919840275,
+        1867.6281235403412,
+        1870.697705010294
       ],
       "dates": [
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-17",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
-        "2026-07-18",
         "2026-07-18",
         "2026-07-18",
         "2026-07-18",
@@ -687,35 +661,35 @@
         "2026-07-31",
         "2026-07-31",
         "2026-07-31",
-        "2026-07-31"
+        "2026-07-31",
+        "2026-07-31",
+        "2026-07-31",
+        "2026-07-31",
+        "2026-07-31",
+        "2026-07-31",
+        "2026-07-31",
+        "2026-07-31",
+        "2026-07-31",
+        "2026-07-31",
+        "2026-07-31",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01",
+        "2026-08-01"
       ],
       "volumes": [
-        10203533271.972263,
-        10411821974.55067,
-        10456868357.750074,
-        10309124274.29975,
-        10336408745.269958,
-        10442192177.597961,
-        10503472441.073082,
-        10526846688.673948,
-        10539875470.110611,
-        10479232234.787401,
-        10338771425.755745,
-        10022919662.432865,
-        9683788938.00275,
-        9385438604.538654,
-        9160804060.878263,
-        9008856540.788628,
-        8860160999.82928,
-        8345802636.713766,
-        8067773678.06423,
-        7713282023.984354,
-        7489595416.734376,
-        7364285009.898547,
-        7231423700.718653,
-        6917234521.084685,
-        6904483710.730051,
-        6087703074.3473,
         5727096161.407173,
         5357060396.929903,
         5054048204.403157,
@@ -1022,14 +996,40 @@
         7103921230.588964,
         7117219730.64633,
         7420506116.3586445,
-        7315704075.87156,
-        7535790046.583704,
-        7576670184.507358,
-        7596692112.89615,
-        7701489281.817083
+        7389946078.1408615,
+        7535212514.122626,
+        7571632167.87743,
+        7594494064.023319,
+        7693267009.452098,
+        7814449042.009627,
+        8654745636.153364,
+        8922081518.916784,
+        9053225437.305502,
+        9229897230.063364,
+        9204234320.052277,
+        9207281526.170029,
+        9237691913.419237,
+        9247157578.370516,
+        9169246233.193893,
+        9042167350.043133,
+        8801768352.52353,
+        8399770969.6904955,
+        8187943824.162163,
+        7998228530.003471,
+        7933301001.292407,
+        7883931085.107115,
+        7754847894.970143,
+        7338932089.433076,
+        7119901176.670609,
+        6746026376.447472,
+        6691887587.67131,
+        6610021893.647877,
+        6329501975.520196,
+        5802920062.9629755,
+        5023180481.546841
       ]
     },
-    "reliability_score": 0.9,
+    "reliability_score": 0.8775,
     "content_reference": {
       "endpoint": "https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=14",
       "query": {
@@ -1038,25 +1038,83 @@
       },
       "points": 337
     },
-    "related_claim": "ETH 14-day market return"
+    "related_claim": "ETH 14-day market return",
+    "source_type": "market_api",
+    "published_at": null,
+    "event_time": "2026-08-01T00:00:00+00:00",
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:39ef32d11489",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.8775,
+      "final_score": 0.8775,
+      "components": {
+        "source_quality": 0.85,
+        "traceability": 0.9,
+        "freshness": 1.0,
+        "method_transparency": 0.75,
+        "independence": 0.85
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "event_time",
+      "age_days": 0.6037,
+      "lineage_size": 1,
+      "source_type": "market_api",
+      "known_limitations": [
+        "不同交易所報價可能不一致",
+        "指標可重現不代表預測正確"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.9,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-NEWS-001",
     "source": "Google News RSS + publisher feeds",
     "source_url": "https://news.google.com/rss/search?q=ETH%20crypto",
-    "fetched_at": "2026-07-31T12:42:56.382042+00:00",
+    "fetched_at": "2026-08-01T14:29:20.995140+00:00",
     "data_type": "news",
     "coin": "ETH",
     "time_range": "14d",
     "content": {
       "items": [
         {
+          "title": "Tether earns $1.5B in Q2 as US Treasury holdings fuel profits",
+          "url": "https://cointelegraph.com/news/tether-q2-profit-us-treasury-holdings-usdt-supply?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Fri, 31 Jul 2026 16:25:47 +0000",
+          "summary": "Tether’s reserve surplus grew to $4.11 billion in the second quarter as USDT supply rose despite a weaker stablecoin market and continued pressure across the crypto sector.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:d644cca9877f",
+          "duplicate_of_lineage": false
+        },
+        {
           "title": "New York sues Kalshi over alleged illegal gambling operation",
           "url": "https://cointelegraph.com/news/new-york-sues-kalshi-gambling-operation?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
           "published": "Fri, 31 Jul 2026 10:05:01 +0000",
           "summary": "The lawsuit adds to a growing clash between New York and the CFTC over whether federally regulated prediction markets are subject to state gambling laws.",
           "publisher": "Cointelegraph",
-          "has_summary": true
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:89d102807d9c",
+          "duplicate_of_lineage": false
         },
         {
           "title": "US senators sent revised ethics rules to White House for CLARITY Act: Report",
@@ -1064,48 +1122,79 @@
           "published": "Thu, 30 Jul 2026 21:54:38 +0000",
           "summary": "The window to pass a comprehensive crypto market structure bill before the Senate breaks for a month-long recess is closing, with ethics a dividing issue for many lawmakers.",
           "publisher": "Cointelegraph",
-          "has_summary": true
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:cfe52df34504",
+          "duplicate_of_lineage": false
         },
         {
-          "title": "Bitcoin, Ethereum Wobble as Fed Holds Rates Steady",
-          "url": "https://decrypt.co/374672/bitcoin-ethereum-price-fed-holds-rates-steady",
-          "published": "Wed, 29 Jul 2026 18:43:45 +0000",
-          "summary": "Chair Kevin Warsh kept the federal funds rate at 3.5%\u20133.75% and offered no new signals on when cuts\u2014or hikes\u2014might come.",
+          "title": "Tether Reports $1.5B Q2 Profit as USDT Supply Grows, Gold Holdings Rise",
+          "url": "https://decrypt.co/374796/tether-reports-1-5b-q2-profit-usdt-supply-grows",
+          "published": "Fri, 31 Jul 2026 17:10:49 +0000",
+          "summary": "The latest attestation offers a snapshot of the assets backing the world's largest stablecoin, including U.S. Treasuries, repo agreements, and more than 146 metric tons of gold.",
           "publisher": "Decrypt",
-          "has_summary": true
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:48fc1bc538c9",
+          "duplicate_of_lineage": false
         },
         {
-          "title": "Ethereum Price Stalls as Fed Rate Decision Looms",
-          "url": "https://decrypt.co/374653/ethereum-price-stalls-fed-rate-decision",
-          "published": "Wed, 29 Jul 2026 17:18:49 +0000",
-          "summary": "Despite being down today, ETH has clawed back from the worst levels of the year. Now it's waiting on the Fed.",
-          "publisher": "Decrypt",
-          "has_summary": true
-        },
-        {
-          "title": "Wall Street Is Moving Onto Ethereum \u2014 Why Isn't ETH Price Moving With It? - CoinMarketCap",
-          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxPWEhSQm9EcHRYV2JXbWE3MUgtUThsZ0x1SE05cFJWN0dxYTczZzF2Z2F6YmVPOFgxUGhQU0tOaWlUQ1pPQ2FhcWdFeVJtWG1GTVltaDY5c0RROHZwQVk1V0txeEMwTzBNSFdaamtGYkhLTFNuWEk4WC1BRUV6WC1mN2ljeGdkalZDNGFRYWtQNGo?oc=5",
-          "published": "Wed, 29 Jul 2026 13:25:26 GMT",
+          "title": "Bitcoin and ethereum prices today, Friday, July 31, 2026: Crypto prices back off this morning - Yahoo Finance",
+          "url": "https://news.google.com/rss/articles/CBMi-AFBVV95cUxQbnY5ampqejVuVU81SF9zeUNrRXU2UHUxZGxxTVpyYkxKVHNHYlJLallMYldtT0lITER6ZTJtc3JVZ2licGpOaGdTNXBRa2FPVUpVU3h3NldQbHFzS05xTENRaFp2VUJPZXpJNW5mc1MzQ09VLVdteG9sbFMtN2wweXJiVU50LTRBdXBCNVVHaXM1N2VYcnZWWlhSUWNzUU96UGYyQTYxVlI3WXVkdFlzRkNRaWNTYkRWeHA4dGxhWHFoQU9pUDNSeUlua1NuaFhCQl9XUjQ5Ull6OTlVZzlrejBHWDBqVmt3VUJrQXVZSzU2N2htcXZuUg?oc=5",
+          "published": "Fri, 31 Jul 2026 13:06:57 GMT",
           "summary": "",
-          "publisher": "CoinMarketCap",
-          "has_summary": false
+          "publisher": "Yahoo Finance",
+          "has_summary": false,
+          "lineage_id": "lin:normalized_title:990c492a2de3",
+          "duplicate_of_lineage": false
         }
       ],
-      "summarised_count": 4
+      "summarised_count": 4,
+      "fulltext_count": 0,
+      "lineage_groups": {
+        "lin:normalized_title:d644cca9877f": [
+          "https://cointelegraph.com/news/tether-q2-profit-us-treasury-holdings-usdt-supply?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+        ],
+        "lin:normalized_title:89d102807d9c": [
+          "https://cointelegraph.com/news/new-york-sues-kalshi-gambling-operation?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+        ],
+        "lin:normalized_title:cfe52df34504": [
+          "https://cointelegraph.com/news/us-senators-revised-ethics-rules-white-house-clarity-act?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+        ],
+        "lin:normalized_title:48fc1bc538c9": [
+          "https://decrypt.co/374796/tether-reports-1-5b-q2-profit-usdt-supply-grows"
+        ],
+        "lin:normalized_title:990c492a2de3": [
+          "https://news.google.com/rss/articles/CBMi-AFBVV95cUxQbnY5ampqejVuVU81SF9zeUNrRXU2UHUxZGxxTVpyYkxKVHNHYlJLallMYldtT0lITER6ZTJtc3JVZ2licGpOaGdTNXBRa2FPVUpVU3h3NldQbHFzS05xTENRaFp2VUJPZXpJNW5mc1MzQ09VLVdteG9sbFMtN2wweXJiVU50LTRBdXBCNVVHaXM1N2VYcnZWWlhSUWNzUU96UGYyQTYxVlI3WXVkdFlzRkNRaWNTYkRWeHA4dGxhWHFoQU9pUDNSeUlua1NuaFhCQl9XUjQ5Ull6OTlVZzlrejBHWDBqVmt3VUJrQXVZSzU2N2htcXZuUg?oc=5"
+        ]
+      },
+      "independent_story_count": 5,
+      "duplicate_item_count": 0
     },
-    "reliability_score": 0.6,
+    "reliability_score": 0.58,
     "content_reference": {
       "feed_url": "https://news.google.com/rss/search?q=ETH%20crypto",
       "article_count": 5,
       "with_lede": 4,
+      "with_fulltext": 0,
       "items": [
+        {
+          "title": "Tether earns $1.5B in Q2 as US Treasury holdings fuel profits",
+          "url": "https://cointelegraph.com/news/tether-q2-profit-us-treasury-holdings-usdt-supply?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+          "published": "Fri, 31 Jul 2026 16:25:47 +0000",
+          "summary": "Tether’s reserve surplus grew to $4.11 billion in the second quarter as USDT supply rose despite a weaker stablecoin market and continued pressure across the crypto sector.",
+          "publisher": "Cointelegraph",
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:d644cca9877f",
+          "duplicate_of_lineage": false
+        },
         {
           "title": "New York sues Kalshi over alleged illegal gambling operation",
           "url": "https://cointelegraph.com/news/new-york-sues-kalshi-gambling-operation?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
           "published": "Fri, 31 Jul 2026 10:05:01 +0000",
           "summary": "The lawsuit adds to a growing clash between New York and the CFTC over whether federally regulated prediction markets are subject to state gambling laws.",
           "publisher": "Cointelegraph",
-          "has_summary": true
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:89d102807d9c",
+          "duplicate_of_lineage": false
         },
         {
           "title": "US senators sent revised ethics rules to White House for CLARITY Act: Report",
@@ -1113,53 +1202,92 @@
           "published": "Thu, 30 Jul 2026 21:54:38 +0000",
           "summary": "The window to pass a comprehensive crypto market structure bill before the Senate breaks for a month-long recess is closing, with ethics a dividing issue for many lawmakers.",
           "publisher": "Cointelegraph",
-          "has_summary": true
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:cfe52df34504",
+          "duplicate_of_lineage": false
         },
         {
-          "title": "Bitcoin, Ethereum Wobble as Fed Holds Rates Steady",
-          "url": "https://decrypt.co/374672/bitcoin-ethereum-price-fed-holds-rates-steady",
-          "published": "Wed, 29 Jul 2026 18:43:45 +0000",
-          "summary": "Chair Kevin Warsh kept the federal funds rate at 3.5%\u20133.75% and offered no new signals on when cuts\u2014or hikes\u2014might come.",
+          "title": "Tether Reports $1.5B Q2 Profit as USDT Supply Grows, Gold Holdings Rise",
+          "url": "https://decrypt.co/374796/tether-reports-1-5b-q2-profit-usdt-supply-grows",
+          "published": "Fri, 31 Jul 2026 17:10:49 +0000",
+          "summary": "The latest attestation offers a snapshot of the assets backing the world's largest stablecoin, including U.S. Treasuries, repo agreements, and more than 146 metric tons of gold.",
           "publisher": "Decrypt",
-          "has_summary": true
+          "has_summary": true,
+          "lineage_id": "lin:normalized_title:48fc1bc538c9",
+          "duplicate_of_lineage": false
         },
         {
-          "title": "Ethereum Price Stalls as Fed Rate Decision Looms",
-          "url": "https://decrypt.co/374653/ethereum-price-stalls-fed-rate-decision",
-          "published": "Wed, 29 Jul 2026 17:18:49 +0000",
-          "summary": "Despite being down today, ETH has clawed back from the worst levels of the year. Now it's waiting on the Fed.",
-          "publisher": "Decrypt",
-          "has_summary": true
-        },
-        {
-          "title": "Wall Street Is Moving Onto Ethereum \u2014 Why Isn't ETH Price Moving With It? - CoinMarketCap",
-          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxPWEhSQm9EcHRYV2JXbWE3MUgtUThsZ0x1SE05cFJWN0dxYTczZzF2Z2F6YmVPOFgxUGhQU0tOaWlUQ1pPQ2FhcWdFeVJtWG1GTVltaDY5c0RROHZwQVk1V0txeEMwTzBNSFdaamtGYkhLTFNuWEk4WC1BRUV6WC1mN2ljeGdkalZDNGFRYWtQNGo?oc=5",
-          "published": "Wed, 29 Jul 2026 13:25:26 GMT",
+          "title": "Bitcoin and ethereum prices today, Friday, July 31, 2026: Crypto prices back off this morning - Yahoo Finance",
+          "url": "https://news.google.com/rss/articles/CBMi-AFBVV95cUxQbnY5ampqejVuVU81SF9zeUNrRXU2UHUxZGxxTVpyYkxKVHNHYlJLallMYldtT0lITER6ZTJtc3JVZ2licGpOaGdTNXBRa2FPVUpVU3h3NldQbHFzS05xTENRaFp2VUJPZXpJNW5mc1MzQ09VLVdteG9sbFMtN2wweXJiVU50LTRBdXBCNVVHaXM1N2VYcnZWWlhSUWNzUU96UGYyQTYxVlI3WXVkdFlzRkNRaWNTYkRWeHA4dGxhWHFoQU9pUDNSeUlua1NuaFhCQl9XUjQ5Ull6OTlVZzlrejBHWDBqVmt3VUJrQXVZSzU2N2htcXZuUg?oc=5",
+          "published": "Fri, 31 Jul 2026 13:06:57 GMT",
           "summary": "",
-          "publisher": "CoinMarketCap",
-          "has_summary": false
+          "publisher": "Yahoo Finance",
+          "has_summary": false,
+          "lineage_id": "lin:normalized_title:990c492a2de3",
+          "duplicate_of_lineage": false
         }
       ]
     },
-    "related_claim": "Recent news context for ETH"
+    "related_claim": "Recent news context for ETH",
+    "source_type": "secondary_media",
+    "published_at": "2026-07-31T17:10:49+00:00",
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:normalized_title:d644cca9877f",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.58,
+      "final_score": 0.58,
+      "components": {
+        "source_quality": 0.5,
+        "traceability": 0.55,
+        "freshness": 1.0,
+        "method_transparency": 0.35,
+        "independence": 0.4
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "published_at",
+      "age_days": 0.8879,
+      "lineage_size": 1,
+      "source_type": "secondary_media",
+      "known_limitations": [
+        "單一次級來源不足以確認事件",
+        "多篇同源轉載不構成多個獨立確認"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.6,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-MACRO-ETH-001",
     "source": "Alternative.me Fear & Greed + Federal Reserve press releases",
     "source_url": "https://api.alternative.me/fng/?limit=14",
-    "fetched_at": "2026-07-31T12:42:57.259264+00:00",
+    "fetched_at": "2026-08-01T14:29:18.835158+00:00",
     "data_type": "macro",
     "coin": "ETH",
     "time_range": "14d",
     "content": {
-      "fear_greed_value": 25,
-      "fear_greed_classification": "Extreme Fear",
+      "fear_greed_value": 27,
+      "fear_greed_classification": "Fear",
       "fear_greed_history": [
-        {
-          "time": "2026-07-18",
-          "value": 25,
-          "classification": "Extreme Fear"
-        },
         {
           "time": "2026-07-19",
           "value": 28,
@@ -1224,9 +1352,14 @@
           "time": "2026-07-31",
           "value": 25,
           "classification": "Extreme Fear"
+        },
+        {
+          "time": "2026-08-01",
+          "value": 27,
+          "classification": "Fear"
         }
       ],
-      "fear_greed_change_14d": 0,
+      "fear_greed_change_14d": -1,
       "risk_appetite_direction": "risk_appetite_stable",
       "scope": "crypto market-wide (not coin-specific)",
       "fed_releases": [
@@ -1269,20 +1402,65 @@
       },
       "fed_status": "available"
     },
-    "reliability_score": 0.8,
+    "reliability_score": 0.8325,
     "content_reference": {
       "fear_greed_endpoint": "https://api.alternative.me/fng/?limit=14",
       "fed_feed": "https://www.federalreserve.gov/feeds/press_monetary.xml",
       "points": 14,
       "fed_status": "available"
     },
-    "related_claim": "Market-wide risk appetite and monetary-policy backdrop applied to ETH"
+    "related_claim": "Market-wide risk appetite and monetary-policy backdrop applied to ETH",
+    "source_type": "macro_api",
+    "published_at": "2026-07-29T18:00:00+00:00",
+    "event_time": "2026-08-01T00:00:00+00:00",
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:normalized_title:1906b1dd0c57",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.8325,
+      "final_score": 0.8325,
+      "components": {
+        "source_quality": 0.8,
+        "traceability": 0.85,
+        "freshness": 1.0,
+        "method_transparency": 0.7,
+        "independence": 0.75
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "event_time",
+      "age_days": 0.6037,
+      "lineage_size": 1,
+      "source_type": "macro_api",
+      "known_limitations": [
+        "多為全市場範圍，不是單一幣種的證據"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.8,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-ANNOUNCE-ETH-001",
     "source": "Ethereum Foundation Blog",
     "source_url": "https://blog.ethereum.org/en/feed.xml",
-    "fetched_at": "2026-07-31T12:42:57.523347+00:00",
+    "fetched_at": "2026-08-01T14:29:21.094217+00:00",
     "data_type": "announcement",
     "coin": "ETH",
     "time_range": "recent",
@@ -1292,68 +1470,190 @@
           "title": "Ethereum Foundation Board Update",
           "url": "https://blog.ethereum.org/en/2026/07/29/ef-board-update",
           "published": "Wed, 29 Jul 2026 00:00:00 GMT",
-          "summary": "We are pleased to share that pcaversaccio (pc) has joined the Ethereum Foundation Board. pc is a long time contributor to the Ethereum ecosystem, a co-founder and lead of SEAL 911, and has been a member of the EF's Silviculture Society, which provides informal counsel to EF aimed at..."
+          "summary": "We are pleased to share that pcaversaccio (pc) has joined the Ethereum Foundation Board. pc is a long time contributor to the Ethereum ecosystem, a co-founder and lead of SEAL 911, and has been a member of the EF's Silviculture Society, which provides informal counsel to EF aimed at...",
+          "lineage_id": "lin:normalized_title:2f733bd14105",
+          "duplicate_of_lineage": false
         },
         {
           "title": "Devcon 8 Tickets Are Live: Find Your Path to Mumbai",
           "url": "https://blog.ethereum.org/en/2026/07/14/devcon8-tickets",
           "published": "Tue, 14 Jul 2026 00:00:00 GMT",
-          "summary": "Devcon 8 tickets are live! \ud83c\uddee\ud83c\uddf3 This November, the Ethereum community will gather in Mumbai for a more focused and intimate Devcon. Devcon gathers minds from across Ethereum and beyond: builders, researchers, maintainers, organizers, and anyone curious about the future of open technology. Across four days, you can..."
+          "summary": "Devcon 8 tickets are live! 🇮🇳 This November, the Ethereum community will gather in Mumbai for a more focused and intimate Devcon. Devcon gathers minds from across Ethereum and beyond: builders, researchers, maintainers, organizers, and anyone curious about the future of open technology. Across four days, you can...",
+          "lineage_id": "lin:normalized_title:6641b8d9377a",
+          "duplicate_of_lineage": false
         },
         {
           "title": "The triage is the product: running AI agents against Ethereum's protocol code",
           "url": "https://blog.ethereum.org/en/2026/07/09/triage-is-the-product",
           "published": "Thu, 09 Jul 2026 00:00:00 GMT",
-          "summary": "Notes from the Ethereum Foundation's Protocol Security team on running coordinated AI agents against real protocol code, including how we organize the work, what holds up under scrutiny, and what client teams and security researchers can take from it. This post stands on its own; later posts will go deeper..."
+          "summary": "Notes from the Ethereum Foundation's Protocol Security team on running coordinated AI agents against real protocol code, including how we organize the work, what holds up under scrutiny, and what client teams and security researchers can take from it. This post stands on its own; later posts will go deeper...",
+          "lineage_id": "lin:normalized_title:8557244ee78c",
+          "duplicate_of_lineage": false
         },
         {
           "title": "Ethereum for Governments and Institutions: Why neutral infrastructure matters now",
           "url": "https://blog.ethereum.org/en/2026/07/01/ethereum-for-institutions",
           "published": "Wed, 01 Jul 2026 00:00:00 GMT",
-          "summary": "Current global shifts clearly signal a critical need for shared, neutral digital public infrastructure outside the control of any single centralized actor. As a public, programmable network designed to operate without reliance on any single party, Ethereum was built to address precisely these needs. Today, the Ethereum Foundation Global..."
+          "summary": "Current global shifts clearly signal a critical need for shared, neutral digital public infrastructure outside the control of any single centralized actor. As a public, programmable network designed to operate without reliance on any single party, Ethereum was built to address precisely these needs. Today, the Ethereum Foundation Global...",
+          "lineage_id": "lin:normalized_title:898f1bd10c9e",
+          "duplicate_of_lineage": false
         },
         {
-          "title": "The EF\u2019s new structure",
+          "title": "The EF’s new structure",
           "url": "https://blog.ethereum.org/en/2026/06/23/ef-structure",
           "published": "Tue, 23 Jun 2026 00:00:00 GMT",
-          "summary": "Today, the EF is changing shape, concluding a months-long process of reorganization as part of the implementation of the Mandate and the Treasury Management Policy. We come out of this process with the structure, activities, and people necessary for execution on the critical tasks ahead of us, but also..."
+          "summary": "Today, the EF is changing shape, concluding a months-long process of reorganization as part of the implementation of the Mandate and the Treasury Management Policy. We come out of this process with the structure, activities, and people necessary for execution on the critical tasks ahead of us, but also...",
+          "lineage_id": "lin:normalized_title:35780f0ec520",
+          "duplicate_of_lineage": false
         }
       ],
       "first_party": true,
-      "note": "\u7b2c\u4e00\u65b9\u5b98\u65b9\u767c\u5e03"
+      "scope": "general",
+      "note": "第一方官方發布",
+      "lineage_groups": {
+        "lin:normalized_title:2f733bd14105": [
+          "https://blog.ethereum.org/en/2026/07/29/ef-board-update"
+        ],
+        "lin:normalized_title:6641b8d9377a": [
+          "https://blog.ethereum.org/en/2026/07/14/devcon8-tickets"
+        ],
+        "lin:normalized_title:8557244ee78c": [
+          "https://blog.ethereum.org/en/2026/07/09/triage-is-the-product"
+        ],
+        "lin:normalized_title:898f1bd10c9e": [
+          "https://blog.ethereum.org/en/2026/07/01/ethereum-for-institutions"
+        ],
+        "lin:normalized_title:35780f0ec520": [
+          "https://blog.ethereum.org/en/2026/06/23/ef-structure"
+        ]
+      },
+      "independent_story_count": 5,
+      "duplicate_item_count": 0
     },
-    "reliability_score": 0.85,
+    "reliability_score": 0.8081,
     "content_reference": {
       "feed_url": "https://blog.ethereum.org/en/feed.xml",
       "entry_count": 5,
       "first_party": true
     },
-    "related_claim": "Official project announcements for ETH"
+    "related_claim": "Official project announcements for ETH",
+    "source_type": "official_announcement",
+    "published_at": "2026-07-29T00:00:00+00:00",
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:normalized_title:2f733bd14105",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.8081,
+      "final_score": 0.8081,
+      "components": {
+        "source_quality": 0.85,
+        "traceability": 0.85,
+        "freshness": 0.9905,
+        "method_transparency": 0.55,
+        "independence": 0.6
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "published_at",
+      "age_days": 3.6037,
+      "lineage_size": 1,
+      "source_type": "official_announcement",
+      "known_limitations": [
+        "高可信證明「已發布」，不證明商業成果",
+        "第一方陳述不構成獨立確認"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.85,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-ONCHAIN-ETH-001",
     "source": "Ethereum",
     "source_url": "https://ethereum.publicnode.com",
-    "fetched_at": "2026-07-31T12:42:58.241450+00:00",
+    "fetched_at": "2026-08-01T14:29:14.655080+00:00",
     "data_type": "onchain",
     "coin": "ETH",
     "time_range": "current",
     "content": {
       "chain": "Ethereum",
-      "latest_block_hex": "0x1876eb2"
+      "latest_block_hex": "0x1878cd3"
     },
-    "reliability_score": 0.7,
+    "reliability_score": 0.925,
     "content_reference": {
       "endpoint": "https://ethereum.publicnode.com",
       "chain": "Ethereum"
     },
-    "related_claim": "Current Ethereum chain health observation for ETH"
+    "related_claim": "Current Ethereum chain health observation for ETH",
+    "source_type": "blockchain_raw",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:297287d6bf19",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.925,
+      "final_score": 0.925,
+      "components": {
+        "source_quality": 0.9,
+        "traceability": 0.95,
+        "freshness": 1.0,
+        "method_transparency": 0.85,
+        "independence": 0.9
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0001,
+      "lineage_size": 1,
+      "source_type": "blockchain_raw",
+      "known_limitations": [
+        "可高可信證明轉帳發生，不能證明地址實際擁有者",
+        "不能證明交易意圖或後續買賣行為"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.7,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-SOCIAL-ETH-HN-001",
     "source": "Hacker News Algolia search",
     "source_url": "https://hn.algolia.com/api/v1/search_by_date?query=ETH%20crypto&tags=(story,comment)&hitsPerPage=25",
-    "fetched_at": "2026-07-31T12:42:59.525651+00:00",
+    "fetched_at": "2026-08-01T14:29:19.083239+00:00",
     "data_type": "social",
     "coin": "ETH",
     "time_range": "recent",
@@ -1363,6 +1663,51 @@
       "negative_terms": 0,
       "posts": [
         {
+          "text": "Twenty-five years ago it was cryptography, today it's model weights",
+          "url": "https://news.ycombinator.com/item?id=49130315",
+          "created_at": "2026-08-01T01:39:54Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
+          "url": "https://news.ycombinator.com/item?id=49130200",
+          "created_at": "2026-08-01T01:12:58Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Tailscale didn't stop the Hugging Face intrusion",
+          "url": "https://news.ycombinator.com/item?id=49129849",
+          "created_at": "2026-08-01T00:00:12Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
+          "url": "https://news.ycombinator.com/item?id=49127673",
+          "created_at": "2026-07-31T19:38:14Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "DeepSeek V4 Flash 0731 Intelligence, Performance and Price Analysis",
+          "url": "https://news.ycombinator.com/item?id=49127445",
+          "created_at": "2026-07-31T19:19:02Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
           "text": "GCC steering committee announces AI policy",
           "url": "https://news.ycombinator.com/item?id=49118605",
           "created_at": "2026-07-31T03:17:36Z",
@@ -1381,15 +1726,6 @@
           "matched_negative": []
         },
         {
-          "text": "It doesn't matter whether \"Matz is nice\"",
-          "url": "https://news.ycombinator.com/item?id=49098520",
-          "created_at": "2026-07-29T15:06:39Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
           "text": "A missing underscore sent innocent man to prison for 18 months",
           "url": "https://news.ycombinator.com/item?id=49091000",
           "created_at": "2026-07-28T22:45:15Z",
@@ -1399,7 +1735,7 @@
           "matched_negative": []
         },
         {
-          "text": "Show HN: Flashpaper \u2013 Self-destructing secret sharing with no database",
+          "text": "Show HN: Flashpaper – Self-destructing secret sharing with no database",
           "url": "https://news.ycombinator.com/item?id=49088385",
           "created_at": "2026-07-28T19:01:40Z",
           "points": 0,
@@ -1444,7 +1780,7 @@
           "matched_negative": []
         },
         {
-          "text": "Show HN: Let's Seal \u2013 Let's Encrypt for document signing, free and self-hosted",
+          "text": "Show HN: Let's Seal – Let's Encrypt for document signing, free and self-hosted",
           "url": "https://news.ycombinator.com/item?id=49076063",
           "created_at": "2026-07-27T22:04:24Z",
           "points": 0,
@@ -1550,52 +1886,61 @@
           "comments": 0,
           "matched_positive": [],
           "matched_negative": []
-        },
-        {
-          "text": "If coding has been solved, why does software keep getting worse?",
-          "url": "https://news.ycombinator.com/item?id=49036483",
-          "created_at": "2026-07-24T14:45:29Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Americans \u2013 including many Republicans \u2013 are losing faith in capitalism",
-          "url": "https://news.ycombinator.com/item?id=49027462",
-          "created_at": "2026-07-23T20:18:21Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Writing by hand is good for your brain",
-          "url": "https://news.ycombinator.com/item?id=49025148",
-          "created_at": "2026-07-23T17:23:12Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Encryption and Globalization 15 Years Later: E2EE and the \"Going Dark\" Debate",
-          "url": "https://news.ycombinator.com/item?id=49023624",
-          "created_at": "2026-07-23T15:52:16Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
         }
       ]
     },
-    "reliability_score": 0.5,
+    "reliability_score": 0.35,
     "content_reference": {
       "endpoint": "https://hn.algolia.com/api/v1/search_by_date?query=ETH%20crypto&tags=(story,comment)&hitsPerPage=25",
       "query": "ETH crypto",
       "post_count": 25,
       "posts": [
         {
+          "text": "Twenty-five years ago it was cryptography, today it's model weights",
+          "url": "https://news.ycombinator.com/item?id=49130315",
+          "created_at": "2026-08-01T01:39:54Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
+          "url": "https://news.ycombinator.com/item?id=49130200",
+          "created_at": "2026-08-01T01:12:58Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Tailscale didn't stop the Hugging Face intrusion",
+          "url": "https://news.ycombinator.com/item?id=49129849",
+          "created_at": "2026-08-01T00:00:12Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
+          "url": "https://news.ycombinator.com/item?id=49127673",
+          "created_at": "2026-07-31T19:38:14Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
+          "text": "DeepSeek V4 Flash 0731 Intelligence, Performance and Price Analysis",
+          "url": "https://news.ycombinator.com/item?id=49127445",
+          "created_at": "2026-07-31T19:19:02Z",
+          "points": 0,
+          "comments": 0,
+          "matched_positive": [],
+          "matched_negative": []
+        },
+        {
           "text": "GCC steering committee announces AI policy",
           "url": "https://news.ycombinator.com/item?id=49118605",
           "created_at": "2026-07-31T03:17:36Z",
@@ -1614,15 +1959,6 @@
           "matched_negative": []
         },
         {
-          "text": "It doesn't matter whether \"Matz is nice\"",
-          "url": "https://news.ycombinator.com/item?id=49098520",
-          "created_at": "2026-07-29T15:06:39Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
           "text": "A missing underscore sent innocent man to prison for 18 months",
           "url": "https://news.ycombinator.com/item?id=49091000",
           "created_at": "2026-07-28T22:45:15Z",
@@ -1632,7 +1968,7 @@
           "matched_negative": []
         },
         {
-          "text": "Show HN: Flashpaper \u2013 Self-destructing secret sharing with no database",
+          "text": "Show HN: Flashpaper – Self-destructing secret sharing with no database",
           "url": "https://news.ycombinator.com/item?id=49088385",
           "created_at": "2026-07-28T19:01:40Z",
           "points": 0,
@@ -1677,7 +2013,7 @@
           "matched_negative": []
         },
         {
-          "text": "Show HN: Let's Seal \u2013 Let's Encrypt for document signing, free and self-hosted",
+          "text": "Show HN: Let's Seal – Let's Encrypt for document signing, free and self-hosted",
           "url": "https://news.ycombinator.com/item?id=49076063",
           "created_at": "2026-07-27T22:04:24Z",
           "points": 0,
@@ -1783,75 +2119,143 @@
           "comments": 0,
           "matched_positive": [],
           "matched_negative": []
-        },
-        {
-          "text": "If coding has been solved, why does software keep getting worse?",
-          "url": "https://news.ycombinator.com/item?id=49036483",
-          "created_at": "2026-07-24T14:45:29Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Americans \u2013 including many Republicans \u2013 are losing faith in capitalism",
-          "url": "https://news.ycombinator.com/item?id=49027462",
-          "created_at": "2026-07-23T20:18:21Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Writing by hand is good for your brain",
-          "url": "https://news.ycombinator.com/item?id=49025148",
-          "created_at": "2026-07-23T17:23:12Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
-        },
-        {
-          "text": "Encryption and Globalization 15 Years Later: E2EE and the \"Going Dark\" Debate",
-          "url": "https://news.ycombinator.com/item?id=49023624",
-          "created_at": "2026-07-23T15:52:16Z",
-          "points": 0,
-          "comments": 0,
-          "matched_positive": [],
-          "matched_negative": []
         }
       ]
     },
-    "related_claim": "Public technical-community discussion tone for ETH"
+    "related_claim": "Public technical-community discussion tone for ETH",
+    "source_type": "social_public",
+    "published_at": null,
+    "event_time": "2026-08-01T01:39:54+00:00",
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:410ba4667fec",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.4875,
+      "final_score": 0.35,
+      "components": {
+        "source_quality": 0.35,
+        "traceability": 0.4,
+        "freshness": 1.0,
+        "method_transparency": 0.25,
+        "independence": 0.45
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.35,
+      "score_limiters": [
+        "anonymous_or_low_trace_social"
+      ],
+      "freshness_basis": "event_time",
+      "age_days": 0.5343,
+      "lineage_size": 1,
+      "source_type": "social_public",
+      "known_limitations": [
+        "可描述討論度與情緒，不能單獨確認外部事件",
+        "匿名或低可追溯帳號的可信度另有上限"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.5,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [
+      "anonymous_or_low_trace_social"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-DERIV-ETH-001",
     "source": "Binance Futures",
     "source_url": "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=ETHUSDT",
-    "fetched_at": "2026-07-31T12:42:59.588653+00:00",
+    "fetched_at": "2026-08-01T14:29:15.424190+00:00",
     "data_type": "derivatives",
     "coin": "ETH",
     "time_range": "current",
     "content": {
       "symbol": "ETHUSDT",
-      "funding_rate_pct": -0.0025,
+      "funding_rate_pct": 0.0067,
       "bias": "balanced",
-      "mark_price": "1875.33000000",
-      "next_funding_time": 1785513600000
+      "mark_price": "1872.19298450",
+      "next_funding_time": 1785600000000,
+      "provider": "Binance Futures",
+      "funding_interval_hours": 8,
+      "provider_native_interval_hours": 8,
+      "providers_tried": null,
+      "scope_note": "本費率為 Binance Futures 單一交易所的永續合約報價，不同交易所的費率與擁擠方向可能相反，不可視為全市場共識"
     },
-    "reliability_score": 0.75,
+    "reliability_score": 0.8375,
     "content_reference": {
       "endpoint": "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=ETHUSDT",
       "symbol": "ETHUSDT",
-      "raw_funding_rate": "-0.00002457"
+      "raw_funding_rate": "0.00006682",
+      "provider": "Binance Futures",
+      "normalised_to_hours": 8,
+      "provider_native_interval_hours": 8
     },
-    "related_claim": "ETH perpetual-futures funding rate and long/short crowding bias"
+    "related_claim": "ETH perpetual-futures funding rate and long/short crowding bias",
+    "source_type": "derivatives_api",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:bdce15543c3d",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.8375,
+      "final_score": 0.8375,
+      "components": {
+        "source_quality": 0.8,
+        "traceability": 0.85,
+        "freshness": 1.0,
+        "method_transparency": 0.7,
+        "independence": 0.8
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0001,
+      "lineage_size": 1,
+      "source_type": "derivatives_api",
+      "known_limitations": [
+        "只涵蓋單一交易所的部位分布",
+        "倉位分布不等於後續價格方向"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.75,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-WHALE-ETH-001",
     "source": "Public balance check (curated known addresses)",
     "source_url": "https://ethereum.publicnode.com",
-    "fetched_at": "2026-07-31T12:43:00.928653+00:00",
+    "fetched_at": "2026-08-01T14:29:14.975731+00:00",
     "data_type": "whale",
     "coin": "ETH",
     "time_range": "current",
@@ -1870,22 +2274,73 @@
           "explorer_url": "https://etherscan.io/address/0xf977814e90da44bfa03b6295a0616a897441acec"
         }
       ],
-      "note": "\u50c5\u8ffd\u8e64\u5df2\u77e5\u5927\u578b\u4ea4\u6613\u6240/\u6a5f\u69cb\u5730\u5740\u7684\u5373\u6642\u9918\u984d\uff0c\u975e\u5168\u7db2\u5373\u6642\u5de8\u9be8\u5075\u6e2c"
+      "note": "僅追蹤已知大型交易所/機構地址的即時餘額，非全網即時巨鯨偵測",
+      "owner_attribution_verified": true
     },
-    "reliability_score": 0.65,
+    "reliability_score": 0.6,
     "content_reference": {
       "addresses": [
         "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8",
         "0xf977814e90da44bfa03b6295a0616a897441acec"
       ]
     },
-    "related_claim": "Known large-wallet balance snapshot for ETH"
+    "related_claim": "Known large-wallet balance snapshot for ETH",
+    "source_type": "blockchain_raw",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:ce47705074d0",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.925,
+      "final_score": 0.6,
+      "components": {
+        "source_quality": 0.9,
+        "traceability": 0.95,
+        "freshness": 1.0,
+        "method_transparency": 0.85,
+        "independence": 0.9
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": 0.6,
+      "score_limiters": [
+        "unverifiable_entity_attribution"
+      ],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0001,
+      "lineage_size": 1,
+      "source_type": "blockchain_raw",
+      "known_limitations": [
+        "可高可信證明轉帳發生，不能證明地址實際擁有者",
+        "不能證明交易意圖或後續買賣行為"
+      ],
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
+      ],
+      "legacy_reliability_hint": 0.65,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [
+      "unverifiable_entity_attribution"
+    ],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-VEGAS-ETH-001",
     "source": "Binance Klines (Vegas Channel + RSI strategy)",
     "source_url": "https://api.binance.com/api/v3/klines?symbol=ETHUSDT",
-    "fetched_at": "2026-07-31T12:43:01.088647+00:00",
+    "fetched_at": "2026-08-01T14:29:14.988787+00:00",
     "data_type": "vegas_channel",
     "coin": "ETH",
     "time_range": "4h trend / 1h execution",
@@ -1895,43 +2350,87 @@
       "execution_timeframe": "1h",
       "4h": {
         "trend": "mixed",
-        "tunnel_top": 2007.0336,
-        "tunnel_bottom": 1860.8391,
+        "tunnel_top": 2005.8742,
+        "tunnel_bottom": 1861.2808,
         "in_tunnel": true,
-        "rsi": 26.4827,
+        "rsi": 42.1953,
         "volume_spike": false,
         "last_signal": "take_profit_bull",
-        "bars_since_signal": 60
+        "bars_since_signal": 66
       },
       "1h": {
         "trend": "bullish_aligned",
-        "tunnel_top": 1905.4079,
-        "tunnel_bottom": 1781.0374,
+        "tunnel_top": 1893.9589,
+        "tunnel_bottom": 1784.3759,
         "in_tunnel": true,
-        "rsi": 16.1295,
+        "rsi": 72.737,
         "volume_spike": false,
         "last_signal": "take_profit_bear",
-        "bars_since_signal": 81
+        "bars_since_signal": 22
       },
       "alignment": {
         "passed": false,
         "4h_direction": "neutral",
         "1h_direction": "long",
-        "note": "4h\u70ba\u8a0a\u865f\u4e0d\u4e00(mixed)\uff0c1h\u70ba\u591a\u982d\uff0c\u65b9\u5411\u4e0d\u4e00\u81f4"
+        "note": "4h為訊號不一(mixed)，1h為多頭，方向不一致"
       }
     },
-    "reliability_score": 0.7,
+    "reliability_score": 0.8925,
     "content_reference": {
       "symbol": "ETHUSDT",
       "bars_per_timeframe": 1000
     },
-    "related_claim": "ETH Vegas Channel + RSI(6) entry/exit state on 4h trend and 1h execution timeframes"
+    "related_claim": "ETH Vegas Channel + RSI(6) entry/exit state on 4h trend and 1h execution timeframes",
+    "source_type": "market_api",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:52534324a2bc",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.8925,
+      "final_score": 0.8925,
+      "components": {
+        "source_quality": 0.85,
+        "traceability": 0.9,
+        "freshness": 1.0,
+        "method_transparency": 0.85,
+        "independence": 0.85
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0001,
+      "lineage_size": 1,
+      "source_type": "market_api",
+      "known_limitations": [
+        "不同交易所報價可能不一致",
+        "指標可重現不代表預測正確"
+      ],
+      "notes": [],
+      "legacy_reliability_hint": 0.7,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-LSRATIO-ETH-001",
     "source": "Binance Futures Data (top-trader position ratio)",
     "source_url": "https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=ETHUSDT&period=1h&limit=24",
-    "fetched_at": "2026-07-31T12:43:01.158652+00:00",
+    "fetched_at": "2026-08-01T14:29:15.230927+00:00",
     "data_type": "long_short_ratio",
     "coin": "ETH",
     "time_range": "last 24x1h",
@@ -1940,181 +2439,223 @@
       "period": "1h",
       "history": [
         {
-          "time": "2026-07-30T13:00:00+00:00",
-          "long_pct": 57.27,
-          "short_pct": 42.73,
-          "ratio": 1.34
+          "time": "2026-07-31T15:00:00+00:00",
+          "long_pct": 57.93,
+          "short_pct": 42.07,
+          "ratio": 1.3768
         },
         {
-          "time": "2026-07-30T14:00:00+00:00",
-          "long_pct": 57.02,
-          "short_pct": 42.98,
-          "ratio": 1.3266
+          "time": "2026-07-31T16:00:00+00:00",
+          "long_pct": 57.77,
+          "short_pct": 42.23,
+          "ratio": 1.3678
         },
         {
-          "time": "2026-07-30T15:00:00+00:00",
-          "long_pct": 57.0,
-          "short_pct": 43.0,
-          "ratio": 1.3255
+          "time": "2026-07-31T17:00:00+00:00",
+          "long_pct": 57.69,
+          "short_pct": 42.31,
+          "ratio": 1.3637
         },
         {
-          "time": "2026-07-30T16:00:00+00:00",
-          "long_pct": 57.13,
-          "short_pct": 42.87,
-          "ratio": 1.3325
+          "time": "2026-07-31T18:00:00+00:00",
+          "long_pct": 57.58,
+          "short_pct": 42.42,
+          "ratio": 1.3575
         },
         {
-          "time": "2026-07-30T17:00:00+00:00",
-          "long_pct": 57.1,
-          "short_pct": 42.9,
-          "ratio": 1.3309
+          "time": "2026-07-31T19:00:00+00:00",
+          "long_pct": 57.62,
+          "short_pct": 42.38,
+          "ratio": 1.3596
         },
         {
-          "time": "2026-07-30T18:00:00+00:00",
-          "long_pct": 57.05,
-          "short_pct": 42.95,
-          "ratio": 1.3283
+          "time": "2026-07-31T20:00:00+00:00",
+          "long_pct": 57.7,
+          "short_pct": 42.3,
+          "ratio": 1.364
         },
         {
-          "time": "2026-07-30T19:00:00+00:00",
-          "long_pct": 57.05,
-          "short_pct": 42.95,
-          "ratio": 1.3283
+          "time": "2026-07-31T21:00:00+00:00",
+          "long_pct": 57.83,
+          "short_pct": 42.17,
+          "ratio": 1.3713
         },
         {
-          "time": "2026-07-30T20:00:00+00:00",
-          "long_pct": 56.96,
-          "short_pct": 43.04,
-          "ratio": 1.3235
+          "time": "2026-07-31T22:00:00+00:00",
+          "long_pct": 58.12,
+          "short_pct": 41.88,
+          "ratio": 1.3876
         },
         {
-          "time": "2026-07-30T21:00:00+00:00",
-          "long_pct": 56.94,
-          "short_pct": 43.06,
-          "ratio": 1.3225
+          "time": "2026-07-31T23:00:00+00:00",
+          "long_pct": 58.11,
+          "short_pct": 41.89,
+          "ratio": 1.3871
         },
         {
-          "time": "2026-07-30T22:00:00+00:00",
-          "long_pct": 56.96,
-          "short_pct": 43.04,
-          "ratio": 1.3233
+          "time": "2026-08-01T00:00:00+00:00",
+          "long_pct": 58.12,
+          "short_pct": 41.88,
+          "ratio": 1.3875
         },
         {
-          "time": "2026-07-30T23:00:00+00:00",
-          "long_pct": 57.1,
-          "short_pct": 42.9,
-          "ratio": 1.3309
+          "time": "2026-08-01T01:00:00+00:00",
+          "long_pct": 58.13,
+          "short_pct": 41.87,
+          "ratio": 1.3886
         },
         {
-          "time": "2026-07-31T00:00:00+00:00",
-          "long_pct": 56.06,
-          "short_pct": 43.94,
-          "ratio": 1.2759
+          "time": "2026-08-01T02:00:00+00:00",
+          "long_pct": 57.89,
+          "short_pct": 42.11,
+          "ratio": 1.3747
         },
         {
-          "time": "2026-07-31T01:00:00+00:00",
-          "long_pct": 56.29,
-          "short_pct": 43.71,
-          "ratio": 1.2877
+          "time": "2026-08-01T03:00:00+00:00",
+          "long_pct": 57.94,
+          "short_pct": 42.06,
+          "ratio": 1.3777
         },
         {
-          "time": "2026-07-31T02:00:00+00:00",
-          "long_pct": 56.17,
-          "short_pct": 43.83,
-          "ratio": 1.2815
+          "time": "2026-08-01T04:00:00+00:00",
+          "long_pct": 57.93,
+          "short_pct": 42.07,
+          "ratio": 1.3772
         },
         {
-          "time": "2026-07-31T03:00:00+00:00",
-          "long_pct": 55.97,
-          "short_pct": 44.03,
-          "ratio": 1.2712
+          "time": "2026-08-01T05:00:00+00:00",
+          "long_pct": 57.95,
+          "short_pct": 42.05,
+          "ratio": 1.3781
         },
         {
-          "time": "2026-07-31T04:00:00+00:00",
-          "long_pct": 56.0,
-          "short_pct": 44.0,
-          "ratio": 1.2727
+          "time": "2026-08-01T06:00:00+00:00",
+          "long_pct": 57.85,
+          "short_pct": 42.15,
+          "ratio": 1.3726
         },
         {
-          "time": "2026-07-31T05:00:00+00:00",
-          "long_pct": 56.03,
-          "short_pct": 43.97,
-          "ratio": 1.2743
+          "time": "2026-08-01T07:00:00+00:00",
+          "long_pct": 57.85,
+          "short_pct": 42.15,
+          "ratio": 1.3727
         },
         {
-          "time": "2026-07-31T06:00:00+00:00",
-          "long_pct": 56.37,
-          "short_pct": 43.63,
-          "ratio": 1.2919
+          "time": "2026-08-01T08:00:00+00:00",
+          "long_pct": 57.88,
+          "short_pct": 42.12,
+          "ratio": 1.3744
         },
         {
-          "time": "2026-07-31T07:00:00+00:00",
-          "long_pct": 56.58,
-          "short_pct": 43.42,
-          "ratio": 1.3033
+          "time": "2026-08-01T09:00:00+00:00",
+          "long_pct": 57.76,
+          "short_pct": 42.24,
+          "ratio": 1.3676
         },
         {
-          "time": "2026-07-31T08:00:00+00:00",
-          "long_pct": 56.85,
-          "short_pct": 43.15,
-          "ratio": 1.3174
+          "time": "2026-08-01T10:00:00+00:00",
+          "long_pct": 57.59,
+          "short_pct": 42.41,
+          "ratio": 1.358
         },
         {
-          "time": "2026-07-31T09:00:00+00:00",
-          "long_pct": 56.6,
-          "short_pct": 43.4,
-          "ratio": 1.3041
+          "time": "2026-08-01T11:00:00+00:00",
+          "long_pct": 57.58,
+          "short_pct": 42.42,
+          "ratio": 1.3575
         },
         {
-          "time": "2026-07-31T10:00:00+00:00",
-          "long_pct": 56.64,
-          "short_pct": 43.36,
-          "ratio": 1.3062
+          "time": "2026-08-01T12:00:00+00:00",
+          "long_pct": 57.58,
+          "short_pct": 42.42,
+          "ratio": 1.3576
         },
         {
-          "time": "2026-07-31T11:00:00+00:00",
-          "long_pct": 56.85,
-          "short_pct": 43.15,
-          "ratio": 1.3174
+          "time": "2026-08-01T13:00:00+00:00",
+          "long_pct": 57.62,
+          "short_pct": 42.38,
+          "ratio": 1.3596
         },
         {
-          "time": "2026-07-31T12:00:00+00:00",
-          "long_pct": 56.92,
-          "short_pct": 43.08,
-          "ratio": 1.3211
+          "time": "2026-08-01T14:00:00+00:00",
+          "long_pct": 57.6,
+          "short_pct": 42.4,
+          "ratio": 1.3584
         }
       ],
       "current": {
-        "time": "2026-07-31T12:00:00+00:00",
-        "long_pct": 56.92,
-        "short_pct": 43.08,
-        "ratio": 1.3211
+        "time": "2026-08-01T14:00:00+00:00",
+        "long_pct": 57.6,
+        "short_pct": 42.4,
+        "ratio": 1.3584
       },
       "bias": "long_dominant",
       "consistency_pct": 100.0
     },
-    "reliability_score": 0.7,
+    "reliability_score": 0.8525,
     "content_reference": {
       "endpoint": "https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=ETHUSDT&period=1h&limit=24",
       "points": 24
     },
-    "related_claim": "ETH top-trader long/short position ratio and bias consistency"
+    "related_claim": "ETH top-trader long/short position ratio and bias consistency",
+    "source_type": "derivatives_api",
+    "published_at": null,
+    "event_time": null,
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:bcb44f0cbc26",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.8525,
+      "final_score": 0.8525,
+      "components": {
+        "source_quality": 0.8,
+        "traceability": 0.85,
+        "freshness": 1.0,
+        "method_transparency": 0.8,
+        "independence": 0.8
+      },
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "fetched_at",
+      "age_days": 0.0001,
+      "lineage_size": 1,
+      "source_type": "derivatives_api",
+      "known_limitations": [
+        "只涵蓋單一交易所的部位分布",
+        "倉位分布不等於後續價格方向"
+      ],
+      "notes": [],
+      "legacy_reliability_hint": 0.7,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
+    },
+    "score_limiters": [],
+    "related_claim_ids": [
+      "CL-001"
+    ],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   },
   {
     "evidence_id": "EV-TVL-ETH-001",
     "source": "DefiLlama chain TVL (Ethereum)",
     "source_url": "https://api.llama.fi/v2/historicalChainTvl/Ethereum",
-    "fetched_at": "2026-07-31T12:43:02.031648+00:00",
+    "fetched_at": "2026-08-01T14:29:16.514359+00:00",
     "data_type": "tvl",
     "coin": "ETH",
     "time_range": "last 90d",
     "content": {
       "chain": "Ethereum",
       "history": [
-        {
-          "time": "2026-05-03",
-          "tvl_usd": 45616638904.0
-        },
         {
           "time": "2026-05-04",
           "tvl_usd": 45644613857.0
@@ -2441,651 +2982,99 @@
         },
         {
           "time": "2026-07-24",
-          "tvl_usd": 41239299174.0
+          "tvl_usd": 41239299010.0
         },
         {
           "time": "2026-07-25",
-          "tvl_usd": 41115484792.0
+          "tvl_usd": 41115484628.0
         },
         {
           "time": "2026-07-26",
-          "tvl_usd": 41253226439.0
+          "tvl_usd": 41253226274.0
         },
         {
           "time": "2026-07-27",
-          "tvl_usd": 42063708145.0
+          "tvl_usd": 42063707981.0
         },
         {
           "time": "2026-07-28",
-          "tvl_usd": 41020582836.0
+          "tvl_usd": 41020582671.0
         },
         {
           "time": "2026-07-29",
-          "tvl_usd": 41384434711.0
+          "tvl_usd": 41384434546.0
         },
         {
           "time": "2026-07-30",
-          "tvl_usd": 41112699939.0
+          "tvl_usd": 41112699511.0
         },
         {
           "time": "2026-07-31",
-          "tvl_usd": 40994215002.0
+          "tvl_usd": 41399230366.0
+        },
+        {
+          "time": "2026-08-01",
+          "tvl_usd": 40669841677.0
         }
       ],
-      "tvl_usd": 40994215002.0,
-      "change_pct": -10.13,
-      "change_30d_pct": 12.77,
+      "tvl_usd": 40669841677.0,
+      "change_pct": -10.9,
+      "change_30d_pct": 9.93,
       "direction": "expanding"
     },
-    "reliability_score": 0.75,
+    "reliability_score": 0.8775,
     "content_reference": {
       "endpoint": "https://api.llama.fi/v2/historicalChainTvl/Ethereum",
       "points": 90
     },
-    "related_claim": "ETH chain TVL level and trend as an on-chain fundamentals signal"
-  },
-  {
-    "evidence_id": "EV-HISTORY-ETH-001",
-    "source": "Daily OHLCV history (5-year CSV)",
-    "source_url": "data\\ETH.csv",
-    "fetched_at": "2026-07-31T12:43:02.042650+00:00",
-    "data_type": "price_history",
-    "coin": "ETH",
-    "time_range": "2021-07-26 \u2192 2026-07-25",
-    "content": {
-      "windows": {
-        "14d": {
-          "days": 14,
-          "date_start": "2026-07-12",
-          "date_end": "2026-07-25",
-          "start_price": 1806.8,
-          "end_price": 1860.44,
-          "return_pct": 2.97,
-          "volatility_annualised_pct": 46.32,
-          "max_drawdown_pct": -3.96,
-          "low": 1776.72,
-          "high": 1934.25,
-          "percentile_in_range": 53.1
-        },
-        "90d": {
-          "days": 90,
-          "date_start": "2026-04-27",
-          "date_end": "2026-07-25",
-          "start_price": 2303.67,
-          "end_price": 1860.44,
-          "return_pct": -19.24,
-          "volatility_annualised_pct": 48.04,
-          "max_drawdown_pct": -33.88,
-          "low": 1567.84,
-          "high": 2371.27,
-          "percentile_in_range": 36.4
-        },
-        "365d": {
-          "days": 365,
-          "date_start": "2025-07-26",
-          "date_end": "2026-07-25",
-          "start_price": 3741.1,
-          "end_price": 1860.44,
-          "return_pct": -50.27,
-          "volatility_annualised_pct": 65.99,
-          "max_drawdown_pct": -67.55,
-          "low": 1567.84,
-          "high": 4832.07,
-          "percentile_in_range": 9.0
-        },
-        "full": {
-          "days": 1826,
-          "date_start": "2021-07-26",
-          "date_end": "2026-07-25",
-          "start_price": 2228.08,
-          "end_price": 1860.44,
-          "return_pct": -16.5,
-          "volatility_annualised_pct": 70.26,
-          "max_drawdown_pct": -79.3,
-          "low": 995.13,
-          "high": 4832.07,
-          "percentile_in_range": 22.6
-        }
+    "related_claim": "ETH chain TVL level and trend as an on-chain fundamentals signal",
+    "source_type": "market_api",
+    "published_at": null,
+    "event_time": "2026-08-01T00:00:00+00:00",
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:8ce7eca25232",
+    "claim_relevance": 0.0,
+    "independence_factor": 1.0,
+    "score_breakdown": {
+      "raw_score": 0.8775,
+      "final_score": 0.8775,
+      "components": {
+        "source_quality": 0.85,
+        "traceability": 0.9,
+        "freshness": 1.0,
+        "method_transparency": 0.75,
+        "independence": 0.85
       },
-      "dates": [
-        "2021-07-26",
-        "2021-08-02",
-        "2021-08-09",
-        "2021-08-16",
-        "2021-08-23",
-        "2021-08-30",
-        "2021-09-06",
-        "2021-09-13",
-        "2021-09-20",
-        "2021-09-27",
-        "2021-10-04",
-        "2021-10-12",
-        "2021-10-19",
-        "2021-10-26",
-        "2021-11-02",
-        "2021-11-09",
-        "2021-11-16",
-        "2021-11-23",
-        "2021-11-30",
-        "2021-12-07",
-        "2021-12-14",
-        "2021-12-21",
-        "2021-12-28",
-        "2022-01-04",
-        "2022-01-11",
-        "2022-01-18",
-        "2022-01-25",
-        "2022-02-01",
-        "2022-02-08",
-        "2022-02-15",
-        "2022-02-22",
-        "2022-03-01",
-        "2022-03-08",
-        "2022-03-16",
-        "2022-03-23",
-        "2022-03-30",
-        "2022-04-06",
-        "2022-04-13",
-        "2022-04-20",
-        "2022-04-27",
-        "2022-05-04",
-        "2022-05-11",
-        "2022-05-18",
-        "2022-05-25",
-        "2022-06-01",
-        "2022-06-08",
-        "2022-06-15",
-        "2022-06-22",
-        "2022-06-29",
-        "2022-07-06",
-        "2022-07-13",
-        "2022-07-20",
-        "2022-07-27",
-        "2022-08-03",
-        "2022-08-11",
-        "2022-08-18",
-        "2022-08-25",
-        "2022-09-01",
-        "2022-09-08",
-        "2022-09-15",
-        "2022-09-22",
-        "2022-09-29",
-        "2022-10-06",
-        "2022-10-13",
-        "2022-10-20",
-        "2022-10-27",
-        "2022-11-03",
-        "2022-11-10",
-        "2022-11-17",
-        "2022-11-24",
-        "2022-12-01",
-        "2022-12-08",
-        "2022-12-15",
-        "2022-12-22",
-        "2022-12-29",
-        "2023-01-05",
-        "2023-01-13",
-        "2023-01-20",
-        "2023-01-27",
-        "2023-02-03",
-        "2023-02-10",
-        "2023-02-17",
-        "2023-02-24",
-        "2023-03-03",
-        "2023-03-10",
-        "2023-03-17",
-        "2023-03-24",
-        "2023-03-31",
-        "2023-04-07",
-        "2023-04-14",
-        "2023-04-21",
-        "2023-04-28",
-        "2023-05-05",
-        "2023-05-12",
-        "2023-05-19",
-        "2023-05-26",
-        "2023-06-02",
-        "2023-06-09",
-        "2023-06-17",
-        "2023-06-24",
-        "2023-07-01",
-        "2023-07-08",
-        "2023-07-15",
-        "2023-07-22",
-        "2023-07-29",
-        "2023-08-05",
-        "2023-08-12",
-        "2023-08-19",
-        "2023-08-26",
-        "2023-09-02",
-        "2023-09-09",
-        "2023-09-16",
-        "2023-09-23",
-        "2023-09-30",
-        "2023-10-07",
-        "2023-10-14",
-        "2023-10-21",
-        "2023-10-28",
-        "2023-11-04",
-        "2023-11-12",
-        "2023-11-19",
-        "2023-11-26",
-        "2023-12-03",
-        "2023-12-10",
-        "2023-12-17",
-        "2023-12-24",
-        "2023-12-31",
-        "2024-01-07",
-        "2024-01-14",
-        "2024-01-21",
-        "2024-01-28",
-        "2024-02-04",
-        "2024-02-11",
-        "2024-02-18",
-        "2024-02-25",
-        "2024-03-03",
-        "2024-03-10",
-        "2024-03-17",
-        "2024-03-24",
-        "2024-03-31",
-        "2024-04-07",
-        "2024-04-15",
-        "2024-04-22",
-        "2024-04-29",
-        "2024-05-06",
-        "2024-05-13",
-        "2024-05-20",
-        "2024-05-27",
-        "2024-06-03",
-        "2024-06-10",
-        "2024-06-17",
-        "2024-06-24",
-        "2024-07-01",
-        "2024-07-08",
-        "2024-07-15",
-        "2024-07-22",
-        "2024-07-29",
-        "2024-08-05",
-        "2024-08-12",
-        "2024-08-19",
-        "2024-08-26",
-        "2024-09-02",
-        "2024-09-10",
-        "2024-09-17",
-        "2024-09-24",
-        "2024-10-01",
-        "2024-10-08",
-        "2024-10-15",
-        "2024-10-22",
-        "2024-10-29",
-        "2024-11-05",
-        "2024-11-12",
-        "2024-11-19",
-        "2024-11-26",
-        "2024-12-03",
-        "2024-12-10",
-        "2024-12-17",
-        "2024-12-24",
-        "2024-12-31",
-        "2025-01-07",
-        "2025-01-14",
-        "2025-01-21",
-        "2025-01-28",
-        "2025-02-04",
-        "2025-02-12",
-        "2025-02-19",
-        "2025-02-26",
-        "2025-03-05",
-        "2025-03-12",
-        "2025-03-19",
-        "2025-03-26",
-        "2025-04-02",
-        "2025-04-09",
-        "2025-04-16",
-        "2025-04-23",
-        "2025-04-30",
-        "2025-05-07",
-        "2025-05-14",
-        "2025-05-21",
-        "2025-05-28",
-        "2025-06-04",
-        "2025-06-11",
-        "2025-06-18",
-        "2025-06-25",
-        "2025-07-02",
-        "2025-07-09",
-        "2025-07-17",
-        "2025-07-24",
-        "2025-07-31",
-        "2025-08-07",
-        "2025-08-14",
-        "2025-08-21",
-        "2025-08-28",
-        "2025-09-04",
-        "2025-09-11",
-        "2025-09-18",
-        "2025-09-25",
-        "2025-10-02",
-        "2025-10-09",
-        "2025-10-16",
-        "2025-10-23",
-        "2025-10-30",
-        "2025-11-06",
-        "2025-11-13",
-        "2025-11-20",
-        "2025-11-27",
-        "2025-12-04",
-        "2025-12-12",
-        "2025-12-19",
-        "2025-12-26",
-        "2026-01-02",
-        "2026-01-09",
-        "2026-01-16",
-        "2026-01-23",
-        "2026-01-30",
-        "2026-02-06",
-        "2026-02-13",
-        "2026-02-20",
-        "2026-02-27",
-        "2026-03-06",
-        "2026-03-13",
-        "2026-03-20",
-        "2026-03-27",
-        "2026-04-03",
-        "2026-04-10",
-        "2026-04-17",
-        "2026-04-24",
-        "2026-05-01",
-        "2026-05-08",
-        "2026-05-16",
-        "2026-05-23",
-        "2026-05-30",
-        "2026-06-06",
-        "2026-06-13",
-        "2026-06-20",
-        "2026-06-27",
-        "2026-07-04",
-        "2026-07-11",
-        "2026-07-18",
-        "2026-07-25"
+      "weights": {
+        "source_quality": 0.3,
+        "traceability": 0.25,
+        "freshness": 0.2,
+        "method_transparency": 0.15,
+        "independence": 0.1
+      },
+      "hard_cap": null,
+      "score_limiters": [],
+      "freshness_basis": "event_time",
+      "age_days": 0.6037,
+      "lineage_size": 1,
+      "source_type": "market_api",
+      "known_limitations": [
+        "不同交易所報價可能不一致",
+        "指標可重現不代表預測正確"
       ],
-      "prices": [
-        2228.08,
-        2606.93,
-        3160.52,
-        3146.53,
-        3321.28,
-        3229.64,
-        3926.77,
-        3285.35,
-        2977.28,
-        2925.59,
-        3386.31,
-        3491.46,
-        3877.03,
-        4131.52,
-        4589.89,
-        4732.33,
-        4209.76,
-        4339.44,
-        4630.26,
-        4306.4,
-        3858.99,
-        4014.15,
-        3792.75,
-        3785.11,
-        3239.72,
-        3159.85,
-        2458.83,
-        2787.23,
-        3116.69,
-        3183.52,
-        2636.29,
-        2976.33,
-        2575.97,
-        2773.81,
-        3036.0,
-        3385.79,
-        3168.51,
-        3118.28,
-        3076.04,
-        2888.96,
-        2940.64,
-        2084.99,
-        1915.11,
-        1942.63,
-        1817.95,
-        1791.88,
-        1237.52,
-        1050.19,
-        1100.21,
-        1186.57,
-        1115.0,
-        1521.58,
-        1635.74,
-        1618.16,
-        1880.19,
-        1846.39,
-        1695.11,
-        1586.16,
-        1635.37,
-        1472.75,
-        1326.46,
-        1335.7,
-        1352.06,
-        1287.08,
-        1282.57,
-        1514.05,
-        1531.01,
-        1299.28,
-        1200.43,
-        1203.73,
-        1276.41,
-        1280.18,
-        1266.54,
-        1217.71,
-        1200.49,
-        1251.24,
-        1451.2,
-        1658.52,
-        1597.62,
-        1663.52,
-        1513.06,
-        1693.87,
-        1607.8,
-        1569.45,
-        1426.44,
-        1789.27,
-        1749.57,
-        1821.52,
-        1863.72,
-        2099.99,
-        1848.78,
-        1890.94,
-        1993.3,
-        1807.45,
-        1812.32,
-        1827.79,
-        1906.68,
-        1840.37,
-        1727.76,
-        1874.96,
-        1924.5,
-        1865.24,
-        1931.41,
-        1866.52,
-        1880.46,
-        1836.48,
-        1849.93,
-        1669.67,
-        1647.04,
-        1637.03,
-        1635.54,
-        1634.4,
-        1593.86,
-        1670.89,
-        1633.57,
-        1554.94,
-        1628.94,
-        1776.2,
-        1855.54,
-        2044.68,
-        2011.47,
-        2062.33,
-        2192.95,
-        2352.39,
-        2196.52,
-        2264.05,
-        2281.87,
-        2221.42,
-        2472.87,
-        2457.05,
-        2256.9,
-        2289.79,
-        2507.21,
-        2881.2,
-        3112.59,
-        3487.81,
-        3878.47,
-        3644.71,
-        3454.98,
-        3645.29,
-        3454.2,
-        3101.99,
-        3200.2,
-        3216.73,
-        3062.6,
-        2950.99,
-        3661.78,
-        3894.22,
-        3767.06,
-        3667.85,
-        3511.46,
-        3352.73,
-        3442.2,
-        3019.01,
-        3483.39,
-        3439.6,
-        3317.66,
-        2419.59,
-        2722.3,
-        2636.36,
-        2680.49,
-        2538.01,
-        2388.52,
-        2341.8,
-        2653.2,
-        2447.79,
-        2440.89,
-        2607.41,
-        2622.81,
-        2638.8,
-        2422.55,
-        3243.8,
-        3107.44,
-        3324.73,
-        3614.51,
-        3628.25,
-        3893.01,
-        3493.18,
-        3337.78,
-        3381.31,
-        3225.63,
-        3327.54,
-        3077.72,
-        2731.19,
-        2738.27,
-        2715.5,
-        2336.37,
-        2241.59,
-        1908.2,
-        2056.06,
-        2009.52,
-        1795.22,
-        1669.51,
-        1577.14,
-        1795.07,
-        1793.61,
-        1811.11,
-        2609.74,
-        2550.99,
-        2681.6,
-        2607.68,
-        2771.61,
-        2525.0,
-        2418.49,
-        2570.41,
-        2768.74,
-        3476.87,
-        3706.94,
-        3698.39,
-        3910.31,
-        4546.84,
-        4225.3,
-        4511.21,
-        4297.55,
-        4458.82,
-        4587.66,
-        3874.36,
-        4484.35,
-        4368.09,
-        3894.51,
-        3856.8,
-        3805.09,
-        3315.14,
-        3231.54,
-        2834.22,
-        3015.23,
-        3133.26,
-        3084.86,
-        2979.5,
-        2927.99,
-        3125.45,
-        3088.4,
-        3296.28,
-        2956.41,
-        2707.38,
-        2063.38,
-        2048.72,
-        1968.88,
-        1929.84,
-        1978.68,
-        2092.22,
-        2146.22,
-        1992.75,
-        2053.83,
-        2245.05,
-        2419.0,
-        2314.99,
-        2295.63,
-        2307.06,
-        2180.77,
-        2117.68,
-        2022.44,
-        1569.69,
-        1681.18,
-        1741.08,
-        1573.99,
-        1780.64,
-        1787.76,
-        1862.61,
-        1860.44
+      "notes": [
+        "未提供計算方法或參數，method_transparency 未加分"
       ],
-      "rows": 1826,
-      "date_start": "2021-07-26",
-      "date_end": "2026-07-25"
+      "legacy_reliability_hint": 0.75,
+      "registry_version": "source-registry-v1",
+      "scoring_version": "credibility-v1",
+      "scored_at": "2026-08-01T14:29:21.107757+00:00"
     },
-    "reliability_score": 0.95,
-    "content_reference": {
-      "file": "data\\ETH.csv",
-      "rows": 1826,
-      "windows": [
-        "14d",
-        "365d",
-        "90d",
-        "full"
-      ]
-    },
-    "related_claim": "ETH multi-year price context: return, volatility, drawdown and range position"
+    "score_limiters": [],
+    "related_claim_ids": [
+      "CL-001"
+    ],
+    "scoring_version": "credibility-v1",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5"
   }
 ]

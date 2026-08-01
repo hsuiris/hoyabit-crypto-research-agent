@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T8.4
-last_updated_at: 2026-08-02T01:10:00+08:00
+current_task: T8.5
+last_updated_at: 2026-08-02T02:40:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 646 tests, 646 passed, 0 failed, 0 errors
+full_suite_latest: 656 tests, 656 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -789,3 +789,131 @@ tasks:
         交易所動向或交易意圖
       - GitHub releases feed 只涵蓋客戶端／協議發布，不含合作與上架公告；已在 scope 與 note 標明
       - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
+
+  T8.4-deployment-verification:
+    title: Verify T8.1-T8.4 on the deployed Function URL
+    status: PASS
+    depends_on: [T8.4]
+    completed_at: 2026-08-02T01:40:00+08:00
+    note: >-
+      T8.4 的 PARTIAL 已解除。使用者完成部署後實測 us-west-2，確認四輪修正全部生效。
+    verified:
+      - >-
+        線上程式版本：./aws/verify-deployment.sh --run 回報 code_commit=f94acfb，與本機 HEAD
+        相同；六項提交物齊備；Citation Gate PASS；23–39 秒完成（命題上限 900 秒）。
+      - >-
+        **Kraken Futures 從 us-west-2 連通**（T8.4 唯一無法在本機驗證的假設）。
+        degradation_reasons 由 3 項降為 2 項，collector_fallback:derivatives 消失，
+        EV-DERIV 由 Kraken Futures 提供、可靠度 0.8375（原為 0.20 離線 fixture）。
+        11 個 collector 有 9 個取得真實資料，六個研究領域全部有真實證據。
+        報告確實使用該訊號：「主要推力：資金費率 -0.0168%，空方付費過熱」（權重 1.1）。
+      - >-
+        T8.1 domain_coverage：真實 Bedrock 回傳的 required_domains 已是 canonical
+        （market／news／social／onchain），domain_coverage=0.4（原 0.0），
+        verdict=supported（原 insufficient_evidence），信心 0.59 medium（原 0.35 low）。
+      - >-
+        T8.3 繁中輸出與 Claim 貼題：報告 20 個段落全部繁體中文；題目「市場狀況、主要驅動
+        因素與下行風險」被拆成三個 Claim，claim_type 分別為 current_state／drivers／risks，
+        一個子問題一個 Claim；後續觀察重點為前瞻項目，非複製 Facts。
+      - >-
+        T7 formal lock：以 formal 重送同一題目回 409 並附完整 lineage
+        （question_hash、latest run_id、authorized_rerun 用法）。
+    known_limitations:
+      - >-
+        vegas_channel 與 long_short_ratio 仍為 Binance 單一來源，雲端持續降級（已知取捨）。
+      - >-
+        Lambda 的 formal lock 寫在容器 /tmp，不跨冷啟動保存；能防同容器重複正式執行，
+        但不是持久性保證。
+
+  T8.5:
+    title: Wire the artifact download routes into Lambda and refresh every demo fixture
+    status: PARTIAL
+    depends_on: [T8.4-deployment-verification]
+    target_minutes: 90
+    started_at: 2026-08-02T01:45:00+08:00
+    completed_at: 2026-08-02T02:40:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "fix(T8.5)"`。
+    commit: 'fix(T8.5): serve artifact downloads from Lambda and refresh the demo fixtures'
+    partial_reason: >-
+      程式、測試與 fixture 全部完成，但 `/download` 的 Lambda 路由**尚未部署**：本機無 AWS
+      credentials（使用者自行從其終端部署）。下次部署後需以 GET /download?scope=required
+      實測回傳 application/zip 才算完整驗收。
+    note: >-
+      原始計畫沒有這個 Task。起因是要把雲端 live 執行結果換進 demo fixture 時，發現
+      T8.3 做的下載端點在雲端完全無效。
+    root_cause: >-
+      Function URL 的路由分派在 `lambda_handler.handler()`，與 `src/app.py` 的
+      `Handler.do_GET` 是兩套各自獨立的實作。T8.3 只把 `/download` 與 `/artifact` 加到
+      stdlib server，因此下載按鈕在本機可用、在雲端落回首頁 —— 而 Demo 正是跑在雲端，
+      按下去沒有任何反應也不會報錯。
+      這個缺陷是在實際嘗試從雲端取回 fixture 時才暴露的：既有測試全部針對 stdlib 入口，
+      沒有任何一條檢查 Lambda 入口認不認得這些路由。
+    fix: >-
+      1. lambda_handler.py 新增 `/download`（scope=required｜all）與 `/artifact`
+         （path、download=1）兩條 GET 路由，共用 `src.app.build_artifact_zip()` 與
+         `DOWNLOADABLE_NAMES`，不重複實作打包與白名單邏輯。
+         ZIP 以 base64 回傳並設 `isBase64Encoded=True` —— 少了這個旗標，Function URL 會把
+         二進位當文字送出，下載到的檔案會損毀，而瀏覽器不會報錯。
+         產物寫在容器 `/tmp`，只有處理過該次執行的容器讀得到；找不到 run 時回 404 並說明
+         這個限制，而不是回一個空 ZIP 讓人以為執行沒有產物。
+      2. 結果頁（Lambda 版的 HTML 另外組）加上兩個 ZIP 按鈕與六個逐檔下載連結，連結一律
+         帶 run_id，避免同容器服務多次執行時只拿到最後一次的產物。
+      3. src/day1_mvp.py 與 src/orchestrator.py 各有一個殘留的英文段落標題
+         （`# {coin} Market Research`／`## Question`／`## Summary`／`## Signals`），
+         一併改為繁體中文，`comparison.md` 因此也全中文。
+      4. 四組 demo fixture 全部重新產生（見 fixtures_refreshed）。
+    fixtures_refreshed: >-
+      live-success：`RUN-20260801T142730Z-BTC-52f95e69`，取自部署後的雲端執行
+      （us-west-2／amazon.nova-lite-v1:0／code_commit=f94acfb），planner／analyst／critic 三段
+      皆 Bedrock 且 analyst 與 critic status=success，claim_source=llm，
+      Citation Gate PASS_WITH_WARNINGS（0 error／0 warning），CL-001 為
+      current_state／supported／信心 0.5907，耗時 46.9 秒，降級僅
+      vegas_channel 與 long_short_ratio，EV-DERIV 由 Kraken Futures 提供。
+      執行性質為 test：同題目的 formal 執行（RUN-20260801T142232Z-BTC-bab828fd）產物因當時
+      Lambda 還沒有 /download 而取不回來，再次以 formal 送出時 RunManager 如預期回 409。
+      offline-backup：ETH 假設驗證題，`live=False, use_llm=False`，Citation Gate PASS。
+      comparison-backup：SOL vs BNB 比較題，兩腳各六項產物。
+      頂層 demo-fixtures/：本機 live 採集，11 筆證據、零降級。
+      五個 bundle 的 manifest sha256 全部實測相符；寫入時刻意重現
+      `artifact_store.write_json()` 的 `json.dumps(ensure_ascii=False, indent=2) + "\n"`
+      序列化，否則格式差異會讓 hash 對不上。
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_lambda_download_routes → 10 tests OK
+      （兩入口路由對等、非法 scope 回 400、白名單外路徑與帶分隔符的 run_id 回 404、
+      首頁仍正常、ZIP 為 base64 且標示 isBase64Encoded、內容位元組與磁碟相同、
+      六項齊備、單檔 text/JSON 與 attachment 標頭、找不到 run 時說明容器限制）。
+      反向驗證：git stash 掉 lambda_handler.py 後同一組測試 5 ERROR + 2 FAIL
+      （其中 `AssertionError: 200 != 404` 正是「落回首頁」的原始症狀），確認測試真的擋得住。
+      完整套件：python3 -m unittest discover -s tests → 656 tests, 656 passed, 0 failed
+      （T8.4 後為 646）。
+      部署包：bash aws/deploy.sh --dry-run → 29 檔／395 KB。
+      fixture 驗證：五個 bundle 的 manifest hash 全部相符；所有 fixture markdown 的英文段落
+      標題數為 0（`## SOL vs BNB 並列比較` 為幣種代號開頭，屬保留原文的技術識別字）。
+    artifacts:
+      - lambda_handler.py
+      - tests/test_lambda_download_routes.py
+      - src/day1_mvp.py
+      - src/orchestrator.py
+      - demo-fixtures/competition-ready/README.md
+      - demo-fixtures/competition-ready/live-success/
+      - demo-fixtures/competition-ready/offline-backup/
+      - demo-fixtures/competition-ready/comparison-backup/
+      - demo-fixtures/
+    blockers:
+      - >-
+        `/download` 的 Lambda 路由尚未部署。取得憑證後執行 ./aws/deploy.sh，再以
+        `curl -o out.zip "<FUNCTION_URL>/download?scope=required"` 確認回傳 application/zip
+        且能解壓（目前雲端會落回首頁）。
+    known_limitations:
+      - >-
+        Lambda 產物在容器 `/tmp`，`/download` 只有處理過該次執行的容器讀得到。冷啟動或被
+        路由到其他容器時會回 404；這是 Function URL 的固有限制，已在回應中說明
+      - >-
+        live-success 的執行性質是 test 而非 formal（原因見該目錄 README）。兩者走完全相同的
+        管線，差別只在 run 生命週期標記
+      - >-
+        本次修正暴露一個結構性風險：`src/app.py` 與 `lambda_handler.py` 各自分派路由，
+        任何只加在其中一側的端點都會在另一側靜默失效。新增測試已涵蓋現有兩條路由，
+        但沒有機制強制未來新增的路由也同步
+      - 未執行真實 Bedrock 呼叫的 targeted test（延續既有慣例，模型端一律 mock）

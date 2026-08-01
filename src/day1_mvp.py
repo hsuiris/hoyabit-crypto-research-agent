@@ -171,7 +171,7 @@ def run(coin: str, question: str, output_dir: Path) -> dict:
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "report.md").write_text(
-        f"# {coin} Market Research\n\n## Question\n{question}\n\n## Summary\n{report['summary']}\n\n## Signals\n"
+        f"# {coin} 市場研究報告\n\n## 研究問題\n{question}\n\n## 摘要\n{report['summary']}\n\n## 訊號\n"
         + "\n".join(f"- {key}: {value}" for key, value in report["signals"].items())
         + "\n\n## Risks\n" + "\n".join(f"- {risk}" for risk in report["risk_factors"])
         + f"\n\n## Evidence\n{', '.join(report['evidence_ids'])}\n\n_{report['disclaimer']}_\n",

@@ -1,28 +1,26 @@
 {
   "status": "success",
   "run_status": "COMPLETED_DEGRADED",
-  "run_mode": "formal",
-  "question_hash": "fa5ef7954d080d51f4e4ed7d3d7651c226f7c8c641684f94adb38f6db323daa6",
+  "run_mode": "test",
+  "question_hash": "00232f9803208b82a7f480bab151cd9dd0249357d62a02b4926a3c7ff5ca4a28",
   "degradation_reasons": [
-    "collector_fallback:derivatives",
     "collector_fallback:vegas_channel",
     "collector_fallback:long_short_ratio"
   ],
   "run_lifecycle": {
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c",
-    "run_mode": "formal",
-    "question_hash": "fa5ef7954d080d51f4e4ed7d3d7651c226f7c8c641684f94adb38f6db323daa6",
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69",
+    "run_mode": "test",
+    "question_hash": "00232f9803208b82a7f480bab151cd9dd0249357d62a02b4926a3c7ff5ca4a28",
     "status": "COMPLETED_DEGRADED",
-    "started_at": "2026-08-01T09:59:07.222933+00:00",
-    "completed_at": "2026-08-01T09:59:23.367813+00:00",
-    "code_commit": "unknown",
+    "started_at": "2026-08-01T14:27:30.518691+00:00",
+    "completed_at": "2026-08-01T14:28:17.397760+00:00",
+    "code_commit": "f94acfb734e770a5ab44a662042c6b94ef3f0c69",
     "provider": "bedrock",
     "model": "amazon.nova-lite-v1:0",
     "rerun_of": null,
     "rerun_reason": null,
     "authorized_rerun": false,
     "degradation_reasons": [
-      "collector_fallback:derivatives",
       "collector_fallback:vegas_channel",
       "collector_fallback:long_short_ratio"
     ],
@@ -33,9 +31,9 @@
       "scored_evidence"
     ]
   },
-  "run_id": "RUN-20260801T095907Z-BTC-5c13147c",
-  "started_at": "2026-08-01T09:59:07.222933+00:00",
-  "completed_at": "2026-08-01T09:59:23.367813+00:00",
+  "run_id": "RUN-20260801T142730Z-BTC-52f95e69",
+  "started_at": "2026-08-01T14:27:30.518691+00:00",
+  "completed_at": "2026-08-01T14:28:17.397760+00:00",
   "mode": "offline",
   "collection": [
     "market:success",
@@ -44,7 +42,7 @@
     "announcement:success",
     "onchain:success",
     "social:success",
-    "derivatives:fallback:HTTPError",
+    "derivatives:success",
     "whale:success",
     "vegas_channel:fallback:HTTPError",
     "long_short_ratio:fallback:HTTPError",
@@ -60,17 +58,17 @@
       "critic": 120.0
     },
     "phase_actual_ms": {
-      "collection_ms": 583.8,
-      "reasoning_ms": 4903.4,
-      "critic_ms": 4034.2
+      "collection_ms": 767.0,
+      "reasoning_ms": 20270.7,
+      "critic_ms": 19870.2
     },
     "deadline": {
       "hard_deadline_seconds": 720.0,
       "finalization_deadline_seconds": 672.0,
       "competition_hard_ceiling_seconds": 900.0,
       "competition_finalization_ceiling_seconds": 840.0,
-      "elapsed_seconds_at_finalization": 16.1,
-      "remaining_seconds_at_finalization": 703.9,
+      "elapsed_seconds_at_finalization": 46.9,
+      "remaining_seconds_at_finalization": 673.1,
       "reason": "within_budget",
       "follow_up_collection_skipped": false,
       "critic_skipped_for_deadline": false,
@@ -88,7 +86,7 @@
       "log": [
         "news:success"
       ],
-      "duration_ms": 174.0
+      "duration_ms": 169.7
     },
     {
       "agent": "social_agent",
@@ -99,7 +97,7 @@
       "log": [
         "social:success"
       ],
-      "duration_ms": 578.8
+      "duration_ms": 476.2
     },
     {
       "agent": "market_agent",
@@ -110,7 +108,7 @@
       "log": [
         "market:success"
       ],
-      "duration_ms": 103.7
+      "duration_ms": 102.0
     },
     {
       "agent": "technical_agent",
@@ -123,9 +121,9 @@
       "log": [
         "vegas_channel:fallback:HTTPError",
         "long_short_ratio:fallback:HTTPError",
-        "derivatives:fallback:HTTPError"
+        "derivatives:success"
       ],
-      "duration_ms": 124.5
+      "duration_ms": 760.9
     },
     {
       "agent": "onchain_agent",
@@ -140,7 +138,7 @@
         "whale:success",
         "tvl:success"
       ],
-      "duration_ms": 454.6
+      "duration_ms": 756.2
     },
     {
       "agent": "macro_agent",
@@ -153,7 +151,7 @@
         "macro:success",
         "announcement:success"
       ],
-      "duration_ms": 546.5
+      "duration_ms": 501.9
     }
   ],
   "stage_providers": {
@@ -180,12 +178,11 @@
   "citation_gate": {
     "gate_version": "citation-gate-v1",
     "status": "PASS_WITH_WARNINGS",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c",
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69",
     "claim_count": 1,
     "evidence_count": 11,
-    "cited_evidence_count": 8,
+    "cited_evidence_count": 9,
     "uncited_evidence_ids": [
-      "EV-DERIV-BTC-FALLBACK",
       "EV-LSRATIO-BTC-FALLBACK",
       "EV-VEGAS-BTC-FALLBACK"
     ],
@@ -208,35 +205,22 @@
     "errors": [],
     "warnings": [],
     "findings": [],
-    "semantic_finding_count": 4,
+    "semantic_finding_count": 5,
     "semantic_categories": [
       "confidence_too_high",
-      "over_claim",
       "stale_or_weak",
       "unsupported"
     ],
     "semantic_findings": [
       {
-        "category": "over_claim",
+        "category": "unsupported",
         "severity": "warning",
         "claim_id": "",
         "evidence_ids": [
           "EV-NEWS-001"
         ],
-        "issue": "The conclusion that the recent price decline is influenced by specific events and market-wide risk aversion is not fully supported by the evidence. The reliability score of the news evidence (EV-NEWS-001) is only 0.58, which is not strong enough to fully support the claim.",
-        "claim_text": "BTC's current market situation shows a recent price decline, influenced by specific events and market-wide risk aversion.",
-        "reported_severity": "medium",
-        "detected_by": "llm_critic"
-      },
-      {
-        "category": "stale_or_weak",
-        "severity": "warning",
-        "claim_id": "",
-        "evidence_ids": [
-          "EV-DERIV-BTC-FALLBACK"
-        ],
-        "issue": "The evidence used to support the claim about major downside risks includes sources with reliability scores below 0.5 (EV-DERIV-BTC-FALLBACK, EV-VEGAS-BTC-FALLBACK, EV-LSRATIO-BTC-FALLBACK), which should not be used as the sole basis for the conclusion.",
-        "claim_text": "Major downside risks include potential further price declines due to market volatility and negative news events.",
+        "issue": "主要新聞和討論熱度的證據來源可靠度不高，且討論情緒並未明確指出市場情緒較為謹慎。",
+        "claim_text": "根據過去兩週的市場表現，BTC 的價格略有下跌，鏈上數據顯示 BTC 鏈的健康狀況良好，主要新聞和討論熱度顯示市場情緒較為謹慎，整體訊號一致程度較低。",
         "reported_severity": "medium",
         "detected_by": "llm_critic"
       },
@@ -244,11 +228,33 @@
         "category": "unsupported",
         "severity": "warning",
         "claim_id": "",
+        "evidence_ids": [],
+        "issue": "市場情緒較為謹慎的結論未能完全由證據支撐，且外部因素的影響未具體說明。",
+        "claim_text": "BTC 的價格略有下跌，鏈上數據顯示 BTC 鏈的健康狀況良好，市場情緒較為謹慎，這些訊號顯示 BTC 的市場表現可能受到外部因素的影響。",
+        "reported_severity": "low",
+        "detected_by": "llm_critic"
+      },
+      {
+        "category": "stale_or_weak",
+        "severity": "warning",
+        "claim_id": "",
+        "evidence_ids": [
+          "EV-NEWS-001"
+        ],
+        "issue": "使用了可靠度低於 0.5 的證據（如 EV-NEWS-001 和 EV-SOCIAL-BTC-HN-001）來支持結論。",
+        "claim_text": "根據過去兩週的市場表現，BTC 的價格略有下跌，鏈上數據顯示 BTC 鏈的健康狀況良好，主要新聞和討論熱度顯示市場情緒較為謹慎，整體訊號一致程度較低。",
+        "reported_severity": "low",
+        "detected_by": "llm_critic"
+      },
+      {
+        "category": "stale_or_weak",
+        "severity": "warning",
+        "claim_id": "",
         "evidence_ids": [
           "EV-SOCIAL-BTC-HN-001"
         ],
-        "issue": "The evidence provided (EV-SOCIAL-BTC-HN-001) only shows a mixed sentiment and does not provide strong support for the claim that it reflects uncertainty and varied perspectives on BTC's future.",
-        "claim_text": "The mixed public technical-community discussion tone may reflect uncertainty and varied perspectives on BTC's future.",
+        "issue": "使用了可靠度低於 0.5 的證據（如 EV-SOCIAL-BTC-HN-001）來支持結論。",
+        "claim_text": "根據過去兩週的市場表現，BTC 的價格略有下跌，鏈上數據顯示 BTC 鏈的健康狀況良好，主要新聞和討論熱度顯示市場情緒較為謹慎，整體訊號一致程度較低。",
         "reported_severity": "low",
         "detected_by": "llm_critic"
       },
@@ -256,11 +262,9 @@
         "category": "confidence_too_high",
         "severity": "warning",
         "claim_id": "",
-        "evidence_ids": [
-          "EV-TVL-BTC-001"
-        ],
-        "issue": "The confidence score of 0.65 is higher than what the evidence (EV-TVL-BTC-001) with a reliability score of 0.8775 can support.",
-        "claim_text": "The contracting trend in BTC chain TVL could indicate a decrease in user engagement or capital inflow into BTC-related DeFi protocols.",
+        "evidence_ids": [],
+        "issue": "信心分數 0.65 與證據的可靠度和質量不完全一致。",
+        "claim_text": "根據過去兩週的市場表現，BTC 的價格略有下跌，鏈上數據顯示 BTC 鏈的健康狀況良好，主要新聞和討論熱度顯示市場情緒較為謹慎，整體訊號一致程度較低。",
         "reported_severity": "low",
         "detected_by": "llm_critic"
       }
@@ -271,9 +275,9 @@
       "name": "parse_input",
       "status": "success",
       "tool": "src.errors.validate_request",
-      "started_at": "2026-08-01T09:59:07.223925+00:00",
-      "completed_at": "2026-08-01T09:59:07.223959+00:00",
-      "duration_ms": 0.0
+      "started_at": "2026-08-01T14:27:30.519094+00:00",
+      "completed_at": "2026-08-01T14:27:30.519173+00:00",
+      "duration_ms": 0.1
     },
     {
       "name": "plan_research",
@@ -282,31 +286,29 @@
       "provider": "bedrock",
       "model": "amazon.nova-lite-v1:0",
       "region": "us-west-2",
-      "duration_ms": 4020.9,
+      "duration_ms": 2782.0,
       "fallback_used": false,
       "fallback_reason": null,
       "task_modes": [
         "describe_market_state",
-        "test_hypothesis",
-        "identify_risks",
-        "identify_attention_conditions"
+        "assess_consistency"
       ],
       "time_window": {
         "days": 14,
-        "source": "default"
+        "source": "explicit"
       },
       "time_window_assumptions": [
-        "市場數據和技術分析指標將基於過去14天的數據進行評估"
+        "假設 BTC 的市場表現受到價格、鏈上數據、新聞與社交媒體討論熱度的影響。"
       ],
       "hypothesis_count": 1,
       "required_domains": [
-        "market_data",
-        "news_events",
-        "technical_analysis",
-        "trading_volume"
+        "market",
+        "onchain",
+        "news",
+        "social"
       ],
-      "started_at": "2026-08-01T09:59:07.223978+00:00",
-      "completed_at": "2026-08-01T09:59:11.244916+00:00",
+      "started_at": "2026-08-01T14:27:30.519188+00:00",
+      "completed_at": "2026-08-01T14:27:33.301140+00:00",
       "tool": "src.planner.build_research_plan"
     },
     {
@@ -320,7 +322,7 @@
         "announcement:success",
         "onchain:success",
         "social:success",
-        "derivatives:fallback:HTTPError",
+        "derivatives:success",
         "whale:success",
         "vegas_channel:fallback:HTTPError",
         "long_short_ratio:fallback:HTTPError",
@@ -341,7 +343,7 @@
           },
           "source_type": "market_api",
           "status": "unverified",
-          "fetched_at": "2026-08-01T09:59:11.350843+00:00",
+          "fetched_at": "2026-08-01T14:27:33.405110+00:00",
           "reliability_score": 0.8775
         },
         {
@@ -354,7 +356,7 @@
           },
           "source_type": "secondary_media",
           "status": "unverified",
-          "fetched_at": "2026-08-01T09:59:11.419915+00:00",
+          "fetched_at": "2026-08-01T14:27:33.471384+00:00",
           "reliability_score": 0.58
         },
         {
@@ -367,7 +369,7 @@
           },
           "source_type": "macro_api",
           "status": "unverified",
-          "fetched_at": "2026-08-01T09:59:11.502503+00:00",
+          "fetched_at": "2026-08-01T14:27:33.593278+00:00",
           "reliability_score": 0.8325
         },
         {
@@ -380,7 +382,7 @@
           },
           "source_type": "official_announcement",
           "status": "unverified",
-          "fetched_at": "2026-08-01T09:59:11.795274+00:00",
+          "fetched_at": "2026-08-01T14:27:33.806936+00:00",
           "reliability_score": 0.81
         },
         {
@@ -394,7 +396,7 @@
           },
           "source_type": "blockchain_raw",
           "status": "unverified",
-          "fetched_at": "2026-08-01T09:59:11.460429+00:00",
+          "fetched_at": "2026-08-01T14:27:33.807583+00:00",
           "reliability_score": 0.925
         },
         {
@@ -408,21 +410,22 @@
           },
           "source_type": "social_public",
           "status": "unverified",
-          "fetched_at": "2026-08-01T09:59:11.825109+00:00",
+          "fetched_at": "2026-08-01T14:27:33.778246+00:00",
           "reliability_score": 0.35
         },
         {
           "collector": "derivatives",
-          "evidence_id": "EV-DERIV-BTC-FALLBACK",
-          "source": "Offline funding-rate fixture",
-          "source_locator": "https://example.com/derivatives",
+          "evidence_id": "EV-DERIV-BTC-001",
+          "source": "Kraken Futures",
+          "source_locator": "https://futures.kraken.com/derivatives/api/v3/tickers",
           "query_summary": {
-            "summary": "no structured locator recorded"
+            "endpoint": "https://futures.kraken.com/derivatives/api/v3/tickers",
+            "symbol": "PF_XBTUSD"
           },
-          "source_type": "fallback_fixture",
-          "status": "unavailable",
-          "fetched_at": "2026-08-01T09:59:11.371794+00:00",
-          "reliability_score": 0.2
+          "source_type": "derivatives_api",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:27:34.064527+00:00",
+          "reliability_score": 0.8375
         },
         {
           "collector": "whale",
@@ -434,7 +437,7 @@
           },
           "source_type": "blockchain_raw",
           "status": "unverified",
-          "fetched_at": "2026-08-01T09:59:11.663517+00:00",
+          "fetched_at": "2026-08-01T14:27:34.019959+00:00",
           "reliability_score": 0.6
         },
         {
@@ -447,7 +450,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "unavailable",
-          "fetched_at": "2026-08-01T09:59:11.293739+00:00",
+          "fetched_at": "2026-08-01T14:27:33.352328+00:00",
           "reliability_score": 0.2
         },
         {
@@ -460,7 +463,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "unavailable",
-          "fetched_at": "2026-08-01T09:59:11.345315+00:00",
+          "fetched_at": "2026-08-01T14:27:33.405555+00:00",
           "reliability_score": 0.2
         },
         {
@@ -473,7 +476,7 @@
           },
           "source_type": "market_api",
           "status": "unverified",
-          "fetched_at": "2026-08-01T09:59:11.702813+00:00",
+          "fetched_at": "2026-08-01T14:27:34.060263+00:00",
           "reliability_score": 0.8775
         }
       ],
@@ -484,51 +487,50 @@
         "EV-ANNOUNCE-BTC-001",
         "EV-ONCHAIN-BTC-001",
         "EV-SOCIAL-BTC-HN-001",
-        "EV-DERIV-BTC-FALLBACK",
+        "EV-DERIV-BTC-001",
         "EV-WHALE-BTC-001",
         "EV-VEGAS-BTC-FALLBACK",
         "EV-LSRATIO-BTC-FALLBACK",
         "EV-TVL-BTC-001"
       ],
       "fallback_reason": null,
-      "started_at": "2026-08-01T09:59:11.245729+00:00",
-      "completed_at": "2026-08-01T09:59:11.837458+00:00",
-      "duration_ms": 591.7
+      "started_at": "2026-08-01T14:27:33.301551+00:00",
+      "completed_at": "2026-08-01T14:27:34.074681+00:00",
+      "duration_ms": 773.1
     },
     {
       "name": "score_evidence",
       "status": "degraded",
       "scored_by": "deterministic_rules",
       "tool": "src.credibility.score_evidence_batch",
-      "started_at": "2026-08-01T09:59:11.837989+00:00",
-      "completed_at": "2026-08-01T09:59:11.841565+00:00",
-      "duration_ms": 3.6,
+      "started_at": "2026-08-01T14:27:34.075160+00:00",
+      "completed_at": "2026-08-01T14:27:34.078559+00:00",
+      "duration_ms": 3.4,
       "scoring_version": "credibility-v1",
       "registry_version": "source-registry-v1",
       "evidence_count": 11,
-      "substantive_count": 8,
+      "substantive_count": 9,
       "fallback_ids": [
-        "EV-DERIV-BTC-FALLBACK",
         "EV-VEGAS-BTC-FALLBACK",
         "EV-LSRATIO-BTC-FALLBACK"
       ],
       "rejected_ids": [],
       "capped_ids": [
         "EV-SOCIAL-BTC-HN-001",
-        "EV-DERIV-BTC-FALLBACK",
         "EV-WHALE-BTC-001",
         "EV-VEGAS-BTC-FALLBACK",
         "EV-LSRATIO-BTC-FALLBACK"
       ],
       "limiter_counts": {
         "anonymous_or_low_trace_social": 1,
-        "fallback_fixture": 3,
+        "fallback_fixture": 2,
         "unverifiable_entity_attribution": 1,
-        "unverifiable_intent_attribution": 3
+        "unverifiable_intent_attribution": 2
       },
       "source_type_counts": {
         "blockchain_raw": 2,
-        "fallback_fixture": 3,
+        "derivatives_api": 1,
+        "fallback_fixture": 2,
         "macro_api": 1,
         "market_api": 2,
         "official_announcement": 1,
@@ -537,14 +539,14 @@
       },
       "independent_lineage_count": 11,
       "shared_lineages": {},
-      "mean_final_score": 0.5866
+      "mean_final_score": 0.6445
     },
     {
       "name": "calculate_indicators",
       "status": "success",
       "tool": "src.orchestrator._signal_inventory",
-      "started_at": "2026-08-01T09:59:11.842112+00:00",
-      "completed_at": "2026-08-01T09:59:11.842120+00:00",
+      "started_at": "2026-08-01T14:27:34.087153+00:00",
+      "completed_at": "2026-08-01T14:27:34.087162+00:00",
       "duration_ms": 0.0
     },
     {
@@ -552,8 +554,8 @@
       "status": "success",
       "error_count": 0,
       "tool": "src.validation.validate_evidence",
-      "started_at": "2026-08-01T09:59:23.365485+00:00",
-      "completed_at": "2026-08-01T09:59:23.366725+00:00",
+      "started_at": "2026-08-01T14:28:17.395470+00:00",
+      "completed_at": "2026-08-01T14:28:17.396697+00:00",
       "duration_ms": 1.2
     },
     {
@@ -564,9 +566,10 @@
       "region": "us-west-2",
       "tool": "src.llm.analyze_with_llm",
       "fallback_reason": null,
-      "started_at": "2026-08-01T09:59:11.842262+00:00",
-      "completed_at": "2026-08-01T09:59:16.732947+00:00",
-      "duration_ms": 4890.7
+      "observation_points_source": "model",
+      "started_at": "2026-08-01T14:27:34.087297+00:00",
+      "completed_at": "2026-08-01T14:27:54.339210+00:00",
+      "duration_ms": 20251.9
     },
     {
       "name": "critic_review",
@@ -578,13 +581,12 @@
       "fallback_reason": null,
       "semantic_categories": [
         "confidence_too_high",
-        "over_claim",
         "stale_or_weak",
         "unsupported"
       ],
-      "started_at": "2026-08-01T09:59:16.732961+00:00",
-      "completed_at": "2026-08-01T09:59:20.767146+00:00",
-      "duration_ms": 4034.2
+      "started_at": "2026-08-01T14:27:54.339223+00:00",
+      "completed_at": "2026-08-01T14:28:14.209405+00:00",
+      "duration_ms": 19870.2
     },
     {
       "name": "build_claims",
@@ -595,36 +597,31 @@
       "provider": "bedrock",
       "model": "amazon.nova-lite-v1:0",
       "client_selection": "llm_client",
-      "duration_ms": 2597.8,
+      "duration_ms": 3185.6,
       "fallback_reason": "",
       "claim_count": 1,
       "verdicts": {
-        "CL-001": "insufficient_evidence"
+        "CL-001": "supported"
       },
       "confidence_scores": {
-        "CL-001": 0.25
+        "CL-001": 0.5907
       },
       "confidence_limiters": {
         "CL-001": [
-          "single_supporting_domain",
-          "high_quality_conflict",
-          "domain_coverage_below_minimum",
           "critic_confidence_reduction"
         ]
       },
-      "insufficient_evidence_claims": [
-        "CL-001"
-      ],
+      "insufficient_evidence_claims": [],
       "hypothesis_assessments": [
         {
-          "hypothesis_id": "hyp_1",
+          "hypothesis_id": "H1",
           "claim_id": "CL-001",
-          "statement": "BTC 的價格將在未來兩週內繼續上漲",
-          "support_strength": 0.4387,
-          "contradiction_strength": 0.4163,
-          "verdict": "insufficient_evidence",
-          "confidence": 0.25,
-          "independent_support_chains": 1
+          "statement": "BTC 的價格在過去兩週內有所下跌。",
+          "support_strength": 0.8575,
+          "contradiction_strength": 0,
+          "verdict": "supported",
+          "confidence": 0.5907,
+          "independent_support_chains": 2
         }
       ],
       "evidence_with_claim_links": 2,
@@ -637,8 +634,8 @@
         "counter_evidence_coverage": 0.1
       },
       "scoring_version": "claim-confidence-v1",
-      "started_at": "2026-08-01T09:59:20.767157+00:00",
-      "completed_at": "2026-08-01T09:59:23.364972+00:00",
+      "started_at": "2026-08-01T14:28:14.209414+00:00",
+      "completed_at": "2026-08-01T14:28:17.394966+00:00",
       "tool": "src.claim_graph.build_claim_graph"
     },
     {
@@ -663,10 +660,10 @@
       "warning_count": 0,
       "errors": [],
       "warnings": [],
-      "semantic_finding_count": 4,
-      "started_at": "2026-08-01T09:59:23.361567+00:00",
-      "completed_at": "2026-08-01T09:59:23.364945+00:00",
-      "duration_ms": 3.4
+      "semantic_finding_count": 5,
+      "started_at": "2026-08-01T14:28:17.391583+00:00",
+      "completed_at": "2026-08-01T14:28:17.394945+00:00",
+      "duration_ms": 3.3
     },
     {
       "name": "generate_report",
@@ -680,10 +677,10 @@
         "report.md",
         "research_plan.json"
       ],
-      "started_at": "2026-08-01T09:59:23.366782+00:00",
-      "completed_at": "2026-08-01T09:59:23.372166+00:00",
-      "duration_ms": 5.4
+      "started_at": "2026-08-01T14:28:17.396744+00:00",
+      "completed_at": "2026-08-01T14:28:17.401985+00:00",
+      "duration_ms": 5.2
     }
   ],
-  "duration_ms": 16148.4
+  "duration_ms": 46883.02
 }

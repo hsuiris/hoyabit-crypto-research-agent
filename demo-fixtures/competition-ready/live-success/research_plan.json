@@ -4,45 +4,43 @@
   ],
   "task_modes": [
     "describe_market_state",
-    "test_hypothesis",
-    "identify_risks",
-    "identify_attention_conditions"
+    "assess_consistency"
   ],
-  "primary_question": "評估 BTC 當前市場狀況、關鍵驅動因素與主要下行風險",
+  "primary_question": "分析 BTC 過去兩週市場表現，整合價格、鏈上、主要新聞與討論熱度，說明訊號一致程度。",
   "time_window": {
     "days": 14,
-    "source": "default"
+    "source": "explicit"
   },
   "hypotheses": [
     {
-      "hypothesis_id": "hyp_1",
-      "statement": "BTC 的價格將在未來兩週內繼續上漲",
+      "hypothesis_id": "H1",
+      "statement": "BTC 的價格、鏈上數據、新聞與社交媒體討論熱度訊號一致。",
       "support_questions": [
-        "BTC 的交易量在過去一週內有無顯著增加？",
-        "BTC 的價格是否受到了任何積極的新聞或事件的推動？",
-        "BTC 的技術分析指標（如移動平均線、RSI）是否顯示出看漲趨勢？"
+        "價格趨勢與鏈上數據是否一致？",
+        "主要新聞是否與價格變動相關？",
+        "社交媒體討論熱度與價格變動是否一致？"
       ],
       "contradiction_questions": [
-        "BTC 的交易量在過去一週內有無顯著下降？",
-        "BTC 是否受到了任何消極的新聞或事件的影響？",
-        "BTC 的技術分析指標是否顯示出看跌趨勢？"
+        "價格趨勢與鏈上數據是否矛盾？",
+        "主要新聞是否與價格變動無關？",
+        "社交媒體討論熱度與價格變動是否不一致？"
       ],
       "falsification_conditions": [
-        "BTC 的價格在未來兩週內持續下跌",
-        "BTC 的交易量顯著下降",
-        "BTC 受到了重大的負面新聞或事件影響"
+        "價格趨勢與鏈上數據完全不一致。",
+        "主要新聞與價格變動完全無關。",
+        "社交媒體討論熱度與價格變動完全不一致。"
       ]
     }
   ],
   "required_domains": [
-    "market_data",
-    "news_events",
-    "technical_analysis",
-    "trading_volume"
+    "market",
+    "onchain",
+    "news",
+    "social"
   ],
   "comparison_dimensions": [],
   "assumptions": [
-    "市場數據和技術分析指標將基於過去14天的數據進行評估"
+    "假設 BTC 的市場表現受到價格、鏈上數據、新聞與社交媒體討論熱度的影響。"
   ],
   "stop_conditions": {
     "max_evidence": 10,

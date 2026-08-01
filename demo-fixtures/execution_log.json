@@ -1,5 +1,14 @@
 {
   "status": "success",
+  "run_status": "COMPLETED",
+  "run_mode": null,
+  "question_hash": "4ef5326e43329258d7164be7b0eab6e66f1e08a3c815591e20a5629c18b1b183",
+  "degradation_reasons": [],
+  "run_lifecycle": null,
+  "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5",
+  "started_at": "2026-08-01T14:29:14.356687+00:00",
+  "completed_at": "2026-08-01T14:29:21.141308+00:00",
+  "mode": "live",
   "collection": [
     "market:success",
     "news:success",
@@ -14,18 +23,205 @@
     "tvl:success"
   ],
   "time_budget": {
-    "budget_seconds": 300.0,
-    "llm_seconds_remaining_at_decision": 293.2,
-    "sources_skipped_by_watchdog": []
+    "budget_seconds": 720.0,
+    "llm_seconds_remaining_at_decision": 180.0,
+    "sources_skipped_by_watchdog": [],
+    "phase_ceilings_seconds": {
+      "collection": 420.0,
+      "reasoning": 180.0,
+      "critic": 120.0
+    },
+    "phase_actual_ms": {
+      "collection_ms": 6750.6,
+      "reasoning_ms": 7.1,
+      "critic_ms": 0.0
+    },
+    "deadline": {
+      "hard_deadline_seconds": 720.0,
+      "finalization_deadline_seconds": 672.0,
+      "competition_hard_ceiling_seconds": 900.0,
+      "competition_finalization_ceiling_seconds": 840.0,
+      "elapsed_seconds_at_finalization": 6.8,
+      "remaining_seconds_at_finalization": 713.2,
+      "reason": "within_budget",
+      "follow_up_collection_skipped": false,
+      "critic_skipped_for_deadline": false,
+      "llm_skipped_for_deadline": false,
+      "claim_model_skipped_for_deadline": false
+    }
+  },
+  "collection_agents": [
+    {
+      "agent": "news_agent",
+      "label": "新聞面",
+      "sources": [
+        "news"
+      ],
+      "log": [
+        "news:success"
+      ],
+      "duration_ms": 6638.3
+    },
+    {
+      "agent": "social_agent",
+      "label": "社群面",
+      "sources": [
+        "social"
+      ],
+      "log": [
+        "social:success"
+      ],
+      "duration_ms": 4730.7
+    },
+    {
+      "agent": "market_agent",
+      "label": "市場價格",
+      "sources": [
+        "market"
+      ],
+      "log": [
+        "market:success"
+      ],
+      "duration_ms": 3523.7
+    },
+    {
+      "agent": "technical_agent",
+      "label": "技術與衍生品",
+      "sources": [
+        "vegas_channel",
+        "long_short_ratio",
+        "derivatives"
+      ],
+      "log": [
+        "vegas_channel:success",
+        "long_short_ratio:success",
+        "derivatives:success"
+      ],
+      "duration_ms": 1066.7
+    },
+    {
+      "agent": "onchain_agent",
+      "label": "鏈上面",
+      "sources": [
+        "onchain",
+        "whale",
+        "tvl"
+      ],
+      "log": [
+        "onchain:success",
+        "whale:success",
+        "tvl:success"
+      ],
+      "duration_ms": 2156.8
+    },
+    {
+      "agent": "macro_agent",
+      "label": "總經與官方",
+      "sources": [
+        "macro",
+        "announcement"
+      ],
+      "log": [
+        "macro:success",
+        "announcement:success"
+      ],
+      "duration_ms": 6736.4
+    }
+  ],
+  "stage_providers": {
+    "planner": {
+      "provider": "deterministic",
+      "model": null
+    },
+    "analyst": {
+      "provider": "deterministic",
+      "model": null,
+      "status": "offline_fallback"
+    },
+    "critic": {
+      "provider": "deterministic",
+      "model": null,
+      "status": "skipped:disabled"
+    },
+    "claims": {
+      "provider": "deterministic",
+      "model": null,
+      "scored_by": "deterministic_rules"
+    }
+  },
+  "citation_gate": {
+    "gate_version": "citation-gate-v1",
+    "status": "PASS",
+    "run_id": "RUN-20260801T142914Z-ETH-eccf4dd5",
+    "claim_count": 1,
+    "evidence_count": 11,
+    "cited_evidence_count": 11,
+    "uncited_evidence_ids": [],
+    "checks": {
+      "claim_structure": "pass",
+      "evidence_id_exists": "pass",
+      "evidence_belongs_to_run": "pass",
+      "evidence_required_fields": "pass",
+      "evidence_not_rejected": "pass",
+      "fallback_not_sole_support": "pass",
+      "support_contradiction_exclusive": "pass",
+      "claim_has_supporting_evidence": "pass",
+      "confidence_within_cap": "pass",
+      "related_claim_ids_consistent": "pass",
+      "no_cross_run_citation": "pass"
+    },
+    "related_claim_ids_checked": true,
+    "error_count": 0,
+    "warning_count": 0,
+    "errors": [],
+    "warnings": [],
+    "findings": [],
+    "semantic_finding_count": 0,
+    "semantic_categories": [],
+    "semantic_findings": []
   },
   "steps": [
     {
       "name": "parse_input",
-      "status": "success"
+      "status": "success",
+      "tool": "src.errors.validate_request",
+      "started_at": "2026-08-01T14:29:14.356834+00:00",
+      "completed_at": "2026-08-01T14:29:14.356837+00:00",
+      "duration_ms": 0.0
+    },
+    {
+      "name": "plan_research",
+      "status": "fallback",
+      "path": "fallback",
+      "provider": "deterministic",
+      "model": null,
+      "region": null,
+      "duration_ms": 0.0,
+      "fallback_used": true,
+      "fallback_reason": "no_client_injected",
+      "task_modes": [
+        "describe_market_state",
+        "assess_consistency"
+      ],
+      "time_window": {
+        "days": 14,
+        "source": "explicit"
+      },
+      "time_window_assumptions": [],
+      "hypothesis_count": 0,
+      "required_domains": [
+        "market",
+        "news",
+        "onchain"
+      ],
+      "started_at": "2026-08-01T14:29:14.356842+00:00",
+      "completed_at": "2026-08-01T14:29:14.356873+00:00",
+      "tool": "src.planner.build_research_plan"
     },
     {
       "name": "collect_evidence",
       "status": "success",
+      "tool": "src.day2_sources.collect_evidence_detailed",
       "details": [
         "market:success",
         "news:success",
@@ -38,27 +234,338 @@
         "vegas_channel:success",
         "long_short_ratio:success",
         "tvl:success"
-      ]
+      ],
+      "collectors": [
+        {
+          "collector": "market",
+          "evidence_id": "EV-MARKET-001",
+          "source": "CoinGecko",
+          "source_locator": "https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=14",
+          "query_summary": {
+            "endpoint": "https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=14",
+            "query": {
+              "vs_currency": "usd",
+              "days": 14
+            }
+          },
+          "source_type": "market_api",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:17.881090+00:00",
+          "reliability_score": 0.8775
+        },
+        {
+          "collector": "news",
+          "evidence_id": "EV-NEWS-001",
+          "source": "Google News RSS + publisher feeds",
+          "source_locator": "https://news.google.com/rss/search?q=ETH%20crypto",
+          "query_summary": {
+            "feed_url": "https://news.google.com/rss/search?q=ETH%20crypto"
+          },
+          "source_type": "secondary_media",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:20.995140+00:00",
+          "reliability_score": 0.58
+        },
+        {
+          "collector": "macro",
+          "evidence_id": "EV-MACRO-ETH-001",
+          "source": "Alternative.me Fear & Greed + Federal Reserve press releases",
+          "source_locator": "https://api.alternative.me/fng/?limit=14",
+          "query_summary": {
+            "summary": "no structured locator recorded"
+          },
+          "source_type": "macro_api",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:18.835158+00:00",
+          "reliability_score": 0.8325
+        },
+        {
+          "collector": "announcement",
+          "evidence_id": "EV-ANNOUNCE-ETH-001",
+          "source": "Ethereum Foundation Blog",
+          "source_locator": "https://blog.ethereum.org/en/feed.xml",
+          "query_summary": {
+            "feed_url": "https://blog.ethereum.org/en/feed.xml"
+          },
+          "source_type": "official_announcement",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:21.094217+00:00",
+          "reliability_score": 0.8081
+        },
+        {
+          "collector": "onchain",
+          "evidence_id": "EV-ONCHAIN-ETH-001",
+          "source": "Ethereum",
+          "source_locator": "https://ethereum.publicnode.com",
+          "query_summary": {
+            "chain": "Ethereum",
+            "endpoint": "https://ethereum.publicnode.com"
+          },
+          "source_type": "blockchain_raw",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:14.655080+00:00",
+          "reliability_score": 0.925
+        },
+        {
+          "collector": "social",
+          "evidence_id": "EV-SOCIAL-ETH-HN-001",
+          "source": "Hacker News Algolia search",
+          "source_locator": "https://hn.algolia.com/api/v1/search_by_date?query=ETH%20crypto&tags=(story,comment)&hitsPerPage=25",
+          "query_summary": {
+            "endpoint": "https://hn.algolia.com/api/v1/search_by_date?query=ETH%20crypto&tags=(story,comment)&hitsPerPage=25",
+            "query": "ETH crypto"
+          },
+          "source_type": "social_public",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:19.083239+00:00",
+          "reliability_score": 0.35
+        },
+        {
+          "collector": "derivatives",
+          "evidence_id": "EV-DERIV-ETH-001",
+          "source": "Binance Futures",
+          "source_locator": "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=ETHUSDT",
+          "query_summary": {
+            "endpoint": "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=ETHUSDT",
+            "symbol": "ETHUSDT"
+          },
+          "source_type": "derivatives_api",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:15.424190+00:00",
+          "reliability_score": 0.8375
+        },
+        {
+          "collector": "whale",
+          "evidence_id": "EV-WHALE-ETH-001",
+          "source": "Public balance check (curated known addresses)",
+          "source_locator": "https://ethereum.publicnode.com",
+          "query_summary": {
+            "summary": "no structured locator recorded"
+          },
+          "source_type": "blockchain_raw",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:14.975731+00:00",
+          "reliability_score": 0.6
+        },
+        {
+          "collector": "vegas_channel",
+          "evidence_id": "EV-VEGAS-ETH-001",
+          "source": "Binance Klines (Vegas Channel + RSI strategy)",
+          "source_locator": "https://api.binance.com/api/v3/klines?symbol=ETHUSDT",
+          "query_summary": {
+            "symbol": "ETHUSDT"
+          },
+          "source_type": "market_api",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:14.988787+00:00",
+          "reliability_score": 0.8925
+        },
+        {
+          "collector": "long_short_ratio",
+          "evidence_id": "EV-LSRATIO-ETH-001",
+          "source": "Binance Futures Data (top-trader position ratio)",
+          "source_locator": "https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=ETHUSDT&period=1h&limit=24",
+          "query_summary": {
+            "endpoint": "https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=ETHUSDT&period=1h&limit=24"
+          },
+          "source_type": "derivatives_api",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:15.230927+00:00",
+          "reliability_score": 0.8525
+        },
+        {
+          "collector": "tvl",
+          "evidence_id": "EV-TVL-ETH-001",
+          "source": "DefiLlama chain TVL (Ethereum)",
+          "source_locator": "https://api.llama.fi/v2/historicalChainTvl/Ethereum",
+          "query_summary": {
+            "endpoint": "https://api.llama.fi/v2/historicalChainTvl/Ethereum"
+          },
+          "source_type": "market_api",
+          "status": "unverified",
+          "fetched_at": "2026-08-01T14:29:16.514359+00:00",
+          "reliability_score": 0.8775
+        }
+      ],
+      "evidence_ids_created": [
+        "EV-MARKET-001",
+        "EV-NEWS-001",
+        "EV-MACRO-ETH-001",
+        "EV-ANNOUNCE-ETH-001",
+        "EV-ONCHAIN-ETH-001",
+        "EV-SOCIAL-ETH-HN-001",
+        "EV-DERIV-ETH-001",
+        "EV-WHALE-ETH-001",
+        "EV-VEGAS-ETH-001",
+        "EV-LSRATIO-ETH-001",
+        "EV-TVL-ETH-001"
+      ],
+      "fallback_reason": null,
+      "started_at": "2026-08-01T14:29:14.356876+00:00",
+      "completed_at": "2026-08-01T14:29:21.107514+00:00",
+      "duration_ms": 6750.6
+    },
+    {
+      "name": "score_evidence",
+      "status": "success",
+      "scored_by": "deterministic_rules",
+      "tool": "src.credibility.score_evidence_batch",
+      "started_at": "2026-08-01T14:29:21.107525+00:00",
+      "completed_at": "2026-08-01T14:29:21.114272+00:00",
+      "duration_ms": 6.7,
+      "scoring_version": "credibility-v1",
+      "registry_version": "source-registry-v1",
+      "evidence_count": 11,
+      "substantive_count": 11,
+      "fallback_ids": [],
+      "rejected_ids": [],
+      "capped_ids": [
+        "EV-SOCIAL-ETH-HN-001",
+        "EV-WHALE-ETH-001"
+      ],
+      "limiter_counts": {
+        "anonymous_or_low_trace_social": 1,
+        "unverifiable_entity_attribution": 1
+      },
+      "source_type_counts": {
+        "blockchain_raw": 2,
+        "derivatives_api": 2,
+        "macro_api": 1,
+        "market_api": 3,
+        "official_announcement": 1,
+        "secondary_media": 1,
+        "social_public": 1
+      },
+      "independent_lineage_count": 11,
+      "shared_lineages": {},
+      "mean_final_score": 0.7666
     },
     {
       "name": "calculate_indicators",
-      "status": "success"
+      "status": "success",
+      "tool": "src.orchestrator._signal_inventory",
+      "started_at": "2026-08-01T14:29:21.114328+00:00",
+      "completed_at": "2026-08-01T14:29:21.114333+00:00",
+      "duration_ms": 0.0
     },
     {
       "name": "validate_evidence",
       "status": "success",
-      "error_count": 0
+      "error_count": 0,
+      "tool": "src.validation.validate_evidence",
+      "started_at": "2026-08-01T14:29:21.134250+00:00",
+      "completed_at": "2026-08-01T14:29:21.137932+00:00",
+      "duration_ms": 3.7
     },
     {
       "name": "llm_reasoning",
       "status": "offline_fallback",
       "provider": "none",
-      "model": null
+      "model": null,
+      "region": null,
+      "tool": "src.llm.analyze_with_llm",
+      "fallback_reason": "offline_fallback",
+      "observation_points_source": "deterministic_fallback",
+      "started_at": "2026-08-01T14:29:21.114428+00:00",
+      "completed_at": "2026-08-01T14:29:21.114553+00:00",
+      "duration_ms": 0.1
+    },
+    {
+      "name": "critic_review",
+      "status": "skipped:disabled",
+      "provider": "none",
+      "model": null,
+      "region": null,
+      "tool": "src.llm.critique_with_llm",
+      "fallback_reason": "skipped:disabled",
+      "semantic_categories": [],
+      "started_at": "2026-08-01T14:29:21.114557+00:00",
+      "completed_at": "2026-08-01T14:29:21.114566+00:00",
+      "duration_ms": 0.0
+    },
+    {
+      "name": "build_claims",
+      "status": "fallback",
+      "claim_source": "deterministic_fallback",
+      "proposed_by": "deterministic_rules",
+      "scored_by": "deterministic_rules",
+      "provider": "deterministic",
+      "model": null,
+      "client_selection": "llm_disabled",
+      "duration_ms": 19.7,
+      "fallback_reason": "no llm client supplied",
+      "claim_count": 1,
+      "verdicts": {
+        "CL-001": "mixed"
+      },
+      "confidence_scores": {
+        "CL-001": 0.6
+      },
+      "confidence_limiters": {
+        "CL-001": [
+          "single_supporting_domain",
+          "high_quality_conflict"
+        ]
+      },
+      "insufficient_evidence_claims": [],
+      "hypothesis_assessments": [],
+      "evidence_with_claim_links": 2,
+      "rejected_evidence_ids": [],
+      "confidence_weights": {
+        "weighted_evidence_quality": 0.3,
+        "domain_coverage": 0.25,
+        "source_diversity": 0.2,
+        "signal_consistency": 0.15,
+        "counter_evidence_coverage": 0.1
+      },
+      "scoring_version": "claim-confidence-v1",
+      "started_at": "2026-08-01T14:29:21.114569+00:00",
+      "completed_at": "2026-08-01T14:29:21.134247+00:00",
+      "tool": "src.claim_graph.build_claim_graph"
+    },
+    {
+      "name": "citation_gate",
+      "status": "PASS",
+      "tool": "src.validation.run_citation_gate",
+      "gate_version": "citation-gate-v1",
+      "checks": {
+        "claim_structure": "pass",
+        "evidence_id_exists": "pass",
+        "evidence_belongs_to_run": "pass",
+        "evidence_required_fields": "pass",
+        "evidence_not_rejected": "pass",
+        "fallback_not_sole_support": "pass",
+        "support_contradiction_exclusive": "pass",
+        "claim_has_supporting_evidence": "pass",
+        "confidence_within_cap": "pass",
+        "related_claim_ids_consistent": "pass",
+        "no_cross_run_citation": "pass"
+      },
+      "error_count": 0,
+      "warning_count": 0,
+      "errors": [],
+      "warnings": [],
+      "semantic_finding_count": 0,
+      "started_at": "2026-08-01T14:29:21.123148+00:00",
+      "completed_at": "2026-08-01T14:29:21.134236+00:00",
+      "duration_ms": 11.1
     },
     {
       "name": "generate_report",
-      "status": "success"
+      "status": "success",
+      "tool": "src.report_renderer.render_competition_report",
+      "artifacts": [
+        "claims.json",
+        "evidence.json",
+        "execution_log.json",
+        "manifest.json",
+        "report.md",
+        "research_plan.json"
+      ],
+      "started_at": "2026-08-01T14:29:21.137958+00:00",
+      "completed_at": "2026-08-01T14:29:21.147744+00:00",
+      "duration_ms": 9.8
     }
   ],
-  "duration_ms": 6819.18
+  "duration_ms": 6791.09
 }

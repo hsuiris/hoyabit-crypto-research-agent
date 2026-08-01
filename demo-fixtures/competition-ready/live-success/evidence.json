@@ -3,14 +3,14 @@
     "evidence_id": "EV-MARKET-001",
     "source": "CoinGecko",
     "source_url": "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=14",
-    "fetched_at": "2026-08-01T09:59:11.350843+00:00",
+    "fetched_at": "2026-08-01T14:27:33.405110+00:00",
     "data_type": "market",
     "coin": "BTC",
     "time_range": "14d",
     "content": {
-      "start_price": 63947.240966667276,
-      "end_price": 62995.495652472106,
-      "return_pct": -1.49,
+      "start_price": 64087.72124536932,
+      "end_price": 63057.06197901681,
+      "return_pct": -1.61,
       "prices": [
         63819.0,
         63780.0,
@@ -100,7 +100,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "event_time",
-      "age_days": 0.4161,
+      "age_days": 0.6025,
       "lineage_size": 1,
       "source_type": "market_api",
       "known_limitations": [
@@ -113,20 +113,20 @@
       "legacy_reliability_hint": 0.9,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [
       "CL-001"
     ],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
     "evidence_id": "EV-NEWS-001",
     "source": "Google News RSS + publisher feeds",
     "source_url": "https://news.google.com/rss/search?q=BTC%20crypto",
-    "fetched_at": "2026-08-01T09:59:11.419915+00:00",
+    "fetched_at": "2026-08-01T14:27:33.471384+00:00",
     "data_type": "news",
     "coin": "BTC",
     "time_range": "14d",
@@ -292,7 +292,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "published_at",
-      "age_days": 0.0245,
+      "age_days": 0.2109,
       "lineage_size": 1,
       "source_type": "secondary_media",
       "known_limitations": [
@@ -305,18 +305,18 @@
       "legacy_reliability_hint": 0.6,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
     "evidence_id": "EV-MACRO-BTC-001",
     "source": "Alternative.me Fear & Greed + Federal Reserve press releases",
     "source_url": "https://api.alternative.me/fng/?limit=14",
-    "fetched_at": "2026-08-01T09:59:11.502503+00:00",
+    "fetched_at": "2026-08-01T14:27:33.593278+00:00",
     "data_type": "macro",
     "coin": "BTC",
     "time_range": "14d",
@@ -473,7 +473,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "event_time",
-      "age_days": 0.4161,
+      "age_days": 0.6025,
       "lineage_size": 1,
       "source_type": "macro_api",
       "known_limitations": [
@@ -485,20 +485,18 @@
       "legacy_reliability_hint": 0.8,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [],
-    "related_claim_ids": [
-      "CL-001"
-    ],
+    "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
     "evidence_id": "EV-ANNOUNCE-BTC-001",
     "source": "Bitcoin Optech Newsletter",
     "source_url": "https://bitcoinops.org/feed.xml",
-    "fetched_at": "2026-08-01T09:59:11.795274+00:00",
+    "fetched_at": "2026-08-01T14:27:33.806936+00:00",
     "data_type": "announcement",
     "coin": "BTC",
     "time_range": "recent",
@@ -546,6 +544,7 @@
         }
       ],
       "first_party": true,
+      "scope": "general",
       "note": "第一方官方發布",
       "lineage_groups": {
         "lin:normalized_title:c0030a9e4ca0": [
@@ -601,7 +600,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "published_at",
-      "age_days": 1.4161,
+      "age_days": 1.6025,
       "lineage_size": 1,
       "source_type": "official_announcement",
       "known_limitations": [
@@ -614,24 +613,24 @@
       "legacy_reliability_hint": 0.85,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
     "evidence_id": "EV-ONCHAIN-BTC-001",
     "source": "Bitcoin",
     "source_url": "https://blockchain.info/q/getblockcount",
-    "fetched_at": "2026-08-01T09:59:11.460429+00:00",
+    "fetched_at": "2026-08-01T14:27:33.807583+00:00",
     "data_type": "onchain",
     "coin": "BTC",
     "time_range": "current",
     "content": {
       "chain": "Bitcoin",
-      "latest_block_height": "960544"
+      "latest_block_height": "960570"
     },
     "reliability_score": 0.925,
     "content_reference": {
@@ -679,18 +678,18 @@
       "legacy_reliability_hint": 0.7,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
     "evidence_id": "EV-SOCIAL-BTC-HN-001",
     "source": "Hacker News Algolia search",
     "source_url": "https://hn.algolia.com/api/v1/search_by_date?query=BTC%20crypto&tags=(story,comment)&hitsPerPage=25",
-    "fetched_at": "2026-08-01T09:59:11.825109+00:00",
+    "fetched_at": "2026-08-01T14:27:33.778246+00:00",
     "data_type": "social",
     "coin": "BTC",
     "time_range": "recent",
@@ -1189,7 +1188,7 @@
         "anonymous_or_low_trace_social"
       ],
       "freshness_basis": "event_time",
-      "age_days": 0.3467,
+      "age_days": 0.5331,
       "lineage_size": 1,
       "source_type": "social_public",
       "known_limitations": [
@@ -1202,50 +1201,63 @@
       "legacy_reliability_hint": 0.5,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [
       "anonymous_or_low_trace_social"
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
-    "evidence_id": "EV-DERIV-BTC-FALLBACK",
-    "source": "Offline funding-rate fixture",
-    "source_url": "https://example.com/derivatives",
-    "fetched_at": "2026-08-01T09:59:11.371794+00:00",
+    "evidence_id": "EV-DERIV-BTC-001",
+    "source": "Kraken Futures",
+    "source_url": "https://futures.kraken.com/derivatives/api/v3/tickers",
+    "fetched_at": "2026-08-01T14:27:34.064527+00:00",
     "data_type": "derivatives",
     "coin": "BTC",
     "time_range": "current",
     "content": {
-      "status": "unavailable",
-      "reason": "HTTPError",
-      "bias": "unknown"
+      "symbol": "PF_XBTUSD",
+      "funding_rate_pct": 0.0048,
+      "bias": "balanced",
+      "mark_price": 63066.43672496961,
+      "next_funding_time": null,
+      "provider": "Kraken Futures",
+      "funding_interval_hours": 8,
+      "provider_native_interval_hours": 1,
+      "providers_tried": [
+        "Binance Futures: HTTPError"
+      ],
+      "scope_note": "本費率為 Kraken Futures 單一交易所的永續合約報價，不同交易所的費率與擁擠方向可能相反，不可視為全市場共識"
     },
-    "reliability_score": 0.2,
+    "reliability_score": 0.8375,
     "content_reference": {
-      "fallback": true,
-      "error_type": "HTTPError"
+      "endpoint": "https://futures.kraken.com/derivatives/api/v3/tickers",
+      "symbol": "PF_XBTUSD",
+      "raw_funding_rate": 0.37462709722664567,
+      "provider": "Kraken Futures",
+      "normalised_to_hours": 8,
+      "provider_native_interval_hours": 1
     },
-    "related_claim": "derivatives signal unavailable for BTC; do not treat fallback as live evidence",
-    "source_type": "fallback_fixture",
+    "related_claim": "BTC perpetual-futures funding rate and long/short crowding bias",
+    "source_type": "derivatives_api",
     "published_at": null,
     "event_time": null,
-    "verification_status": "unavailable",
-    "source_lineage_id": "lin:source_domain:12585507cf36",
+    "verification_status": "unverified",
+    "source_lineage_id": "lin:source_domain:771aca282139",
     "claim_relevance": 0.0,
     "independence_factor": 1.0,
     "score_breakdown": {
-      "raw_score": 0.36,
-      "final_score": 0.2,
+      "raw_score": 0.8375,
+      "final_score": 0.8375,
       "components": {
-        "source_quality": 0.2,
-        "traceability": 0.2,
+        "source_quality": 0.8,
+        "traceability": 0.85,
         "freshness": 1.0,
-        "method_transparency": 0.2,
-        "independence": 0.2
+        "method_transparency": 0.7,
+        "independence": 0.8
       },
       "weights": {
         "source_quality": 0.3,
@@ -1254,39 +1266,36 @@
         "method_transparency": 0.15,
         "independence": 0.1
       },
-      "hard_cap": 0.2,
-      "score_limiters": [
-        "fallback_fixture",
-        "unverifiable_intent_attribution"
-      ],
+      "hard_cap": null,
+      "score_limiters": [],
       "freshness_basis": "fetched_at",
       "age_days": 0.0,
       "lineage_size": 1,
-      "source_type": "fallback_fixture",
+      "source_type": "derivatives_api",
       "known_limitations": [
-        "只用於維持流程，不得作為主要 Claim 的唯一支持"
+        "只涵蓋單一交易所的部位分布",
+        "倉位分布不等於後續價格方向"
       ],
       "notes": [
         "未提供計算方法或參數，method_transparency 未加分"
       ],
-      "legacy_reliability_hint": 0.2,
+      "legacy_reliability_hint": 0.75,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
-    "score_limiters": [
-      "fallback_fixture",
-      "unverifiable_intent_attribution"
+    "score_limiters": [],
+    "related_claim_ids": [
+      "CL-001"
     ],
-    "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
     "evidence_id": "EV-WHALE-BTC-001",
     "source": "Public balance check (curated known addresses)",
     "source_url": "https://blockchain.info/balance?active=34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo|3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6",
-    "fetched_at": "2026-08-01T09:59:11.663517+00:00",
+    "fetched_at": "2026-08-01T14:27:34.019959+00:00",
     "data_type": "whale",
     "coin": "BTC",
     "time_range": "current",
@@ -1305,7 +1314,8 @@
           "explorer_url": "https://www.blockchain.com/explorer/addresses/btc/3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6"
         }
       ],
-      "note": "僅追蹤已知大型交易所/機構地址的即時餘額，非全網即時巨鯨偵測"
+      "note": "僅追蹤已知大型交易所/機構地址的即時餘額，非全網即時巨鯨偵測",
+      "owner_attribution_verified": true
     },
     "reliability_score": 0.6,
     "content_reference": {
@@ -1357,20 +1367,20 @@
       "legacy_reliability_hint": 0.65,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [
       "unverifiable_entity_attribution"
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
     "evidence_id": "EV-VEGAS-BTC-FALLBACK",
     "source": "Offline Vegas Channel fixture",
     "source_url": "https://example.com/vegas",
-    "fetched_at": "2026-08-01T09:59:11.293739+00:00",
+    "fetched_at": "2026-08-01T14:27:33.352328+00:00",
     "data_type": "vegas_channel",
     "coin": "BTC",
     "time_range": "4h trend / 1h execution",
@@ -1429,7 +1439,7 @@
       "legacy_reliability_hint": 0.2,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [
       "fallback_fixture",
@@ -1437,13 +1447,13 @@
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
     "evidence_id": "EV-LSRATIO-BTC-FALLBACK",
     "source": "Offline long/short ratio fixture",
     "source_url": "https://example.com/long_short_ratio",
-    "fetched_at": "2026-08-01T09:59:11.345315+00:00",
+    "fetched_at": "2026-08-01T14:27:33.405555+00:00",
     "data_type": "long_short_ratio",
     "coin": "BTC",
     "time_range": "current",
@@ -1503,7 +1513,7 @@
       "legacy_reliability_hint": 0.2,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [
       "fallback_fixture",
@@ -1511,13 +1521,13 @@
     ],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   },
   {
     "evidence_id": "EV-TVL-BTC-001",
     "source": "DefiLlama chain TVL (Bitcoin)",
     "source_url": "https://api.llama.fi/v2/historicalChainTvl/Bitcoin",
-    "fetched_at": "2026-08-01T09:59:11.702813+00:00",
+    "fetched_at": "2026-08-01T14:27:34.060263+00:00",
     "data_type": "tvl",
     "coin": "BTC",
     "time_range": "last 90d",
@@ -1882,12 +1892,12 @@
         },
         {
           "time": "2026-08-01",
-          "tvl_usd": 3503612665.0
+          "tvl_usd": 3503300388.0
         }
       ],
-      "tvl_usd": 3503612665.0,
-      "change_pct": -32.93,
-      "change_30d_pct": -10.18,
+      "tvl_usd": 3503300388.0,
+      "change_pct": -32.94,
+      "change_30d_pct": -10.19,
       "direction": "contracting"
     },
     "reliability_score": 0.8775,
@@ -1923,7 +1933,7 @@
       "hard_cap": null,
       "score_limiters": [],
       "freshness_basis": "event_time",
-      "age_days": 0.4161,
+      "age_days": 0.6025,
       "lineage_size": 1,
       "source_type": "market_api",
       "known_limitations": [
@@ -1936,11 +1946,11 @@
       "legacy_reliability_hint": 0.75,
       "registry_version": "source-registry-v1",
       "scoring_version": "credibility-v1",
-      "scored_at": "2026-08-01T09:59:11.838210+00:00"
+      "scored_at": "2026-08-01T14:27:34.075358+00:00"
     },
     "score_limiters": [],
     "related_claim_ids": [],
     "scoring_version": "credibility-v1",
-    "run_id": "RUN-20260801T095907Z-BTC-5c13147c"
+    "run_id": "RUN-20260801T142730Z-BTC-52f95e69"
   }
 ]

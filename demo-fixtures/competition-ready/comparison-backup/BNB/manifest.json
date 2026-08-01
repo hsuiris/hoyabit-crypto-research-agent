@@ -1,12 +1,12 @@
 {
   "manifest_version": "competition-manifest-v1",
-  "run_id": "RUN-20260801T063901Z-BNB-4422e867",
-  "started_at": "2026-08-01T06:39:01.765852+00:00",
-  "completed_at": "2026-08-01T06:39:01.776339+00:00",
-  "as_of": "2026-08-01T06:39:01.765852+00:00",
-  "duration_ms": 12.76,
-  "question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
-  "question_hash": "b2637e9708f26aec488747f3b3eaa59fb961e920e45b1976ca4dd99248444196",
+  "run_id": "RUN-20260801T143025Z-BNB-30bcbb12",
+  "started_at": "2026-08-01T14:30:25.121590+00:00",
+  "completed_at": "2026-08-01T14:30:25.131718+00:00",
+  "as_of": "2026-08-01T14:30:25.121590+00:00",
+  "duration_ms": 12.38,
+  "question": "比較 SOL 與 BNB 在當前宏觀環境下的市場位置與風險特徵，說明流動性、市場關注度與風險敞口的主要差異。",
+  "question_hash": "bf23b69c7eb824a66c8378701db02866d444f81c5397d421a918d0c604970b6c",
   "coins": [
     "BNB"
   ],
@@ -60,7 +60,7 @@
       "scored_by": "deterministic_rules"
     }
   },
-  "code_commit": "c05ce61bb85aa47095f1e26812895a047dc3465a",
+  "code_commit": "f94acfb734e770a5ab44a662042c6b94ef3f0c69",
   "config_version": "t0.5",
   "versions": {
     "schema": "competition-schema-v1",
@@ -82,37 +82,37 @@
     {
       "path": "claims.json",
       "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/claims.json",
-      "bytes": 2259,
-      "sha256": "be30f6947a3de1036fb5377df4576e28dd466890b912bf5337f9c50d9043db30",
-      "written_at": "2026-08-01T06:39:01.778146+00:00"
+      "bytes": 2337,
+      "sha256": "6b7708e338c8e66f5f8186202f6ec031e9e21142400ef4a2888d0447ddc73e8d",
+      "written_at": "2026-08-01T14:30:25.133529+00:00"
     },
     {
       "path": "evidence.json",
       "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/evidence.json",
       "bytes": 29256,
-      "sha256": "c4c58faefba30bbe56ea9d8258e7e855ffac3aa5979bc515508d1928f493a9ee",
-      "written_at": "2026-08-01T06:39:01.777825+00:00"
+      "sha256": "356ccb2dee2bb570d330239b75e3aa004412f87cb159d7540cac030906a20b37",
+      "written_at": "2026-08-01T14:30:25.133251+00:00"
     },
     {
       "path": "execution_log.json",
       "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/execution_log.json",
-      "bytes": 13916,
-      "sha256": "ba62108102ea35d666b757a38df17c93e94c27d70883e7ecf02cb52ae2d8c08a",
-      "written_at": "2026-08-01T06:39:01.778611+00:00"
+      "bytes": 13994,
+      "sha256": "da5637704015b327ee7dd1c149b13713952ff0295cd278e8484cd97310ef0d31",
+      "written_at": "2026-08-01T14:30:25.133967+00:00"
     },
     {
       "path": "report.md",
       "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/report.md",
-      "bytes": 12453,
-      "sha256": "473f5b0d497b988915233450882d18e28b000f8f91ea7aeacc922aa11ef25029",
-      "written_at": "2026-08-01T06:39:01.776831+00:00"
+      "bytes": 12795,
+      "sha256": "188a6a7139c10757892d8d39ca50eae859eb155be9bb10b068fe0faeadd40618",
+      "written_at": "2026-08-01T14:30:25.132135+00:00"
     },
     {
       "path": "research_plan.json",
       "uri": "file:///Users/zhangshitong/Projects/fish_hoyabit/hoyabit-crypto-research-agent/demo-fixtures/competition-ready/comparison-backup/BNB/research_plan.json",
-      "bytes": 753,
-      "sha256": "c03af38f5a89bd71985354c26418baf99346df5d14aab35943ac6e2643dc640c",
-      "written_at": "2026-08-01T06:39:01.777985+00:00"
+      "bytes": 841,
+      "sha256": "a96001e56edab0aefceec42efe25d3eea62af634b502910955e1f4f79a0baa31",
+      "written_at": "2026-08-01T14:30:25.133383+00:00"
     }
   ],
   "manifest_file": "manifest.json",

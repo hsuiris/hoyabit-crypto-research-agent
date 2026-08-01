@@ -1,0 +1,26 @@
+{
+  "coins": [
+    "ETH"
+  ],
+  "task_modes": [
+    "describe_market_state",
+    "assess_consistency"
+  ],
+  "primary_question": "分析 ETH 近兩週市場表現，整合價格、鏈上、主要新聞與討論熱度，說明訊號一致程度。",
+  "time_window": {
+    "days": 14,
+    "source": "explicit"
+  },
+  "hypotheses": [],
+  "required_domains": [
+    "market",
+    "news",
+    "onchain"
+  ],
+  "comparison_dimensions": [],
+  "assumptions": [],
+  "stop_conditions": {
+    "max_evidence": 36,
+    "max_followup_rounds": 1
+  }
+}

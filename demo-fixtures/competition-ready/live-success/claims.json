@@ -7,71 +7,66 @@
   "claims": [
     {
       "claim_id": "CL-001",
-      "statement": "BTC 的價格將在未來兩週內繼續上漲",
-      "claim_type": "prediction",
-      "verdict": "insufficient_evidence",
+      "statement": "BTC 的價格在過去兩週內有所下跌。",
+      "claim_type": "current_state",
+      "verdict": "supported",
       "facts": [
         {
-          "statement": "根據 CoinGecko 的數據，BTC 在過去兩週內的價格有所下跌。",
+          "statement": "根據 CoinGecko 的數據，BTC 的價格在過去兩週內從 64087.72124536932 美元下跌至 63057.06197901681 美元。",
           "evidence_ids": [
             "EV-MARKET-001"
           ]
         },
         {
-          "statement": "根據 Alternative.me 的數據，當前市場的恐懼指數處於恐懼狀態。",
+          "statement": "根據 Kraken Futures 的數據，BTC 的 mark price 為 63066.43672496961 美元。",
           "evidence_ids": [
-            "EV-MACRO-BTC-001"
+            "EV-DERIV-BTC-001"
           ]
         }
       ],
-      "inference": "雖然市場恐懼指數處於恐懼狀態，但 BTC 的價格在過去兩週內已經出現下跌。",
-      "conclusion": "根據目前的市場數據，BTC 的價格在未來兩週內繼續上漲的可能性不大。",
+      "inference": "BTC 的價格在過去兩週內有所下跌，這表明市場對 BTC 的需求可能有所減少。",
+      "conclusion": "BTC 的價格在過去兩週內有所下跌。",
       "supporting_evidence_ids": [
-        "EV-MARKET-001"
+        "EV-MARKET-001",
+        "EV-DERIV-BTC-001"
       ],
-      "contradicting_evidence_ids": [
-        "EV-MACRO-BTC-001"
-      ],
+      "contradicting_evidence_ids": [],
       "confidence": {
-        "score": 0.25,
-        "level": "low",
+        "score": 0.5907,
+        "level": "medium",
         "type": "heuristic",
         "components": {
-          "weighted_evidence_quality": 0.8775,
-          "domain_coverage": 0.0,
-          "source_diversity": 0.3333,
-          "signal_consistency": 0.5132,
-          "counter_evidence_coverage": 1.0
+          "weighted_evidence_quality": 0.858,
+          "domain_coverage": 0.4,
+          "source_diversity": 0.6667,
+          "signal_consistency": 1.0,
+          "counter_evidence_coverage": 0.5
         },
         "limiters": [
-          "single_supporting_domain",
-          "high_quality_conflict",
-          "domain_coverage_below_minimum",
           "critic_confidence_reduction"
         ]
       },
       "limitations": [
-        "數據來源的質量和準確性可能會影響分析結果。"
+        "數據來源僅限於 CoinGecko 和 Kraken Futures"
       ],
       "invalidation_conditions": [
-        "如果 BTC 的價格在未來兩週內出現顯著上漲，則該結論可能需要重新評估。"
+        "如果其他可靠的市場數據顯示 BTC 價格上漲"
       ],
       "watchpoints": [
-        "BTC 的價格變動情況",
-        "市場恐懼指數的變化"
+        "持續關注 BTC 的價格變動"
       ]
     }
   ],
   "hypothesis_assessments": [
     {
-      "hypothesis_id": "hyp_1",
+      "hypothesis_id": "H1",
       "claim_id": "CL-001",
-      "statement": "BTC 的價格將在未來兩週內繼續上漲",
-      "support_strength": 0.4387,
-      "contradiction_strength": 0.4163,
-      "verdict": "insufficient_evidence",
-      "confidence": 0.25,
-      "independent_support_chains": 1
+      "statement": "BTC 的價格在過去兩週內有所下跌。",
+      "support_strength": 0.8575,
+      "contradiction_strength": 0,
+      "verdict": "supported",
+      "confidence": 0.5907,
+      "independent_support_chains": 2
     }
   ],
   "rejected_evidence_ids": []

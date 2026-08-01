@@ -1804,7 +1804,7 @@ def _run_comparison_pipeline(coin_a: str, coin_b: str, question: str, output_dir
     comparison = compare_profiles(profiles[coin_a], profiles[coin_b])
     markdown = comparison_markdown(comparison, profiles[coin_a], profiles[coin_b])
     store.write_text("comparison.md",
-        f"# {coin_a} vs {coin_b} 比較研究\n\n## Question\n{question}\n\n{markdown}\n"
+        f"# {coin_a} vs {coin_b} 比較研究\n\n## 研究問題\n{question}\n\n{markdown}\n"
         f"## 個別幣種完整報告\n- {coin_a}: `{coin_a}/report.md`\n- {coin_b}: `{coin_b}/report.md`\n\n"
         "_This is research support, not investment advice._\n")
     payload = {

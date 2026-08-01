@@ -2,14 +2,14 @@
   "status": "success",
   "run_status": "COMPLETED_DEGRADED",
   "run_mode": null,
-  "question_hash": "b2637e9708f26aec488747f3b3eaa59fb961e920e45b1976ca4dd99248444196",
+  "question_hash": "bf23b69c7eb824a66c8378701db02866d444f81c5397d421a918d0c604970b6c",
   "degradation_reasons": [
     "all_evidence_is_fallback_fixture"
   ],
   "run_lifecycle": null,
-  "run_id": "RUN-20260801T063901Z-BNB-4422e867",
-  "started_at": "2026-08-01T06:39:01.765852+00:00",
-  "completed_at": "2026-08-01T06:39:01.776339+00:00",
+  "run_id": "RUN-20260801T143025Z-BNB-30bcbb12",
+  "started_at": "2026-08-01T14:30:25.121590+00:00",
+  "completed_at": "2026-08-01T14:30:25.131718+00:00",
   "mode": "offline",
   "collection": [
     "mock_mode"
@@ -67,7 +67,7 @@
   "citation_gate": {
     "gate_version": "citation-gate-v1",
     "status": "PASS",
-    "run_id": "RUN-20260801T063901Z-BNB-4422e867",
+    "run_id": "RUN-20260801T143025Z-BNB-30bcbb12",
     "claim_count": 1,
     "evidence_count": 9,
     "cited_evidence_count": 9,
@@ -100,8 +100,8 @@
       "name": "parse_input",
       "status": "success",
       "tool": "src.errors.validate_request",
-      "started_at": "2026-08-01T06:39:01.765982+00:00",
-      "completed_at": "2026-08-01T06:39:01.765985+00:00",
+      "started_at": "2026-08-01T14:30:25.121745+00:00",
+      "completed_at": "2026-08-01T14:30:25.121748+00:00",
       "duration_ms": 0.0
     },
     {
@@ -129,10 +129,11 @@
       "hypothesis_count": 0,
       "required_domains": [
         "market",
+        "macro",
         "derivatives"
       ],
-      "started_at": "2026-08-01T06:39:01.765989+00:00",
-      "completed_at": "2026-08-01T06:39:01.765992+00:00",
+      "started_at": "2026-08-01T14:30:25.121753+00:00",
+      "completed_at": "2026-08-01T14:30:25.121756+00:00",
       "tool": "src.planner.build_research_plan"
     },
     {
@@ -153,7 +154,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T06:39:01.766000+00:00",
+          "fetched_at": "2026-08-01T14:30:25.121766+00:00",
           "reliability_score": 0.18
         },
         {
@@ -166,7 +167,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T06:39:01.766000+00:00",
+          "fetched_at": "2026-08-01T14:30:25.121766+00:00",
           "reliability_score": 0.2
         },
         {
@@ -179,7 +180,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T06:39:01.766000+00:00",
+          "fetched_at": "2026-08-01T14:30:25.121766+00:00",
           "reliability_score": 0.2
         },
         {
@@ -192,7 +193,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T06:39:01.766000+00:00",
+          "fetched_at": "2026-08-01T14:30:25.121766+00:00",
           "reliability_score": 0.2
         },
         {
@@ -205,7 +206,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T06:39:01.766000+00:00",
+          "fetched_at": "2026-08-01T14:30:25.121766+00:00",
           "reliability_score": 0.2
         },
         {
@@ -218,7 +219,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T06:39:01.766000+00:00",
+          "fetched_at": "2026-08-01T14:30:25.121766+00:00",
           "reliability_score": 0.2
         },
         {
@@ -231,7 +232,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T06:39:01.766000+00:00",
+          "fetched_at": "2026-08-01T14:30:25.121766+00:00",
           "reliability_score": 0.2
         },
         {
@@ -244,7 +245,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T06:39:01.766000+00:00",
+          "fetched_at": "2026-08-01T14:30:25.121766+00:00",
           "reliability_score": 0.18
         },
         {
@@ -257,7 +258,7 @@
           },
           "source_type": "fallback_fixture",
           "status": "fallback",
-          "fetched_at": "2026-08-01T06:39:01.766000+00:00",
+          "fetched_at": "2026-08-01T14:30:25.121766+00:00",
           "reliability_score": 0.2
         }
       ],
@@ -273,8 +274,8 @@
         "EV-009"
       ],
       "fallback_reason": null,
-      "started_at": "2026-08-01T06:39:01.765994+00:00",
-      "completed_at": "2026-08-01T06:39:01.767398+00:00",
+      "started_at": "2026-08-01T14:30:25.121759+00:00",
+      "completed_at": "2026-08-01T14:30:25.123160+00:00",
       "duration_ms": 1.4
     },
     {
@@ -282,8 +283,8 @@
       "status": "degraded",
       "scored_by": "deterministic_rules",
       "tool": "src.credibility.score_evidence_batch",
-      "started_at": "2026-08-01T06:39:01.767401+00:00",
-      "completed_at": "2026-08-01T06:39:01.768750+00:00",
+      "started_at": "2026-08-01T14:30:25.123163+00:00",
+      "completed_at": "2026-08-01T14:30:25.124475+00:00",
       "duration_ms": 1.3,
       "scoring_version": "credibility-v1",
       "registry_version": "source-registry-v1",
@@ -327,8 +328,8 @@
       "name": "calculate_indicators",
       "status": "success",
       "tool": "src.orchestrator._signal_inventory",
-      "started_at": "2026-08-01T06:39:01.768779+00:00",
-      "completed_at": "2026-08-01T06:39:01.768782+00:00",
+      "started_at": "2026-08-01T14:30:25.124505+00:00",
+      "completed_at": "2026-08-01T14:30:25.124508+00:00",
       "duration_ms": 0.0
     },
     {
@@ -336,8 +337,8 @@
       "status": "success",
       "error_count": 0,
       "tool": "src.validation.validate_evidence",
-      "started_at": "2026-08-01T06:39:01.774325+00:00",
-      "completed_at": "2026-08-01T06:39:01.775301+00:00",
+      "started_at": "2026-08-01T14:30:25.129684+00:00",
+      "completed_at": "2026-08-01T14:30:25.130708+00:00",
       "duration_ms": 1.0
     },
     {
@@ -348,8 +349,9 @@
       "region": null,
       "tool": "src.llm.analyze_with_llm",
       "fallback_reason": "offline_fallback",
-      "started_at": "2026-08-01T06:39:01.768823+00:00",
-      "completed_at": "2026-08-01T06:39:01.768870+00:00",
+      "observation_points_source": "deterministic_fallback",
+      "started_at": "2026-08-01T14:30:25.124557+00:00",
+      "completed_at": "2026-08-01T14:30:25.124605+00:00",
       "duration_ms": 0.0
     },
     {
@@ -361,8 +363,8 @@
       "tool": "src.llm.critique_with_llm",
       "fallback_reason": "skipped:disabled",
       "semantic_categories": [],
-      "started_at": "2026-08-01T06:39:01.768872+00:00",
-      "completed_at": "2026-08-01T06:39:01.768878+00:00",
+      "started_at": "2026-08-01T14:30:25.124608+00:00",
+      "completed_at": "2026-08-01T14:30:25.124613+00:00",
       "duration_ms": 0.0
     },
     {
@@ -374,7 +376,7 @@
       "provider": "deterministic",
       "model": null,
       "client_selection": "llm_disabled",
-      "duration_ms": 5.4,
+      "duration_ms": 5.1,
       "fallback_reason": "no llm client supplied",
       "claim_count": 1,
       "verdicts": {
@@ -403,8 +405,8 @@
         "counter_evidence_coverage": 0.1
       },
       "scoring_version": "claim-confidence-v1",
-      "started_at": "2026-08-01T06:39:01.768881+00:00",
-      "completed_at": "2026-08-01T06:39:01.774323+00:00",
+      "started_at": "2026-08-01T14:30:25.124615+00:00",
+      "completed_at": "2026-08-01T14:30:25.129681+00:00",
       "tool": "src.claim_graph.build_claim_graph"
     },
     {
@@ -430,8 +432,8 @@
       "errors": [],
       "warnings": [],
       "semantic_finding_count": 0,
-      "started_at": "2026-08-01T06:39:01.771328+00:00",
-      "completed_at": "2026-08-01T06:39:01.774316+00:00",
+      "started_at": "2026-08-01T14:30:25.126715+00:00",
+      "completed_at": "2026-08-01T14:30:25.129674+00:00",
       "duration_ms": 3.0
     },
     {
@@ -446,10 +448,10 @@
         "report.md",
         "research_plan.json"
       ],
-      "started_at": "2026-08-01T06:39:01.775312+00:00",
-      "completed_at": "2026-08-01T06:39:01.778150+00:00",
+      "started_at": "2026-08-01T14:30:25.130718+00:00",
+      "completed_at": "2026-08-01T14:30:25.133533+00:00",
       "duration_ms": 2.8
     }
   ],
-  "duration_ms": 12.33
+  "duration_ms": 11.97
 }

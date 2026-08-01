@@ -8,7 +8,7 @@
     "compare_assets",
     "identify_risks"
   ],
-  "primary_question": "比較 SOL 與 BNB 的流動性、市場關注度及風險敞口。",
+  "primary_question": "比較 SOL 與 BNB 在當前宏觀環境下的市場位置與風險特徵，說明流動性、市場關注度與風險敞口的主要差異。",
   "time_window": {
     "days": 14,
     "source": "default"
@@ -16,6 +16,7 @@
   "hypotheses": [],
   "required_domains": [
     "market",
+    "macro",
     "derivatives"
   ],
   "comparison_dimensions": [

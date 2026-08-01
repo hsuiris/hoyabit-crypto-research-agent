@@ -1,84 +1,101 @@
 # Live smoke 保存位置
 
-此目錄只保留唯一一次成功的 Bedrock live smoke 六項產物；絕不放入模擬或離線輸出。
+此目錄只保留真正以 AWS Bedrock 完成的 live 執行六項產物；絕不放入模擬或離線輸出。
 
-## 實際結果（2026-08-01）
+## 實際結果（2026-08-01，第二次更換）
 
-**模型路徑成功，B2 已解除。**
+**模型路徑全程成功：analyst 與 critic 都是 Bedrock，Claim 由模型提案。**
 
 | 項目 | 值 |
 |---|---|
-| run_id | `RUN-20260801T095907Z-BTC-5c13147c` |
-| 執行性質 | `formal`（正式，不可覆寫） |
-| 題目 | 評估 BTC 當前市場狀況、關鍵驅動因素與主要下行風險 |
+| run_id | `RUN-20260801T142730Z-BTC-52f95e69` |
+| 執行性質 | `test`（見下方「為什麼不是 formal」） |
+| 題目 | 分析 BTC 過去兩週市場表現，整合價格、鏈上、主要新聞與討論熱度，說明訊號一致程度。 |
 | 執行環境 | AWS Lambda，us-west-2，Function URL |
-| 模型 | `amazon.nova-lite-v1:0`（botocore 1.42.97，Converse 可用） |
-| 耗時 | 17.4 秒 |
+| 線上程式 | `code_commit=f94acfb734e770a5ab44a662042c6b94ef3f0c69`（部署時由 `deploy.sh` 注入） |
+| 模型 | `amazon.nova-lite-v1:0`，Converse 可用 |
+| 耗時 | 46.9 秒（命題上限 900 秒） |
+| planner | `provider=bedrock` |
 | analyst | `provider=bedrock`，**status=success** |
 | critic | `provider=bedrock`，**status=success** |
-| Citation Gate | `PASS_WITH_WARNINGS`（0 error、0 warning、4 個語意 finding） |
-| credibility | `registry_version=source-registry-v1`，`mean_final_score=0.5866` |
-| manifest | 五個 SHA-256 全部相符，落地後重新從磁碟計算仍相符 |
+| claims | `claim_source=llm`（模型提案，verdict 與信心仍由 deterministic 程式計算） |
+| Citation Gate | `PASS_WITH_WARNINGS`（0 error、0 warning） |
+| CL-001 | `current_state`／**supported**／信心 0.5907（medium） |
+| manifest | 五個 SHA-256 全部相符（落地後重新從磁碟計算仍相符） |
 | run_status | `COMPLETED_DEGRADED`（原因見下方，非模型失敗） |
 
-### 為什麼換過一次 fixture
+## 與前一份 fixture 的差異
 
-D8 最初的 live run（`RUN-20260801T094240Z-BTC-f3d916b3`）模型路徑同樣成功，但它的
-**證據可信度分數是用錯誤的基準算出來的**：當時的部署包漏了 `config/`，因此
-`src/credibility.py` 的 `load_source_registry()` 找不到 `config/source_registry.json`，
-靜默退回保守預設——所有 `source_type` 都變成 `source_quality=0.35`，高品質來源被大幅
-低估（`blockchain_raw` 0.90 → 0.35），而 `fallback_fixture` 反被高估（0.20 → 0.35）。
+前一份是 `RUN-20260801T095907Z-BTC-5c13147c`。換掉的原因不是它失敗，而是它反映的是三個
+已修好的缺陷：
 
-| | 修復前 | 修復後 |
+| | 舊 fixture | 本 fixture |
 |---|---|---|
-| `registry_version` | `unavailable` | `source-registry-v1` |
-| `mean_final_score` | 0.3898 | 0.5866 |
+| 報告語言 | Fact／Inference／Conclusion 為英文，段落標題中英混雜 | 全篇繁體中文（20 個段落） |
+| `domain_coverage` | 0.0 | 0.4 |
+| CL-001 verdict | `insufficient_evidence`（信心 0.35） | `supported`（信心 0.5907） |
+| Claim 是否貼題 | 「BTC 價格將在未來兩週內繼續上漲」——題目沒有要求的價格預測 | `claim_type=current_state`，直接回答題目 |
+| 後續觀察重點 | 把 Facts 的主語複製一遍 | 前瞻追蹤項目 |
+| 降級 collector | 3 個（derivatives／vegas_channel／long_short_ratio） | 2 個（vegas_channel／long_short_ratio） |
+| 衍生品資料 | 無（可靠度 0.20 的離線 fixture） | **Kraken Futures**，可靠度 0.8375 |
 
-證據筆數相同（11 筆，8 筆實質），差異純粹來自計分基準。由於
-`weighted_evidence_quality` 佔 claim confidence 公式的 30%，這會傳導到最終信心分數，
-因此舊 fixture 不適合作為展示基準，已由修復後的 run 取代。
-
-修復內容：`aws/deploy.sh` 與 `aws/deploy.ps1` 加入 `config/` 的複製，並在打包階段就
-驗證 `config/source_registry.json` 在位——不要等部署後才從 `registry_version=unavailable`
-發現，那是靜默降級，很容易被當成正常。
+`domain_coverage` 從 0.0 變成 0.4 是最關鍵的一項：舊版每個 Claim 都被判成資料不足，但那不是
+證據不足，是 Planner 產出的 `required_domains`（`market_data`、`news_events`…）與 claim graph
+的 domain 詞彙表（`market`、`news`…）對不起來，交集是空集合。修法見 commit `d640e7b`。
 
 ## 為什麼 run_status 是 COMPLETED_DEGRADED
 
-**不是模型失敗，是三個資料來源被地理封鎖。**
+**不是模型失敗，是兩個 collector 仍只有 Binance 一個來源。**
 
-Binance 封鎖美國 IP，而部署 region 是 `us-west-2`，因此 `derivatives`、`vegas_channel`、
-`long_short_ratio` 三個 collector 取不到資料，改用可靠度 0.20 的 fallback fixture。
-11 個 collector 為 8 success + 3 fallback。
+Binance 封鎖美國 IP，而部署 region 是 `us-west-2`：
 
-已實測對比：本機（台灣 IP）對 `api.binance.com` 與 `fapi.binance.com` 回 `HTTP 200`，
-雲端 `us-west-2` 回 `HTTPError`。詳見 `aws/README.md`。
+- `vegas_channel`（Binance klines）→ fallback。屬 `market` 領域，CoinGecko 仍提供該領域資料。
+- `long_short_ratio`（Binance 大戶多空比）→ fallback。屬 `derivatives` 領域，但該領域已由
+  資金費率補回。
 
-這個降級標示是誠實的，也剛好展示了 per-source fallback 的設計價值：單一來源失敗
-不中斷流程，Citation Gate 仍 `PASS`，且 fallback 證據不會成為任何主要 Claim 的唯一支持。
+`derivatives`（資金費率）不再降級：commit `f94acfb` 加入 `Binance → Kraken Futures → dYdX v4`
+的備援鏈，本次由 **Kraken Futures** 回答（可靠度 0.8375）。因此有真實證據的研究領域由
+5 個回到 6 個。
 
-## 更正：先前記載的 B2 根因已不成立
+大戶多空比在 Kraken Futures 與 dYdX 都沒有等價端點，Kraken 現貨 OHLC 上限 720 根也不足以
+支撐 Vegas 通道的 EMA676 暖身，因此這兩個維持單一來源，並如實標示降級。
 
-T8 當時把 B2 的根因記為「本機依零第三方相依限制未安裝 boto3」。**這個描述是錯的**，
-不要照它去裝套件：
+> 不同交易所的資金費率是各自市場的狀態。實測同一時點 ETH 在 Binance 為 `balanced`、在
+> Kraken 為 `short_crowded`。證據的 `scope_note` 已標明這是單一交易所報價，不可視為全市場
+> 共識；本機（Binance）與雲端（Kraken）的衍生品訊號可能因此不一致。
 
-- 實測本機 `python3` 已有 `boto3`／`botocore` 1.42.97，且 `bedrock-runtime` 含
-  `Converse` operation。
-- 真正的阻塞是**缺少 AWS credentials 與模型存取權**，這在 D0–D2 取得 Workshop Studio
-  憑證後即解除。
-- 而雲端首次部署後模型仍然失敗，根因是**第三個、完全不同的問題**：
-  `amazon.nova-lite-v1:0` 會把 JSON 包在 markdown code fence 裡（```json ... ```），
-  `src/llm.py` 直接 `json.loads()` 因此拋
-  `Expecting value: line 1 column 1 (char 0)`，且既有的單次重試無效——模型行為一致，
-  重試只會拿到同一個 fence。已由 `src.llm.strip_json_fence()` 修復（commit `3269142`）。
+## 為什麼不是 formal
 
-完整記錄見 `.kiro/specs/hoyabit-aws-deployment/status.yaml` 的 D5 `scope_extension`。
+同一題目的 formal 執行確實跑過，run_id 是 `RUN-20260801T142232Z-BTC-bab828fd`，但它的產物
+取不回來：Lambda 把產物寫在容器的 `/tmp`，而當時 Function URL 還沒有 `/download` 路由
+（該路由原本只加在本機的 stdlib server，沒有加到 `lambda_handler.py`）。
+
+再次以 formal 送出同一題目時，RunManager 如預期回 409 並附上完整 lineage：
+
+```
+formal run already exists for question_hash='00232f98...'
+(latest run_id='RUN-20260801T142232Z-BTC-bab828fd', status='COMPLETED_DEGRADED');
+pass authorized_rerun=True with rerun_of='RUN-20260801T142232Z-BTC-bab828fd'
+```
+
+因此本 fixture 取自同題目的 `test` 執行。兩者走完全相同的管線，差別只在 run 生命週期標記。
+`/download` 路由已補進 `lambda_handler.py`，下次部署後即可直接從雲端取回六項產物。
+
+> Lambda 的 formal lock 寫在容器 `/tmp`，不跨冷啟動保存。它能防止同一容器內的重複正式執行，
+> 但不是持久性保證；正式比賽的一次性執行紀錄以本目錄與 `manifest.json` 為準。
+
+## 驗證 manifest hash
+
+```bash
+python3 -c "import hashlib,json; from pathlib import Path; out=Path('demo-fixtures/competition-ready/live-success'); m=json.loads((out/'manifest.json').read_text()); [print(x['path'], hashlib.sha256((out/x['path']).read_bytes()).hexdigest()==x['sha256']) for x in m['files']]"
+```
 
 ## 展示用途
 
 現場可直接展示本目錄，或使用仍然保留的備案：
 
-- `../offline-backup/`：ETH 假設題，完全離線，不需網路或憑證。
+- `../offline-backup/`：ETH 假設驗證題，完全離線，不需網路或憑證。
 - `../comparison-backup/`：SOL vs BNB 比較題。
 
-Workshop Studio 帳號是臨時環境，活動結束後 Function URL 會失效，
-但本目錄的六項產物是靜態檔案，可獨立驗證 manifest hash。
+Workshop Studio 帳號是臨時環境，活動結束後 Function URL 會失效，但本目錄的六項產物是靜態
+檔案，可獨立驗證 manifest hash。
