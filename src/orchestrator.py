@@ -157,17 +157,75 @@ def _degradation_reasons(collection_log: list, credibility: dict, *, llm_status:
     return list(dict.fromkeys(reasons))
 
 
+# --------------------------------------------------------------------------------------
+# E2.5 — reliability 對 stance 權重的影響
+#
+# 命名邊界：這裡的 `stance_weight`／`base_weight` 是**訊號層**（_signal_inventory →
+# _market_stance）的權重，回答「這個訊號在多空表決裡算幾分」。E2 的
+# `schemas.effective_weight = reliability × relevance × independence` 是**Evidence／Claim 層**
+# 的問題相關性，回答「這筆證據對這一題有多相關」。兩者是不同維度、不同分數，故意不共用欄名，
+# 也不 import 或重用 `schemas.effective_weight` —— 混用會讓報告用來源品質冒充問題相關性
+# （或反過來），這正是 E2 docstring 已經指出要避免的事。
+#
+# 這裡只解決 E2.5 的症狀：`_signal_inventory` 過去對 reliability 0.90 的市場資料與 reliability
+# 0.20 的 fallback fixture 給同樣的字面權重，導致 stance 標題可以在全 fallback 的情況下喊出
+# 「偏多 Bullish」，而 claim_graph 的 confidence 引擎（讀同一批 Evidence 的 reliability_score）
+# 卻正確判定 insufficient_evidence——兩層自相矛盾。
+#
+# 0.70 是門檻不是任意數字：對照 `config/source_registry.json`，market_api／derivatives_api／
+# blockchain_raw／macro_api 等第一方即時來源的 source_quality 基準都落在 0.75-0.90，
+# 也是 credibility.py 對「有 locator／可重現」來源的預設下限。取 0.70 代表「達到普通第一方
+# API 水準的證據，既有權重完全不變」，只有低於這個水準（fallback fixture 上限 0.20、
+# 次級媒體、社群等）才會被按比例壓低，且該比例封頂在 1.0，絕不會反向加權。
+_STANCE_RELIABILITY_FULL_WEIGHT_FLOOR = 0.70
+
+
+def _stance_reliability_factor(reliability_score) -> tuple[float, str]:
+    """reliability_score → 訊號層權重的縮放係數，以及要記錄在 signal 上的註記。
+
+    `None` 或缺鍵一律視為達到門檻、不降權：這通常代表呼叫端手寫測試 signal 或尚未經過
+    `enrich_and_score_evidence()` 計分的路徑，不能因為讀不到分數就把訊號默默歸零——那等於
+    無聲丟棄一筆訊號，比維持原權重更危險（見 IN_SCOPE #1 的「不得預設成 0」）。
+    """
+    if not isinstance(reliability_score, (int, float)):
+        return 1.0, "reliability_score 缺值，視為達到門檻，權重未調整"
+    if reliability_score >= _STANCE_RELIABILITY_FULL_WEIGHT_FLOOR:
+        return 1.0, ""
+    factor = max(0.0, reliability_score) / _STANCE_RELIABILITY_FULL_WEIGHT_FLOOR
+    return factor, (
+        f"reliability {reliability_score:.2f} 低於門檻 {_STANCE_RELIABILITY_FULL_WEIGHT_FLOOR}，"
+        f"訊號權重依比例調降至 {factor * 100:.0f}%"
+    )
+
+
 def _signal_inventory(result: dict, evidence: list) -> list[dict]:
     """Turn the raw evidence into directional signals with an explicit side and weight.
 
     This is what lets the offline path argue rather than recite: the same inventory drives the
     judgment, the inferences and -- by taking whichever side loses -- the counter-evidence, so the
     bear case is always built from signals actually present in this run.
+
+    E2.5：`weight` 現在是 reliability 調整後的**有效**權重；`base_weight` 保留原始字面權重，
+    讓報告能解釋「這個訊號為什麼被調降」而不是默默改變數字。reliability 查表用
+    `evidence_id → reliability_score`，來源是 `enrich_and_score_evidence()` 已經寫回
+    `item.reliability_score` 的值（run() 裡 score_evidence 階段先於 calculate_indicators 階段，
+    見 ORDERING_CHECK）。
     """
     signals: list[dict] = []
+    reliability_by_id = {
+        str(getattr(item, "evidence_id", "")): getattr(item, "reliability_score", None)
+        for item in evidence or []
+    }
 
     def add(side: str, text: str, evidence_id: str | None, weight: float = 1.0):
-        signals.append({"side": side, "text": text, "evidence_id": evidence_id or "N/A", "weight": weight})
+        resolved_id = evidence_id or "N/A"
+        reliability_score = reliability_by_id.get(resolved_id)
+        factor, note = _stance_reliability_factor(reliability_score)
+        signals.append({
+            "side": side, "text": text, "evidence_id": resolved_id,
+            "weight": round(weight * factor, 4), "base_weight": weight,
+            "reliability_score": reliability_score, "reliability_note": note,
+        })
 
     def find(data_type: str):
         return next((item for item in evidence if item.data_type == data_type), None)
@@ -278,6 +336,13 @@ _STANCE_LABELS = {
     "bullish": ("偏多", "Bullish"), "neutral": ("中性", "Neutral"), "bearish": ("偏空", "Bearish"),
 }
 
+# IN_SCOPE #2：可信度太低的訊號不能出現在「主要推力」清單裡——drivers 是讀者第一眼看到的
+# 理由，不能用一筆可信度上限 0.20 的離線 fixture 去撐。0.30 對齊 evidence-confidence-standards
+# 的 `anonymous_or_low_trace_social` 上限（0.35）與 `fallback_fixture` 上限（0.20）之間，
+# 兩者都在這條線以下，剛好是「不夠格當主要推力」的證據類別。`None`（未經計分的手寫 signal）
+# 不受此規則排除，理由與 `_stance_reliability_factor` 一致：讀不到分數不等於分數是 0。
+_STANCE_DRIVER_RELIABILITY_FLOOR = 0.30
+
 
 def _market_stance(signals: list[dict]) -> dict:
     """Reduce the weighted signal inventory to one discrete Bullish / Neutral / Bearish call.
@@ -302,17 +367,43 @@ def _market_stance(signals: list[dict]) -> dict:
         stance, basis = "neutral", f"多方 {bull:.1f} / 空方 {bear:.1f}，淨優勢僅 {abs(margin) * 100:.0f}%（門檻 {_STANCE_MARGIN * 100:.0f}%），方向不明確"
 
     winning = "bull" if stance == "bullish" else "bear" if stance == "bearish" else None
+
+    def _eligible_as_driver(item: dict) -> bool:
+        score = item.get("reliability_score")
+        if not isinstance(score, (int, float)):
+            return True
+        return score > _STANCE_DRIVER_RELIABILITY_FLOOR
+
     drivers = [
         {"text": item["text"], "evidence_id": item["evidence_id"], "weight": item["weight"]}
         for item in sorted(signals, key=lambda entry: -entry["weight"])
-        if winning and item["side"] == winning
+        if winning and item["side"] == winning and _eligible_as_driver(item)
     ][:3]
+    if winning and not drivers:
+        # 方向仍然成立（贏的那一側權重合計仍過關），但撐起它的訊號可信度全數不足以列為主要
+        # 推力——這種情況下 basis 必須明講，否則讀者看到有結論、沒理由，會誤以為是資料缺漏。
+        basis += "；主要推力已因可信度過低被排除，本判讀僅為權重加總結果，缺乏可列示的高可信依據"
     label_zh, label_en = _STANCE_LABELS[stance]
     return {
         "stance": stance, "label": label_zh, "label_en": label_en,
         "bull_weight": bull, "bear_weight": bear, "net_margin_pct": round(margin * 100, 1),
         "signal_count": len(signals), "basis": basis, "drivers": drivers,
     }
+
+
+# IN_SCOPE #3：freshness 是 credibility 五個加權分量之一（權重 0.20），本身不觸發任何
+# hard cap limiter，所以「這筆資料很舊」目前只會悄悄拉低 final_score，`_credibility_risk_factors()`
+# 是從 `limiter_counts` 反推警語，讀不到 freshness 這個連續分量，於是「資料過期」在既有報告
+# 路徑上沒有任何輸出口——即使 credibility.py 已經把某筆證據的 freshness 算到只剩下限
+# FRESHNESS_FLOOR=0.10（見 `src/credibility.py`）。
+#
+# 門檻取 0.40，介於 credibility.py 的 FRESHNESS_CAP_WITHOUT_EVENT_TIME（0.50，缺
+# event_time／published_at、只能用 fetched_at 推估時套的上限）與 FRESHNESS_FLOOR（0.10，
+# 真正陳舊時的下限）之間，且明顯偏向下限一側：0.50 那個上限只代表「新鮮度基準不夠硬」，
+# 不代表資料真的過期，用它當門檻會讓一堆本來就正常但缺 event_time 的來源被誤判成過期。
+# 以 market_api 的政策為例（fresh_within=1 天、stale_after=14 天），0.40 對應年齡約 9.7 天，
+# 已經用掉該來源新鮮度窗口的三分之二以上，是「明顯老化」而不是「剛好抓不到事件時間」。
+_FRESHNESS_RISK_THRESHOLD = 0.40
 
 
 def _dynamic_risk_factors(result: dict, evidence: list, signals: list[dict]) -> list[str]:
@@ -323,6 +414,18 @@ def _dynamic_risk_factors(result: dict, evidence: list, signals: list[dict]) -> 
         label = entry.split(":")[0]
         cause = "逾時跳過" if "skipped" in entry else entry.split(":")[-1]
         risks.append(f"{label} 來源本次未取得即時資料（{cause}），該面向的結論僅為部分覆蓋。")
+
+    stale_ids = []
+    for item in evidence:
+        breakdown = getattr(item, "score_breakdown", None)
+        freshness = (breakdown or {}).get("components", {}).get("freshness")
+        if isinstance(freshness, (int, float)) and freshness < _FRESHNESS_RISK_THRESHOLD:
+            stale_ids.append(item.evidence_id)
+    if stale_ids:
+        risks.append(
+            f"{', '.join(stale_ids)} 的新鮮度分量低於 {_FRESHNESS_RISK_THRESHOLD}（資料時間明顯落後於分析時點），"
+            "以此為依據的方向性結論應打折看待。"
+        )
 
     bull = sum(item["weight"] for item in signals if item["side"] == "bull")
     bear = sum(item["weight"] for item in signals if item["side"] == "bear")
