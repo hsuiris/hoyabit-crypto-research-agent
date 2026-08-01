@@ -14,7 +14,7 @@
 ## 常用指令
 
 ```bash
-python -m unittest discover -s tests    # 全部測試（應為 117 passed）
+python -m unittest discover -s tests    # 全部測試（T5 後應為 488 passed；T0 基線為 117）
 python -m src.app                       # 啟動網頁，http://127.0.0.1:8000
 ```
 

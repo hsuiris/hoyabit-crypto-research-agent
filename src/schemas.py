@@ -317,3 +317,75 @@ ARTIFACT_FILENAMES = MappingProxyType({
     "manifest": "manifest.json",
 })
 REQUIRED_ARTIFACT_KEYS = tuple(ARTIFACT_FILENAMES)
+
+MANIFEST_VERSION = "competition-manifest-v1"
+
+
+# --------------------------------------------------------------------------------------
+# T5 — Citation Gate
+# --------------------------------------------------------------------------------------
+
+# Evidence 的 run 歸屬欄位，由 T5 追加在 EVIDENCE_CREDIBILITY_FIELDS 之後。
+# 刻意與計分欄位分開列：這不是「這筆證據多可信」，而是「這筆證據屬於哪一次執行」。
+# 沒有這個欄位，「Evidence 屬於本次 run」與「跨 run Evidence 不得被引用」只能靠假設，
+# 無法真正檢查 —— 一筆從別次執行（或快取 fixture）流進來的證據看起來會完全正常。
+EVIDENCE_RUN_FIELDS = ("run_id",)
+
+CITATION_GATE_VERSION = "citation-gate-v1"
+
+# Gate 只有三種結果。FAIL 代表報告會含不可追溯的引用，不得發佈；
+# PASS_WITH_WARNINGS 代表可發佈但必須把警告印在報告裡。
+GATE_STATUS_PASS = "PASS"
+GATE_STATUS_PASS_WITH_WARNINGS = "PASS_WITH_WARNINGS"
+GATE_STATUS_FAIL = "FAIL"
+GATE_STATUSES = (GATE_STATUS_PASS, GATE_STATUS_PASS_WITH_WARNINGS, GATE_STATUS_FAIL)
+
+GATE_SEVERITY_ERROR = "error"
+GATE_SEVERITY_WARNING = "warning"
+GATE_SEVERITIES = (GATE_SEVERITY_ERROR, GATE_SEVERITY_WARNING)
+
+# T5「Structural Citation Gate」的十條規則，順序與文件一致。每個名稱都是 finding 的 `check`
+# 欄位值，讓執行記錄可以逐條回答「這條規則本次通過了嗎」。
+CITATION_GATE_CHECKS = (
+    "claim_structure",              # claims.json 本身的形狀（沿用 validate_claims）
+    "evidence_id_exists",           # 1. 引用的 Evidence ID 存在
+    "evidence_belongs_to_run",      # 2. Evidence 屬於本次 run
+    "evidence_required_fields",     # 3. source／fetched_at／content_reference／related_claim_ids
+    "evidence_not_rejected",        # 4. 狀態不是 rejected
+    "fallback_not_sole_support",    # 5. fallback 不得為主要 Claim 的唯一支持
+    "support_contradiction_exclusive",  # 6. 同一 Evidence 不得同時支持與反對
+    "claim_has_supporting_evidence",    # 7. 沒有支持證據就必須 insufficient_evidence
+    "confidence_within_cap",        # 8. 信心不得突破 credibility／conflict hard cap
+    "related_claim_ids_consistent",  # 9. related_claim_ids 與實際引用一致
+    "no_cross_run_citation",        # 10. 跨 run Evidence 不得被引用
+)
+
+# 語意稽核的八個類別（T5「Semantic Critic」）。同一份清單同時給 LLM Critic 的 prompt／schema
+# 與 deterministic 語意偵測使用，因此離線執行也有這八類的覆蓋，不會因為沒有模型就完全沒有語意檢查。
+SEMANTIC_CRITIC_CATEGORIES = (
+    "over_claim",
+    "unsupported",
+    "ignored_counter",
+    "stale_or_weak",
+    "correlation_as_causation",
+    "official_statement_as_outcome",
+    "onchain_transfer_as_intent",
+    "confidence_too_high",
+)
+
+# 舊版 Critic 只認得五個類別（其中 `confidence` 是 `confidence_too_high` 的舊名）。
+# 模型回傳舊名或近似名稱時正規化成上面的八類，而不是整份稽核作廢。
+SEMANTIC_CRITIC_CATEGORY_ALIASES = MappingProxyType({
+    "confidence": "confidence_too_high",
+    "overclaim": "over_claim",
+    "over_claiming": "over_claim",
+    "unsupported_claim": "unsupported",
+    "ignored_counter_evidence": "ignored_counter",
+    "stale": "stale_or_weak",
+    "weak_evidence": "stale_or_weak",
+    "causation": "correlation_as_causation",
+    "correlation_causation": "correlation_as_causation",
+    "official_announcement_as_outcome": "official_statement_as_outcome",
+    "onchain_intent": "onchain_transfer_as_intent",
+})
+SEMANTIC_CRITIC_CATEGORY_OTHER = "other"

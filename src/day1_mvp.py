@@ -43,6 +43,12 @@ class Evidence:
     related_claim_ids: list = field(default_factory=list)
     scoring_version: str = ""
 
+    # --- 以下為 T5 的 run 歸屬欄位（schemas.EVIDENCE_RUN_FIELDS） ---
+    # 「這筆證據是哪一次執行產生的」。空字串代表未標記（例如舊 fixture 或直接呼叫 adapter），
+    # Orchestrator 會在計分前為本次執行的每一筆證據蓋上 run_id，citation gate 再據此擋掉
+    # 跨 run 引用。沒有這個欄位，一筆從別次 run 流進來的證據看起來會完全正常。
+    run_id: str = ""
+
     def __post_init__(self):
         if not self.content_reference:
             self.content_reference = {"summary": self.content, "time_range": self.time_range}

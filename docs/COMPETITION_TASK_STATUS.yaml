@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: hackathon/competition-ready
-current_task: T4
-last_updated_at: 2026-08-01T13:05:00+08:00
+current_task: T5
+last_updated_at: 2026-08-01T15:24:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 425 tests, 425 passed, 0 failed, 0 errors
+full_suite_latest: 488 tests, 488 passed, 0 failed, 0 errors
 
 allowed_statuses:
   - TODO
@@ -256,16 +256,73 @@ tasks:
 
   T5:
     title: Enforce Citation Gate and competition outputs
-    status: TODO
+    status: REVIEW
     depends_on: [T4]
     target_minutes: 75
     milestone: minimum_competition_ready_core
-    started_at: null
-    completed_at: null
-    commit: null
-    test_summary: null
+    started_at: 2026-08-01T14:10:00+08:00
+    completed_at: 2026-08-01T15:24:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "feat(T5)"`。
+    commit: 'feat(T5): enforce citation gate and competition outputs'
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_t5_citation_gate → 63 tests OK（模型端一律注入
+      mock／OfflineLLMClient，不觸網路）。
+      完整套件：python3 -m unittest discover -s tests → 488 tests, 488 passed, 0 failed, 0 errors。
+      Offline smoke：run('ETH', ..., live=False, use_llm=False) 產出六個檔案，citation gate PASS
+      （0 error／0 warning），manifest 的五個 SHA-256 逐一與實際檔案相符。
+      五幣 smoke：BTC／ETH／SOL／BNB／XRP 各產出六檔、gate PASS、verdict 皆 insufficient_evidence。
+      比較 smoke：run_comparison('BTC','ETH') 兩腳各六檔＋頂層 pair manifest（hash 全部相符，
+      legs 記錄兩腳 run_id）。
+      降級 smoke：run(live=True, deadline 已過) 仍產出六檔且 gate PASS。
+      Critic 失效 smoke：注入 TimeoutError critic → critic_review=fallback:TimeoutError，
+      六檔仍完整，報告明示「語意稽核未執行」。
+      Web：python3 -m src.app 首頁 HTTP 200 且含 HOYA BIT。
+    owner_note: >-
+      report renderer 的函式庫層（src/report_renderer.py 的 render_report）由 Track B4 於 f57f4f9
+      提供，本 Task 未修改該函式；T5 在同一模組新增 render_competition_report()／
+      render_claims_section()／evidence_source_line() 作為接線層，保留 repo 既有段落標題。
+    artifacts:
+      - src/schemas.py
+      - src/day1_mvp.py
+      - src/validation.py
+      - src/llm.py
+      - src/report_renderer.py
+      - src/orchestrator.py
+      - tests/test_t5_citation_gate.py
+      - tests/test_schema_contract.py
+      - manifest.json（每次 run 的輸出目錄；比較執行另在頂層產生 pair manifest）
+    integration_points:
+      - Evidence 追加 run_id（schemas.EVIDENCE_RUN_FIELDS）；orchestrator 在計分前呼叫
+        stamp_run_id()，citation gate 才能區分「本次 run 的證據」與「外來紀錄」
+      - validation 新增 run_citation_gate()（10 條結構規則）、detect_semantic_risks()（8 類
+        deterministic 語意偵測）、critique_semantic_findings()、normalise_semantic_category()
+      - validate_claims() 的正反重疊規則新增「已標示 mixed／context 則不算違規」的例外
+      - orchestrator 新增 _build_claims_with_gate()：gate FAIL 時丟棄模型提案改用 deterministic 圖，
+        仍 FAIL 才中止；_link_claims_to_evidence() 會先清空舊的 related_claim_ids
+      - report.md 改由 render_competition_report() 產生（固定段落順序），新增
+        分析標的與題目／資料截止與分析區間／關鍵依據／跨來源一致程度／Citation Gate／
+        可能推翻結論的條件六個段落，既有段落標題全部保留
+      - 六項提交物一律經 LocalArtifactStore 寫出，manifest.json 收錄五個檔案的 SHA-256、
+        run_id、code commit、config／scoring 版本與 validation status
+      - Execution Log 每個 step 新增 started_at／completed_at／duration_ms／tool，collect_evidence
+        新增 collectors（source locator＋query summary）與 evidence_ids_created，
+        另新增 citation_gate step 與 stage_providers
+      - run() 新增 analysis_client／critic_client／run_context 三個 optional 參數（供測試與 T7 注入）
+      - Critic 段：正值 confidence_adjustment 只記錄不套用，並在套用前後比對 Evidence 快照，
+        確認稽核沒有改寫原始證據
     blockers: []
-    known_limitations: []
+    known_limitations:
+      - claims.json 刻意不帶 run_id（保留「相同輸入逐字相同」的 determinism 證明），run 與檔案的
+        綁定在 manifest.json 與 evidence.json 的 run_id
+      - claim confidence 與 evidence reliability 是兩個尺度，因此「全部支持證據共有的 credibility
+        cap」只回報 warning，不 FAIL；會 FAIL 的是 claim 自身 limiter／verdict 所隱含的上限
+      - 語意偵測是詞表啟發式（8 類皆有 deterministic 路徑），只產生 warning，不改分數、不阻止發佈
+      - 「Critic 不得改寫 Evidence」以 asdict 快照比對防護，但注入的 client 拿不到 Evidence 物件，
+        因此該守衛沒有對應的觸發測試
+      - lambda_handler.py 的回傳仍只含三個檔案（六檔已在磁碟上），S3／Lambda 產物落點待 T7 處理
+      - 比較題頂層 manifest 以 legs 參照兩腳 run_id 與各自 manifest，不重複收錄兩腳的檔案 hash
+      - 未執行真實 LLM 與 live API 驗證（保留至 T8）
 
   T6:
     title: Expose competition data in existing Web Demo

@@ -8,14 +8,19 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .claim_graph import (CLAIM_TIMEOUT_SECONDS, GRAPH_SOURCE_LLM, apply_related_claim_ids,
-                          build_claim_graph, claims_document)
+from .artifact_store import LocalArtifactStore
+from .claim_graph import (CLAIM_SCORING_VERSION, CLAIM_TIMEOUT_SECONDS, DOMAIN_BY_DATA_TYPE,
+                          GRAPH_SOURCE_LLM, apply_related_claim_ids, build_claim_graph,
+                          claims_document)
 from .comparison import build_profile, compare_profiles, comparison_markdown
 from .credibility import load_source_registry, score_evidence_batch
 from .day2_sources import collect_evidence_detailed, stamp_credibility_metadata
-from .schemas import (ARTIFACT_FILENAMES, CONFIDENCE_WEIGHTS, CREDIBILITY_WEIGHTS, HARD_CAPS,
-                      SCORING_VERSION, VERDICT_INSUFFICIENT_EVIDENCE)
-from .validation import validate_claims, validate_evidence
+from .report_renderer import render_claims_section, render_competition_report
+from .run_context import RunContext
+from .schemas import (ARTIFACT_FILENAMES, CITATION_GATE_VERSION, CONFIDENCE_WEIGHTS,
+                      CREDIBILITY_WEIGHTS, GATE_STATUS_FAIL, HARD_CAPS, MANIFEST_VERSION,
+                      SCHEMA_VERSION, SCORING_VERSION, VERDICT_INSUFFICIENT_EVIDENCE)
+from .validation import run_citation_gate, validate_claims, validate_evidence
 from .errors import AgentInputError, validate_request
 from .llm import (CLAIM_PROPOSAL_RESULT_FIELD, analyze_with_llm, critique_with_llm,
                   default_llm_client, llm_is_configured, llm_runtime_info)
@@ -503,41 +508,6 @@ def enrich_and_score_evidence(evidence: list, *, registry=None, now=None) -> lis
     return records
 
 
-_FRESHNESS_BASIS_LABELS = {
-    "event_time": "事件時間", "published_at": "發布時間", "fetched_at": "取得時間（無事件時間）",
-}
-_VERIFICATION_STATUS_LABELS = {
-    "unverified": "未交叉驗證", "partially_confirmed": "部分佐證", "verified": "已驗證",
-    "rejected": "已排除", "unavailable": "取不到（降級）", "fallback": "離線 fixture",
-}
-
-
-def _evidence_source_line(item) -> str:
-    """One evidence row that shows how its score was formed, not just the number.
-
-    A bare "reliability: 0.6" is unauditable -- the reader cannot tell a mediocre source from a good
-    source that hit a cap. The raw score, the cap that bit and the freshness basis are what make the
-    number arguable.
-    """
-    breakdown = item.score_breakdown or {}
-    parts = [
-        f"類別 {item.source_type}",
-        f"狀態 {_VERIFICATION_STATUS_LABELS.get(item.verification_status, item.verification_status)}",
-    ]
-    if breakdown:
-        components = breakdown.get("components") or {}
-        parts.append("原始 {}".format(breakdown.get("raw_score")))
-        if breakdown.get("score_limiters"):
-            parts.append("上限 {}（{}）".format(breakdown.get("hard_cap"), "、".join(breakdown["score_limiters"])))
-        basis = breakdown.get("freshness_basis") or ""
-        if basis:
-            parts.append("新鮮度依 {}（{} 天前）".format(
-                _FRESHNESS_BASIS_LABELS.get(basis, basis), breakdown.get("age_days")))
-        parts.append("分量 " + "／".join(f"{key}={components.get(key)}" for key in CREDIBILITY_WEIGHTS))
-    return (f"- {item.evidence_id}: [{item.source}]({item.source_url}) "
-            f"(reliability: {item.reliability_score}) ｜ " + "｜".join(parts))
-
-
 def _credibility_risk_factors(credibility: dict) -> list[str]:
     """Turn the scoring outcome into limitations the reader can act on.
 
@@ -745,50 +715,301 @@ def _claims_step(graph: dict, client_reason: str, llm_info: dict, duration_ms: f
 
 
 def _claims_markdown(graph: dict) -> str:
-    """Render the Claim graph so a reader can audit one claim without opening `claims.json`.
+    """`## Claims` 段。實作在 `src/report_renderer.py`，這裡只保留既有呼叫點的名稱。
 
-    Every claim prints its three layers separately, both sides of the evidence, and the limiters that
-    held the score down -- a confidence number with no visible reason is not auditable.
+    報告的 markdown 結構自 T5 起一律由 deterministic renderer 決定，Orchestrator 不再自己拼字串。
     """
-    blocks = []
-    for claim in graph["claims"]:
-        confidence = claim["confidence"]
-        lines = [
-            f"### {claim['claim_id']}｜{claim['statement']}",
-            f"- 判定：**{claim['verdict']}**　信心 {confidence['score']}"
-            f"（{confidence['level']}／{confidence['type']}，類型 {claim['claim_type']}）",
-        ]
-        for fact in claim["facts"]:
-            lines.append(f"- 事實：{fact['statement']}（{', '.join(fact['evidence_ids'])}）")
-        lines.append(f"- 推論：{claim['inference']}")
-        lines.append(f"- 結論：{claim['conclusion']}")
-        lines.append("- 支持證據：" + (", ".join(claim["supporting_evidence_ids"]) or "無"))
-        lines.append("- 反方證據：" + (", ".join(claim["contradicting_evidence_ids"]) or "無"))
-        lines.append("- 信心分量：" + "／".join(
-            f"{key}={confidence['components'].get(key)}" for key in CONFIDENCE_WEIGHTS))
-        if confidence["limiters"]:
-            lines.append("- 生效上限：" + "、".join(confidence["limiters"]))
-        for label, key in (("限制", "limitations"), ("推翻條件", "invalidation_conditions"),
-                           ("觀察重點", "watchpoints")):
-            for entry in claim[key]:
-                lines.append(f"- {label}：{entry}")
-        blocks.append("\n".join(lines))
-    note = ("_Claim 的 verdict 與信心由 deterministic Python 計算（%s），LLM 只提供敘述；"
-            "信心是 heuristic evidence score，不是市場正確機率。_" % graph["scoring_version"])
-    return "\n## Claims\n" + "\n\n".join(blocks) + "\n\n" + note + "\n"
+    return render_claims_section(graph, CONFIDENCE_WEIGHTS)
+
+
+# --------------------------------------------------------------------------------------
+# T5 — run 歸屬、階段時間軸、跨來源一致程度、Citation Gate、manifest
+# --------------------------------------------------------------------------------------
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class _StageTimeline:
+    """每個階段的 `started_at`／`completed_at`／`duration_ms`。
+
+    Execution Log 的用途是讓別人能重建流程，所以每一步都要有真實的牆鐘時間，而不是只有一個
+    總耗時。牆鐘時間用 `datetime` 取（可讀、可對照外部日誌），耗時用 `time.monotonic()` 量
+    （不受系統時間調整影響）。
+    """
+
+    def __init__(self) -> None:
+        self._stages: dict[str, dict] = {}
+        self._order: list[str] = []
+
+    def start(self, name: str) -> None:
+        if name not in self._stages:
+            self._order.append(name)
+        self._stages[name] = {"started_at": _now_iso(), "_monotonic": time.monotonic()}
+
+    def finish(self, name: str) -> dict:
+        stage = self._stages.setdefault(name, {"started_at": _now_iso(), "_monotonic": time.monotonic()})
+        if name not in self._order:
+            self._order.append(name)
+        stage["completed_at"] = _now_iso()
+        stage["duration_ms"] = round((time.monotonic() - stage["_monotonic"]) * 1000, 1)
+        return self.entry(name)
+
+    def entry(self, name: str) -> dict:
+        stage = self._stages.get(name)
+        if not stage:
+            return {"started_at": None, "completed_at": None, "duration_ms": None}
+        return {"started_at": stage["started_at"],
+                "completed_at": stage.get("completed_at"),
+                "duration_ms": stage.get("duration_ms")}
+
+    def mark(self, name: str) -> dict:
+        """開始並立刻結束一個瞬時階段（例如純粹的輸入解析）。"""
+        self.start(name)
+        return self.finish(name)
+
+
+def stamp_run_id(evidence: list, run_id: str) -> list:
+    """把本次 run 的 ID 蓋在每一筆證據上。
+
+    這是「Evidence 屬於本次 run」能被檢查的前提：沒有這個欄位，一筆從別次執行、快取或舊 fixture
+    流進來的紀錄看起來會完全正常，而 citation gate 只能假設它是本次的。
+    """
+    for item in evidence or []:
+        if hasattr(item, "run_id"):
+            item.run_id = run_id
+        elif isinstance(item, dict):
+            item["run_id"] = run_id
+    return evidence
+
+
+def _evidence_window(evidence: list) -> dict:
+    """證據取得時間的頭尾。報告要能回答「資料截止在哪」，不能只講執行時間。"""
+    stamps = sorted(str(getattr(item, "fetched_at", "") or "") for item in evidence or [])
+    stamps = [stamp for stamp in stamps if stamp]
+    return {"earliest_fetched_at": stamps[0] if stamps else None,
+            "latest_fetched_at": stamps[-1] if stamps else None}
+
+
+_CONSISTENCY_LABELS = {
+    "consistent": "一致", "partially_consistent": "部分一致",
+    "conflicting": "矛盾", "insufficient": "資料不足",
+}
+
+
+def _source_consistency(signals: list[dict], evidence: list) -> dict:
+    """跨來源一致程度：同一個方向由幾個**領域**支持，而不是由幾筆證據支持。
+
+    這個區分是刻意的：同一則消息被五家轉載仍然只是一個領域的一次確認，而「價格、衍生品與鏈上
+    同時指向同一方向」才是真正的跨來源一致。領域取自 `claim_graph.DOMAIN_BY_DATA_TYPE`，
+    與 Claim 的 domain coverage 用同一套定義，避免報告兩處對「領域」的說法不一致。
+    """
+    domain_by_evidence = {
+        str(getattr(item, "evidence_id", "")): DOMAIN_BY_DATA_TYPE.get(
+            str(getattr(item, "data_type", "")), "other")
+        for item in evidence or []
+    }
+    weights: dict[str, dict[str, float]] = {}
+    for signal in signals or []:
+        domain = domain_by_evidence.get(str(signal.get("evidence_id")), "other")
+        bucket = weights.setdefault(domain, {"bull": 0.0, "bear": 0.0, "neutral": 0.0})
+        bucket[signal.get("side", "neutral")] = bucket.get(signal.get("side", "neutral"), 0.0) + float(
+            signal.get("weight") or 0.0)
+
+    domain_sides, conflicting = {}, []
+    for domain, bucket in weights.items():
+        if bucket["bull"] > bucket["bear"]:
+            side = "bull"
+        elif bucket["bear"] > bucket["bull"]:
+            side = "bear"
+        else:
+            side = "neutral"
+        domain_sides[domain] = {
+            "bull": "偏多", "bear": "偏空", "neutral": "無方向",
+        }[side] + f"（多 {round(bucket['bull'], 2)} / 空 {round(bucket['bear'], 2)}）"
+        if bucket["bull"] > 0 and bucket["bear"] > 0:
+            conflicting.append(domain)
+        weights[domain]["side"] = side
+
+    directional = [domain for domain, bucket in weights.items() if bucket["side"] in ("bull", "bear")]
+    if not directional:
+        label, agreement = "insufficient", 0.0
+        basis = "沒有任何領域產生方向性訊號，無法評估跨來源一致程度。"
+    else:
+        bull_domains = [d for d in directional if weights[d]["side"] == "bull"]
+        bear_domains = [d for d in directional if weights[d]["side"] == "bear"]
+        agreement = round(max(len(bull_domains), len(bear_domains)) / len(directional) * 100, 1)
+        if len(directional) == 1:
+            label = "insufficient"
+            basis = f"只有 {directional[0]} 一個領域產生方向性訊號，不構成跨來源確認。"
+        elif agreement >= 100.0:
+            label = "consistent"
+            basis = f"{len(directional)} 個領域全部指向同一方向。"
+        elif agreement >= 60.0:
+            label = "partially_consistent"
+            basis = (f"{len(directional)} 個領域中有 {max(len(bull_domains), len(bear_domains))} 個"
+                     f"指向同一方向，其餘相反。")
+        else:
+            label = "conflicting"
+            basis = (f"偏多領域 {len(bull_domains)} 個、偏空領域 {len(bear_domains)} 個，"
+                     "跨來源訊號互相矛盾。")
+
+    return {
+        "label": _CONSISTENCY_LABELS[label],
+        "state": label,
+        "agreement_pct": agreement,
+        "domain_count": len(weights),
+        "directional_domain_count": len(directional),
+        "domain_sides": domain_sides,
+        "conflicting_domains": sorted(conflicting),
+        "basis": basis,
+    }
+
+
+def _link_claims_to_evidence(evidence: list, graph: dict) -> int:
+    """把 Claim ID 寫回 Evidence，並先清掉舊值。
+
+    清空是必要的：Claim 圖可能被重建（模型提案被作廢後改走 deterministic），若沿用上一版的
+    連結，就會出現「證據說自己被 CL-002 使用，但 CL-002 沒引用它」這種對不起來的狀態 ——
+    而那正是 citation gate 第 9 條要抓的問題。
+    """
+    for item in evidence or []:
+        if hasattr(item, "related_claim_ids"):
+            item.related_claim_ids = []
+        elif isinstance(item, dict):
+            item["related_claim_ids"] = []
+    return apply_related_claim_ids(evidence, graph)
+
+
+def _build_claims_with_gate(result: dict, evidence: list, plan_dict: dict, signals: list[dict],
+                            critique: dict | None, *, client: object | None, deadline: float,
+                            run_id: str, cited_evidence_ids, timeline=None) -> tuple:
+    """建圖 → 寫回 Claim 連結 → 過 citation gate，FAIL 就降級重建，而不是照樣發佈。
+
+    Gate FAIL 代表報告會包含追不回來源的判斷。這種情況下正確的處理是**丟掉整批模型提案**、
+    改用 deterministic 圖重建（保守但可稽核），而不是逐條修補 —— 部分可信的圖比誠實的保守圖更糟。
+    若 deterministic 圖也過不了 gate，那是本管線的 bug，必須讓執行明確失敗，
+    不能輸出一份看起來正常但引用不成立的報告。
+    """
+    def build(active_client):
+        graph = _build_claims(result, evidence, plan_dict, signals, critique,
+                              client=active_client, deadline=deadline)
+        linked = _link_claims_to_evidence(evidence, graph)
+        # Timed on every attempt, so the Execution Log reports the gate run that actually decided
+        # the outcome rather than the first one that failed.
+        if timeline is not None:
+            timeline.start("citation_gate")
+        gate = run_citation_gate(run_id, evidence, graph["claims"],
+                                 cited_evidence_ids=cited_evidence_ids, critique=critique)
+        if timeline is not None:
+            timeline.finish("citation_gate")
+        return graph, gate, linked
+
+    graph, gate, linked = build(client)
+    if gate["status"] == GATE_STATUS_FAIL and graph["source"] == GRAPH_SOURCE_LLM:
+        graph, gate, linked = build(None)
+        graph["fallback_reason"] = "citation gate failed: " + "; ".join(gate["errors"][:3])
+    if gate["status"] == GATE_STATUS_FAIL:
+        raise ValueError("Citation gate failed: " + "; ".join(gate["errors"]))
+    return graph, gate, linked
+
+
+def _collector_records(evidence: list) -> list[dict]:
+    """每筆證據的採集紀錄：哪個 collector、可重現的 locator、狀態、以及產生的 Evidence ID。
+
+    Execution Log 要能回答「這個數字是從哪個查詢來的」。只記錄一句 `collect_evidence: success`
+    做不到這件事，因此這裡把每筆證據的 source locator 與查詢摘要一起留下。
+    """
+    records = []
+    for item in evidence:
+        reference = item.content_reference or {}
+        query = {key: reference[key] for key in sorted(reference)
+                 if key in ("endpoint", "query", "symbol", "interval", "chain", "address",
+                            "transaction_hash", "feed_url", "file", "rows", "days", "query_name")}
+        records.append({
+            "collector": item.data_type,
+            "evidence_id": item.evidence_id,
+            "source": item.source,
+            "source_locator": item.source_url,
+            "query_summary": query or {"summary": "no structured locator recorded"},
+            "source_type": item.source_type,
+            "status": item.verification_status,
+            "fetched_at": item.fetched_at,
+            "reliability_score": item.reliability_score,
+        })
+    return records
+
+
+def _manifest(context: RunContext, store: LocalArtifactStore, *, completed_at: str,
+              duration_ms: float, live: bool, use_llm: bool, registry_version: str,
+              gate: dict, evidence_error_count: int, providers: dict,
+              rerun_of: str | None = None) -> dict:
+    """提交物清單：每個檔案的 SHA-256 加上重建這次執行所需的識別資訊。
+
+    manifest 不把自己列進 `files`（無法對自己取雜湊），因此重複產生的結果是穩定的；
+    `artifact_filenames` 仍列出全部六個檔名，讓稽核者知道應該收到幾個檔案。
+    """
+    return {
+        "manifest_version": MANIFEST_VERSION,
+        "run_id": context.run_id,
+        "started_at": context.started_at,
+        "completed_at": completed_at,
+        "as_of": context.as_of,
+        "duration_ms": duration_ms,
+        "question": context.question,
+        "coins": list(context.coins),
+        "mode": context.run_mode,
+        "execution_flags": {"live": live, "use_llm": use_llm},
+        "model": {"provider": context.model_provider, "model": context.model_id,
+                  "region": context.region},
+        # 每個階段實際用了哪個 provider／model。三者可能不同（例如分析走模型、Claim 走離線規則），
+        # 所以分開記錄，不用單一 provider 欄位代表整趟執行。
+        "stage_providers": providers,
+        "code_commit": context.code_commit,
+        "config_version": context.config_version,
+        "versions": {
+            "schema": SCHEMA_VERSION,
+            "credibility_scoring": SCORING_VERSION,
+            "claim_confidence_scoring": CLAIM_SCORING_VERSION,
+            "citation_gate": CITATION_GATE_VERSION,
+            "source_registry": registry_version,
+        },
+        "artifact_filenames": dict(ARTIFACT_FILENAMES),
+        "artifact_root": str(store.base_path.resolve()),
+        "files": store.entries,
+        "manifest_file": ARTIFACT_FILENAMES["manifest"],
+        "validation": {
+            "evidence_error_count": evidence_error_count,
+            "citation_gate_status": gate["status"],
+            "citation_gate_error_count": gate["error_count"],
+            "citation_gate_warning_count": gate["warning_count"],
+            "citation_gate_checks": gate["checks"],
+            "semantic_finding_count": gate["semantic_finding_count"],
+        },
+        "rerun_of": rerun_of,
+    }
 
 
 def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm: bool = False,
         ohlcv_path: Path | None = None, time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
         deadline: float | None = None, history_path: Path | None = None,
         fulltext: bool = False, research_plan=None, planner_client: object | None = None,
-        claim_client: object | None = None) -> dict:
+        claim_client: object | None = None, analysis_client: object | None = None,
+        critic_client: object | None = None, run_context: RunContext | None = None) -> dict:
     coin, question = validate_request(coin, question)
     started = time.perf_counter()
+    timeline = _StageTimeline()
+    # One RunContext per analysis: it supplies the run_id every artifact is stamped with, the code
+    # commit, and the config version the manifest has to record. A caller (comparison leg, T7 formal
+    # run) may pass its own so the whole bundle shares one identity.
+    context = run_context or RunContext.create(question, [coin], run_mode="live" if live else "offline")
+    timeline.mark("parse_input")
     if deadline is None:
         deadline = time.monotonic() + time_budget_seconds
     # Plan before collecting. A comparison run passes its shared plan in so both legs are planned
     # once, over one time window and one set of comparison dimensions.
+    timeline.start("plan_research")
     if research_plan is None:
         plan, planning_log = _plan_research(
             question, [coin], use_llm=use_llm, client=planner_client, deadline=deadline,
@@ -798,6 +1019,8 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
             "path": _PLANNING_PATH_SHARED, "fallback_used": False,
             "fallback_reason": None, "duration_seconds": 0.0,
         }
+    timeline.finish("plan_research")
+    timeline.start("collect_evidence")
     phase_started = time.monotonic()
     collection_deadline = min(deadline, phase_started + COLLECTION_PHASE_SECONDS)
     evidence, collection_log, agent_report = collect_evidence_detailed(
@@ -821,13 +1044,19 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         market.content["dates"] = [row["date"] for row in rows]
     if history_path:
         evidence.append(_price_history_evidence(coin, history_path))
+    # Stamp the run before scoring: from here on every record can be checked against this run, and
+    # the citation gate can tell "this run's evidence" from "a record that came from somewhere else".
+    stamp_run_id(evidence, context.run_id)
+    timeline.finish("collect_evidence")
     # Score before anything reads the evidence: the signal inventory, the prompt, the report and the
     # claim graph all quote `reliability_score`, so they must all see the engine's number rather
     # than the adapter's hint.
+    timeline.start("score_evidence")
     registry = load_source_registry()
     credibility_records = enrich_and_score_evidence(evidence, registry=registry)
     credibility = _credibility_summary(credibility_records,
                                        registry.get("registry_version", "unavailable"))
+    timeline.finish("score_evidence")
     plan_dict = plan_to_dict(plan)
     result = {
         "coin": coin.upper(), "question": question,
@@ -841,9 +1070,12 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         "disclaimer": "For research demonstration only; not investment advice.",
         "collection_log": collection_log,
     }
+    timeline.mark("calculate_indicators")
     signals = _signal_inventory(result, evidence)
     result["stance"] = _market_stance(signals)
+    result["consistency"] = _source_consistency(signals, evidence)
     result["risk_factors"] = _dynamic_risk_factors(result, evidence, signals) + _credibility_risk_factors(credibility)
+    timeline.start("llm_reasoning")
     llm_status = "offline_fallback"
     llm_info = llm_runtime_info()
     llm_seconds_remaining = round(reasoning_deadline - time.monotonic(), 1)
@@ -856,7 +1088,8 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         )
     elif use_llm:
         try:
-            llm_result = analyze_with_llm(coin, question, _llm_evidence_payload(evidence))
+            llm_result = analyze_with_llm(coin, question, _llm_evidence_payload(evidence),
+                                          client=analysis_client)
             unknown = set(llm_result.get("cited_evidence_ids", [])) - set(result["evidence_ids"])
             if unknown:
                 raise ValueError(f"LLM cited unknown evidence IDs: {sorted(unknown)}")
@@ -867,11 +1100,13 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
             result["reasoning"] = _offline_reasoning(result, evidence, f"LLM failed: {type(error).__name__}")
     else:
         result["reasoning"] = _offline_reasoning(result, evidence)
+    timeline.finish("llm_reasoning")
     phase_timings["reasoning_ms"] = round((time.monotonic() - reasoning_started) * 1000, 1)
 
     # Phase 3: audit. The critic sees the finished analysis and its evidence, and may only annotate
     # and lower confidence -- it never rewrites the conclusion, because a critic that edits the work
     # is just a second analyst and the reader loses the independent check.
+    timeline.start("critic_review")
     critic_started = time.monotonic()
     critic_deadline = min(deadline, critic_started + CRITIC_PHASE_SECONDS)
     critic_status, critique = "skipped:disabled", None
@@ -884,12 +1119,18 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
                 # Validate before committing to `critique`: a critique that cites evidence which
                 # does not exist is itself a hallucination, and accepting it would let it lower
                 # confidence and display invented findings.
-                candidate = critique_with_llm(coin, question, result, _llm_evidence_payload(evidence))
+                evidence_snapshot = json.dumps([asdict(item) for item in evidence], sort_keys=True)
+                candidate = critique_with_llm(coin, question, result, _llm_evidence_payload(evidence),
+                                              client=critic_client)
                 unknown = {
                     finding.get("evidence_id") for finding in candidate.get("findings", [])
                 } - set(result["evidence_ids"]) - {"N/A", "", None}
                 if unknown:
                     raise ValueError(f"Critic cited unknown evidence IDs: {sorted(unknown)}")
+                # The critic may annotate and lower confidence; it may not touch the raw evidence.
+                # Checked rather than assumed, because the critique is built from the same records.
+                if json.dumps([asdict(item) for item in evidence], sort_keys=True) != evidence_snapshot:
+                    raise ValueError("Critic modified raw evidence, which is not permitted")
                 critique = candidate
                 critic_status = "success"
             except Exception as error:
@@ -897,11 +1138,18 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     if critique:
         adjustment = float(critique.get("confidence_adjustment") or 0)
         original = float(result["reasoning"].get("confidence", 0) or 0)
-        adjusted = max(0.0, min(1.0, original + adjustment))
+        # Only downward: a positive adjustment is dropped rather than applied, so a critic that
+        # tries to talk the confidence up leaves a trace instead of an effect.
+        applied = min(0.0, adjustment)
+        adjusted = max(0.0, min(1.0, original + applied))
         critique["original_confidence"] = round(original, 4)
         critique["adjusted_confidence"] = round(adjusted, 4)
+        critique["applied_adjustment"] = round(applied, 4)
+        critique["positive_adjustment_rejected"] = adjustment > 0
         result["reasoning"]["confidence"] = round(adjusted, 4)
     result["critique"] = critique
+    result["critic_status"] = critic_status
+    timeline.finish("critic_review")
     phase_timings["critic_ms"] = round((time.monotonic() - critic_started) * 1000, 1)
 
     # Claims are built last because they consume the critic's verdict: the critic may only lower a
@@ -909,16 +1157,26 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
     # Timed in its own Execution Log step rather than in `phase_actual_ms`: the three phase ceilings
     # are a frozen contract, and claim building has no ceiling of its own -- like planning, it runs
     # inside whatever the total deadline has left.
+    timeline.start("build_claims")
     claims_started = time.monotonic()
     active_claim_client, claim_client_reason = _claim_client(
         result["reasoning"], use_llm=use_llm, client=claim_client, deadline=deadline)
-    claim_graph = _build_claims(result, evidence, plan_dict, signals, critique,
-                                client=active_claim_client, deadline=deadline)
+    # Build, link the claim IDs back onto the evidence (so `evidence.json` reads in both directions),
+    # then run the citation gate. A gate failure discards the model's graph and rebuilds it
+    # deterministically -- see `_build_claims_with_gate`.
+    claim_graph, citation_gate, linked_evidence_count = _build_claims_with_gate(
+        result, evidence, plan_dict, signals, critique,
+        client=active_claim_client, deadline=deadline, run_id=context.run_id,
+        cited_evidence_ids=result["reasoning"].get("cited_evidence_ids") or (),
+        timeline=timeline,
+    )
+    # `claims.json` deliberately carries no run_id: two runs over the same evidence must produce a
+    # byte-identical claims document, which is the cheapest possible proof that the scoring is
+    # deterministic. The binding between run and artifacts lives in `manifest.json`, and every
+    # evidence record carries its own run_id.
     claims_doc = claims_document(claim_graph)
-    # Write the claim IDs back onto the evidence so `evidence.json` can be read in either direction:
-    # from a claim to its sources, and from a source to the claims that leaned on it.
-    linked_evidence_count = apply_related_claim_ids(evidence, claim_graph)
     result["claims"] = claim_graph["claims"]
+    result["citation_gate"] = citation_gate
     result["claim_graph"] = {
         "source": claim_graph["source"],
         "fallback_reason": claim_graph["fallback_reason"],
@@ -929,62 +1187,81 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
         "scoring_version": claim_graph["scoring_version"],
     }
     claims_duration_ms = round((time.monotonic() - claims_started) * 1000, 1)
+    timeline.finish("build_claims")
 
+    timeline.start("validate_evidence")
     validation_errors = validate_evidence(evidence, result["evidence_ids"], require_scored=True)
     if validation_errors:
         raise ValueError("Evidence validation failed: " + "; ".join(validation_errors))
-    output_dir.mkdir(parents=True, exist_ok=True)
-    sources = "\n".join(_evidence_source_line(item) for item in evidence)
+    timeline.finish("validate_evidence")
+
+    timeline.start("generate_report")
+    # Every artifact goes through the ArtifactStore, which records the byte count and SHA-256 of
+    # each file as it is written -- that is what makes `manifest.json` verifiable rather than a
+    # hand-maintained list. Prefix is empty so the paths stay exactly where callers expect them.
+    store = LocalArtifactStore(output_dir)
     reasoning = result["reasoning"]
     # Series belong in the charts, not the prose report: dumping the raw `dates`/`prices` arrays
     # here buried the readable indicators under hundreds of lines.
     display_indicators = {key: value for key, value in result["indicators"].items() if key not in ("prices", "volumes", "dates") and value is not None}
-    indicator_lines = "\n".join(
-        f"- {key}: " + ", ".join(f"{sub_key}={sub_value}" for sub_key, sub_value in value.items()) if isinstance(value, dict) else f"- {key}: {value}"
-        for key, value in display_indicators.items()
-    )
-    stance = result["stance"]
-    stance_block = (
-        f"**{stance['label']}（{stance['label_en']}）**　信心 {reasoning['confidence']}\n\n"
-        f"- 依據：{stance['basis']}\n"
-        f"- 訊號權重：多方 {stance['bull_weight']} / 空方 {stance['bear_weight']}（共 {stance['signal_count']} 項訊號）\n"
-        + "".join(f"- 主要推力：{driver['text']}（{driver['evidence_id']}）\n" for driver in stance["drivers"])
-    )
-    critique_block = ""
-    if critique:
-        verdict_labels = {"pass": "通過", "concerns": "有需注意之處", "fail": "結論不被證據支撐"}
-        findings = "\n".join(
-            f"- [{finding['severity'].upper()}／{finding['category']}] {finding['issue']}"
-            f"（針對：{finding['claim'][:60]}｜證據：{finding['evidence_id']}）"
-            for finding in critique.get("findings", [])
-        ) or "- 稽核未發現實質問題"
-        critique_block = (
-            f"\n## Critic Review\n**{verdict_labels.get(critique['verdict'], critique['verdict'])}**"
-            f"　信心 {critique['original_confidence']} → {critique['adjusted_confidence']}\n\n"
-            f"{critique['summary']}\n\n{findings}\n"
-        )
     history = next((item for item in evidence if item.data_type == "price_history"), None)
-    history_block = ""
-    if history is not None:
-        history_block = "\n## Long-horizon Context\n" + "\n".join(
-            f"- {label}（{window['date_start']} → {window['date_end']}）: 報酬 {window['return_pct']}%"
-            f"／年化波動 {window['volatility_annualised_pct']}%"
-            f"／最大回撤 {window['max_drawdown_pct']}%"
-            f"／價格位於區間 {window['percentile_in_range']}% 分位"
-            for label, window in history.content["windows"].items()
-        ) + f"\n- 資料來源：{history.evidence_id}（{history.content['rows']} 個交易日）\n"
-    claims_block = _claims_markdown(claim_graph)
-    (output_dir / "report.md").write_text(f"# {result['coin']} Market Research\n\n## Question\n{question}\n\n## Stance\n{stance_block}\n## Market Judgment\n{reasoning['market_judgment']}\n{history_block}\n## Facts\n" + "\n".join(f"- {x}" for x in reasoning["facts"]) + "\n\n## Inferences\n" + "\n".join(f"- {x}" for x in reasoning["inferences"]) + f"\n\n## Conclusion\n{reasoning['conclusion']}\n{claims_block}{critique_block}\n## Confidence\n{reasoning['confidence']}\n\n## Indicators\n" + indicator_lines + "\n\n## Counter Evidence\n" + "\n".join(f"- {x}" for x in reasoning["counter_evidence"]) + "\n\n## Evidence Sources\n" + sources + "\n\n## Next Observations\n" + "\n".join(f"- {x}" for x in reasoning["observation_points"]) + "\n\n## Risks and Limitations\n" + "\n".join(f"- {x}" for x in result["risk_factors"]) + "\n\n_This is research support, not investment advice._\n", encoding="utf-8")
-    (output_dir / "evidence.json").write_text(json.dumps([asdict(item) for item in evidence], indent=2), encoding="utf-8")
-    (output_dir / "research_plan.json").write_text(
-        json.dumps(plan_dict, ensure_ascii=False, indent=2), encoding="utf-8",
-    )
-    (output_dir / ARTIFACT_FILENAMES["claims"]).write_text(
-        json.dumps(claims_doc, ensure_ascii=False, indent=2), encoding="utf-8",
-    )
+    evidence_records = [asdict(item) for item in evidence]
+    evidence_window = _evidence_window(evidence)
+    completed_at = _now_iso()
+    stage_providers = {
+        "planner": {"provider": llm_info["provider"] if planning_log["path"] == PLANNING_PATH_LLM
+                    else "deterministic",
+                    "model": llm_info["model"] if planning_log["path"] == PLANNING_PATH_LLM else None},
+        "analyst": {"provider": llm_info["provider"] if llm_status == "success" else "deterministic",
+                    "model": llm_info["model"] if llm_status == "success" else None,
+                    "status": llm_status},
+        "critic": {"provider": llm_info["provider"] if critic_status == "success" else "deterministic",
+                   "model": llm_info["model"] if critic_status == "success" else None,
+                   "status": critic_status},
+        "claims": {"provider": llm_info["provider"] if claim_graph["source"] == GRAPH_SOURCE_LLM
+                   else "deterministic",
+                   "model": llm_info["model"] if claim_graph["source"] == GRAPH_SOURCE_LLM else None,
+                   "scored_by": "deterministic_rules"},
+    }
+    # Markdown structure is decided here, in Python, not by the model: `render_competition_report`
+    # is a pure function with a fixed section order, so the report a judge reads has the same shape
+    # whether the run was live, offline, or degraded halfway through.
+    store.write_text(ARTIFACT_FILENAMES["report"], render_competition_report({
+        "run": {
+            "run_id": context.run_id, "started_at": context.started_at,
+            "completed_at": completed_at, "as_of": context.as_of, "mode": context.run_mode,
+            "live": live, "use_llm": use_llm, "question": question, "coins": [result["coin"]],
+            "provider": stage_providers["analyst"]["provider"],
+            "model": stage_providers["analyst"]["model"],
+        },
+        "plan": plan_dict,
+        "stance": result["stance"],
+        "reasoning": reasoning,
+        "indicators": display_indicators,
+        "history": asdict(history) if history is not None else None,
+        "claim_graph": claim_graph,
+        "confidence_weights": CONFIDENCE_WEIGHTS,
+        "consistency": result["consistency"],
+        "critique": critique,
+        "critic_status": critic_status,
+        "citation_gate": citation_gate,
+        "evidence": evidence_records,
+        "evidence_window": evidence_window,
+        "risk_factors": result["risk_factors"],
+    }))
+    store.write_json(ARTIFACT_FILENAMES["evidence"], evidence_records)
+    store.write_json(ARTIFACT_FILENAMES["research_plan"], plan_dict)
+    store.write_json(ARTIFACT_FILENAMES["claims"], claims_doc)
+    timeline.finish("generate_report")
+
     skipped = [entry for entry in collection_log if "skipped" in entry]
-    (output_dir / "execution_log.json").write_text(json.dumps({
+    created_ids = [item.evidence_id for item in evidence]
+    store.write_json(ARTIFACT_FILENAMES["execution_log"], {
         "status": "success",
+        "run_id": context.run_id,
+        "started_at": context.started_at,
+        "completed_at": completed_at,
+        "mode": context.run_mode,
         "collection": collection_log,
         "time_budget": {
             "budget_seconds": time_budget_seconds,
@@ -998,27 +1275,78 @@ def run(coin: str, question: str, output_dir: Path, live: bool = False, use_llm:
             "phase_actual_ms": phase_timings,
         },
         "collection_agents": agent_report,
+        "stage_providers": stage_providers,
+        "citation_gate": citation_gate,
         "steps": [
-            {"name": "parse_input", "status": "success"},
-            _planner_step(plan, planning_log, llm_info),
-            {"name": "collect_evidence", "status": "degraded" if skipped else "success", "details": collection_log},
+            {"name": "parse_input", "status": "success", "tool": "src.errors.validate_request",
+             **timeline.entry("parse_input")},
+            {**_planner_step(plan, planning_log, llm_info), **timeline.entry("plan_research"),
+             "tool": "src.planner.build_research_plan"},
+            {"name": "collect_evidence",
+             "status": "degraded" if skipped else "success",
+             "tool": "src.day2_sources.collect_evidence_detailed",
+             "details": collection_log,
+             # Per-collector locators and the IDs each one produced: without these the log cannot
+             # answer "which query produced this number", which is the whole point of keeping it.
+             "collectors": _collector_records(evidence),
+             "evidence_ids_created": created_ids,
+             "fallback_reason": "; ".join(skipped) or None,
+             **timeline.entry("collect_evidence")},
             {
                 # Deterministic Python, never the model: the log records the engine version and
                 # every cap that fired so a reviewer can recompute any score by hand.
                 "name": "score_evidence",
                 "status": "degraded" if credibility["rejected_ids"] or credibility["fallback_ids"] else "success",
                 "scored_by": "deterministic_rules",
+                "tool": "src.credibility.score_evidence_batch",
+                **timeline.entry("score_evidence"),
                 **credibility,
             },
-            {"name": "calculate_indicators", "status": "success"},
-            {"name": "validate_evidence", "status": "success", "error_count": 0},
-            {"name": "llm_reasoning", "status": llm_status, **llm_info},
-            {"name": "critic_review", "status": critic_status, **llm_info},
-            _claims_step(claim_graph, claim_client_reason, llm_info, claims_duration_ms),
-            {"name": "generate_report", "status": "success"},
+            {"name": "calculate_indicators", "status": "success",
+             "tool": "src.orchestrator._signal_inventory", **timeline.entry("calculate_indicators")},
+            {"name": "validate_evidence", "status": "success", "error_count": 0,
+             "tool": "src.validation.validate_evidence", **timeline.entry("validate_evidence")},
+            {"name": "llm_reasoning", "status": llm_status, **llm_info,
+             "tool": "src.llm.analyze_with_llm",
+             "fallback_reason": None if llm_status == "success" else llm_status,
+             **timeline.entry("llm_reasoning")},
+            {"name": "critic_review", "status": critic_status, **llm_info,
+             "tool": "src.llm.critique_with_llm",
+             "fallback_reason": None if critic_status == "success" else critic_status,
+             "semantic_categories": sorted({
+                 finding["category"] for finding in citation_gate["semantic_findings"]}),
+             **timeline.entry("critic_review")},
+            {**_claims_step(claim_graph, claim_client_reason, llm_info, claims_duration_ms),
+             **timeline.entry("build_claims"), "tool": "src.claim_graph.build_claim_graph"},
+            {"name": "citation_gate", "status": citation_gate["status"],
+             "tool": "src.validation.run_citation_gate",
+             "gate_version": citation_gate["gate_version"],
+             "checks": citation_gate["checks"],
+             "error_count": citation_gate["error_count"],
+             "warning_count": citation_gate["warning_count"],
+             "errors": citation_gate["errors"],
+             "warnings": citation_gate["warnings"],
+             "semantic_finding_count": citation_gate["semantic_finding_count"],
+             **timeline.entry("citation_gate")},
+            {"name": "generate_report", "status": "success",
+             "tool": "src.report_renderer.render_competition_report",
+             "artifacts": sorted(ARTIFACT_FILENAMES.values()),
+             **timeline.entry("generate_report")},
         ],
         "duration_ms": round((time.perf_counter() - started) * 1000, 2),
-    }, indent=2), encoding="utf-8")
+    })
+    # Manifest last: it hashes the five artifacts written above, so it cannot include itself.
+    manifest = _manifest(
+        context, store, completed_at=completed_at,
+        duration_ms=round((time.perf_counter() - started) * 1000, 2),
+        live=live, use_llm=use_llm,
+        registry_version=registry.get("registry_version", "unavailable"),
+        gate=citation_gate, evidence_error_count=len(validation_errors),
+        providers=stage_providers,
+    )
+    store.write_json(ARTIFACT_FILENAMES["manifest"], manifest)
+    result["manifest"] = manifest
+    result["run_id"] = context.run_id
     return result
 
 
@@ -1039,6 +1367,11 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
     started = time.perf_counter()
     deadline = time.monotonic() + time_budget_seconds
     output_dir.mkdir(parents=True, exist_ok=True)
+    # The comparison bundle is its own run: it gets a run_id and a manifest so the shared plan and
+    # the merged claims are verifiable too, while each leg keeps its own run_id and manifest.
+    context = RunContext.create(question, [coin_a, coin_b],
+                               run_mode="live" if live else "offline")
+    store = LocalArtifactStore(output_dir)
 
     # One plan for the pair, not one per leg: a comparison is only fair if both coins are read over
     # the same time window, the same as-of and the same comparison dimensions.
@@ -1046,9 +1379,7 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
         question, [coin_a, coin_b], use_llm=use_llm, client=planner_client, deadline=deadline,
     )
     shared_plan_dict = plan_to_dict(shared_plan)
-    (output_dir / "research_plan.json").write_text(
-        json.dumps(shared_plan_dict, ensure_ascii=False, indent=2), encoding="utf-8",
-    )
+    store.write_json(ARTIFACT_FILENAMES["research_plan"], shared_plan_dict)
 
     results, profiles, claims_by_coin = {}, {}, {}
     for coin in (coin_a, coin_b):
@@ -1064,7 +1395,7 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
     # One `claims.json` for the pair, keyed by coin. The legs are kept separate rather than merged
     # into one list: both legs number their claims from CL-001, and renumbering them would break the
     # link between a claim and the leg whose evidence it was scored against.
-    (output_dir / ARTIFACT_FILENAMES["claims"]).write_text(json.dumps({
+    store.write_json(ARTIFACT_FILENAMES["claims"], {
         "mode": "comparison",
         "coins": [coin_a, coin_b],
         # A comparison is only fair if both sides were read over the same window and the same
@@ -1072,23 +1403,52 @@ def run_comparison(coin_a: str, coin_b: str, question: str, output_dir: Path, li
         "shared_time_window": dict(shared_plan.time_window),
         "comparison_dimensions": list(shared_plan.comparison_dimensions),
         "claims_by_coin": claims_by_coin,
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    })
 
     comparison = compare_profiles(profiles[coin_a], profiles[coin_b])
     markdown = comparison_markdown(comparison, profiles[coin_a], profiles[coin_b])
-    (output_dir / "comparison.md").write_text(
+    store.write_text("comparison.md",
         f"# {coin_a} vs {coin_b} 比較研究\n\n## Question\n{question}\n\n{markdown}\n"
         f"## 個別幣種完整報告\n- {coin_a}: `{coin_a}/report.md`\n- {coin_b}: `{coin_b}/report.md`\n\n"
-        "_This is research support, not investment advice._\n",
-        encoding="utf-8",
-    )
+        "_This is research support, not investment advice._\n")
     payload = {
         "mode": "comparison", "coins": [coin_a, coin_b], "question": question,
+        "run_id": context.run_id,
         "research_plan": shared_plan_dict, "planning": shared_planning_log,
         "results": results, "profiles": profiles, "comparison": comparison,
         "claims_by_coin": claims_by_coin,
         "markdown": markdown,
         "duration_ms": round((time.perf_counter() - started) * 1000, 2),
     }
-    (output_dir / "comparison.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    store.write_json("comparison.json", payload)
+    # The pair's own manifest. Each leg is referenced by run_id rather than copied in: the leg
+    # manifests already hash their own artifacts, and duplicating them here would create two
+    # sources of truth for the same files.
+    duration_ms = round((time.perf_counter() - started) * 1000, 2)
+    gate_statuses = {coin: results[coin]["citation_gate"]["status"] for coin in (coin_a, coin_b)}
+    manifest = {
+        "manifest_version": MANIFEST_VERSION,
+        "run_id": context.run_id,
+        "mode": "comparison",
+        "started_at": context.started_at,
+        "completed_at": _now_iso(),
+        "as_of": context.as_of,
+        "duration_ms": duration_ms,
+        "question": question,
+        "coins": [coin_a, coin_b],
+        "execution_flags": {"live": live, "use_llm": use_llm},
+        "code_commit": context.code_commit,
+        "config_version": context.config_version,
+        "shared_time_window": dict(shared_plan.time_window),
+        "legs": {coin: {"run_id": results[coin]["run_id"],
+                        "directory": coin,
+                        "manifest": f"{coin}/{ARTIFACT_FILENAMES['manifest']}",
+                        "citation_gate_status": gate_statuses[coin]}
+                 for coin in (coin_a, coin_b)},
+        "files": store.entries,
+        "manifest_file": ARTIFACT_FILENAMES["manifest"],
+        "validation": {"citation_gate_status_by_coin": gate_statuses},
+    }
+    store.write_json(ARTIFACT_FILENAMES["manifest"], manifest)
+    payload["manifest"] = manifest
     return payload

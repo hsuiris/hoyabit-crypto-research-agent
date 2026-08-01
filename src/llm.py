@@ -85,6 +85,9 @@ CRITIC_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "severity": {"type": "string", "enum": ["high", "medium", "low"]},
+                    # T5 起類別不再是自由字串：八個語意類別是 gate 與報告共用的分類軸。
+                    # 不用 JSON Schema 的 enum，因為模型回舊名稱時我們寧可正規化（見
+                    # `src/validation.py` 的 `normalise_semantic_category`）也不要整份稽核作廢。
                     "category": {"type": "string"},
                     "claim": {"type": "string"},
                     "issue": {"type": "string"},
@@ -99,20 +102,37 @@ CRITIC_SCHEMA = {
     "additionalProperties": False,
 }
 
-_CRITIC_PROMPT = (
-    "你是研究稽核員，任務是**挑戰**下面這份分析，不是複述或讚美它。請用繁體中文回覆。\n\n"
-    "逐項檢查並列出問題（findings）：\n"
+# T5 的八個語意類別。前四個是既有的；後四個補上「同時性當因果」「官方公告當商業成果」
+# 「鏈上轉帳當意圖」與「信心與衝突不相稱」——這四種是加密市場研究最常見的過度推論，
+# 而且都不是結構檢查能抓到的（引用完全合法，錯的是句子的強度）。
+CRITIC_CATEGORY_GUIDE = (
     "1. over_claim：某句結論的強度超過其引用證據能支撐的程度\n"
     "2. unsupported：某項主張沒有對應的證據，或引用的證據其實不談這件事\n"
     "3. ignored_counter：反方證據明明存在，卻沒有反映在結論或信心分數上\n"
     "4. stale_or_weak：引用了可靠度偏低（<0.5）或降級（reliability 0.20）的證據卻當成確證\n"
-    "5. confidence：信心分數與證據衝突程度不相稱\n\n"
-    "每個 finding 要指出具體是哪一句（claim）、問題是什麼（issue）、以及相關的 evidence_id"
+    "5. correlation_as_causation：把同時發生寫成因果，例如「因為 X 所以價格上漲」\n"
+    "6. official_statement_as_outcome：把官方公告當成商業成果已經發生"
+    "（公告只能證明「已發布」）\n"
+    "7. onchain_transfer_as_intent：把鏈上轉帳當成擁有者身分或買賣意圖"
+    "（轉帳只能證明轉帳發生）\n"
+    "8. confidence_too_high：信心分數與證據衝突程度或來源品質不相稱\n"
+)
+
+_CRITIC_PROMPT = (
+    "你是研究稽核員，任務是**挑戰**下面這份分析，不是複述或讚美它。請用繁體中文回覆。\n\n"
+    "逐項檢查並列出問題（findings），category 只能用下列八個之一：\n"
+    + CRITIC_CATEGORY_GUIDE +
+    "\n每個 finding 要指出具體是哪一句（claim）、問題是什麼（issue）、以及相關的 evidence_id"
     "（若無對應證據就填 'N/A'）。severity 只有在會改變讀者判斷時才用 high。\n"
     "confidence_adjustment 是你建議的信心調整值，範圍 -0.3 到 0，找不到問題就填 0。\n"
     "verdict：pass（沒有實質問題）、concerns（有需注意之處但結論仍成立）、"
     "fail（結論不被證據支撐）。\n"
     "若分析確實嚴謹，回 pass 並在 summary 說明你檢查了什麼 —— 不要為了交差而編造問題。\n\n"
+    "你的權限邊界（違反者整份稽核會被丟棄）：\n"
+    "- 可以標註問題、建議保守改寫、下調信心。\n"
+    "- 不可新增任何 Evidence；evidence_id 只能引用下面 evidence 清單裡已存在的 ID。\n"
+    "- 不可提高信心：confidence_adjustment 不得為正值。\n"
+    "- 不可改寫或重新解釋原始 Evidence 的內容，也不可把未驗證的證據說成已驗證。\n\n"
 )
 
 

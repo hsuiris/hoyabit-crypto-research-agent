@@ -78,11 +78,12 @@ Before every Task:
   - _Commit: `feat(T4): add claim evidence graph and confidence engine`_
   - _Stop after Task: mandatory_
 
-- [ ] T5. Enforce Citation Gates and produce the complete competition bundle
+- [x] T5. Enforce Citation Gates and produce the complete competition bundle
   - Read `docs/competition-tasks/T5-citation-output.md`.
-  - Add structural and semantic validation.
+  - Add structural and semantic validation.（`run_citation_gate()` 十條規則 + `detect_semantic_risks()`
+    八類 deterministic 語意偵測，Critic prompt 同步擴充到八類。）
   - Add deterministic report rendering, manifest hashes, complete Execution Log, and six required artifacts.
-  - Ensure Critic failure cannot remove all output.
+  - Ensure Critic failure cannot remove all output.（Critic 逾時仍產出六檔，報告明示語意稽核未執行。）
   - _Requirements: 5.1, 5.2, 5.3, 8.2, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 11.1, 11.2, 11.3, 11.4, 11.5, 14.4_
   - _Depends: T4 PASS_
   - _Commit: `feat(T5): enforce citation gate and competition outputs`_

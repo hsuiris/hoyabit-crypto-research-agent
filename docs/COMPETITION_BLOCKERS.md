@@ -100,7 +100,28 @@
   `LocalArtifactStore.for_run(context, Path("/tmp"))` 或 `S3ArtifactStore(bucket, context.output_prefix)`，
   由 `RunContext` 決定落點。
 
+## T5：Citation Gate 與提交物
+
+### 例外 3：`lambda_handler.py` 的回應仍只含三個檔案
+
+- **狀態**：PARTIAL（已記錄，未修正）
+- **原因**：T5 的範圍是 gate 與提交物產出；磁碟上六個檔案已齊備，但 Lambda 的 JSON 回應
+  仍只回 `report`／`evidence`／`execution_log`。改動它會同時碰到 `/tmp/outputs` 落點問題
+  （見例外 2），兩者應一起處理。
+- **影響**：本地與 Web Demo 不受影響；Lambda 呼叫者暫時拿不到 `research_plan`／`claims`／`manifest`
+  的內容（檔案仍在 `/tmp/outputs` 下）。
+- **後續**：T7 處理 formal run 落點時，一併把回應改為列出 `manifest["files"]`。
+
+### 例外 4：「Critic 不得改寫 Evidence」的守衛沒有觸發測試
+
+- **狀態**：已記錄，刻意保留
+- **原因**：`run()` 在呼叫 Critic 前後比對 Evidence 的 `asdict` 快照，但注入的 `LLMClient`
+  只拿到序列化後的 payload，拿不到 Evidence 物件本身，因此無法從測試端真的改寫它。
+- **影響**：守衛本身是防禦性程式碼，正常路徑不會觸發；其餘 Critic 邊界（不得新增 Evidence、
+  不得提高信心）都有對應測試。
+- **後續**：若日後 Critic 改為可傳入物件參考，需同時補上此路徑的測試。
+
 ## 環境
 
-- 本機 `python` 不存在，實際使用 `python3`，版本 `3.9.6`（低於專案要求的 3.10+）。目前 149 項測試全數通過，
+- 本機 `python` 不存在，實際使用 `python3`，版本 `3.9.6`（低於專案要求的 3.10+）。目前 488 項測試全數通過，
   但新程式碼需避開 3.10+ 專屬語法。正式競賽環境應改用 Python 3.10 以上。

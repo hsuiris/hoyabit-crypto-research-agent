@@ -5,7 +5,7 @@
 ## 30 秒啟動
 
 ```bash
-python -m unittest discover -s tests    # 應為 117 passed
+python -m unittest discover -s tests    # 應為 488 passed
 python -m src.app                       # http://127.0.0.1:8000
 ```
 

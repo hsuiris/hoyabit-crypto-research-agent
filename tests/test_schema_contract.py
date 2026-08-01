@@ -97,8 +97,14 @@ class EvidenceCompatibilityTests(unittest.TestCase):
         ]
 
         self.assertEqual(names[:len(legacy)], legacy, "既有欄位不得刪除或重新排序")
-        self.assertEqual(tuple(names[len(legacy):]), EVIDENCE_CREDIBILITY_FIELDS)
+        # T3 的 11 個計分欄位仍緊接在既有欄位之後，字面與順序不變；
+        # T5 只在尾端追加 run 歸屬欄位（EVIDENCE_RUN_FIELDS），這是相容的擴充方式。
+        credibility_block = tuple(names[len(legacy):len(legacy) + len(EVIDENCE_CREDIBILITY_FIELDS)])
+        self.assertEqual(credibility_block, EVIDENCE_CREDIBILITY_FIELDS)
         self.assertEqual(len(EVIDENCE_CREDIBILITY_FIELDS), 11)
+        self.assertEqual(tuple(names[len(legacy) + len(EVIDENCE_CREDIBILITY_FIELDS):]),
+                         schemas.EVIDENCE_RUN_FIELDS)
+        self.assertEqual(schemas.EVIDENCE_RUN_FIELDS, ("run_id",))
 
     def test_new_field_defaults_match_the_frozen_schema_constants(self):
         """day1_mvp 未 import schemas（避免多一個相對匯入相依），因此在這裡擋住兩邊漂移。"""
@@ -120,6 +126,8 @@ class EvidenceCompatibilityTests(unittest.TestCase):
         self.assertEqual(evidence.score_limiters, [])
         self.assertEqual(evidence.related_claim_ids, [])
         self.assertEqual(evidence.scoring_version, "")
+        # T5：未標記 run 的證據預設為空字串，由 Orchestrator 在計分前蓋上本次 run_id。
+        self.assertEqual(evidence.run_id, "")
 
     def test_mutable_defaults_are_not_shared_between_instances(self):
         first = Evidence("EV-4", "S", "u", "2026-08-01T00:00:00+00:00", "news", "ETH", "14d", {}, 0.5)

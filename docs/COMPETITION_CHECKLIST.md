@@ -8,9 +8,11 @@
 
 ### 代碼與測試
 
-- [ ] 完整測試套件通過：`python3 -m unittest discover -s tests` → 267 tests, 267 passed
+- [ ] 完整測試套件通過：`python3 -m unittest discover -s tests` → 488 tests, 488 passed
 - [ ] 無 regression：與 T0 baseline commit `b38c43369efbf27aeff841b4ca0e15fd9db22aa0` 對比
-- [ ] 離線工作流程驗證通過：三項核心提交物（`report.md`、`evidence.json`、`execution_log.json`）產出無誤
+- [ ] 離線工作流程驗證通過：六項提交物（`report.md`、`evidence.json`、`execution_log.json`、
+      `research_plan.json`、`claims.json`、`manifest.json`）產出無誤
+- [ ] `report.md` 的「## Citation Gate」段為 PASS 或 PASS_WITH_WARNINGS（FAIL 不得提交）
 - [ ] 五幣 smoke 測試：BTC、ETH、SOL、BNB、XRP 各執行一次離線分析
 - [ ] Web UI smoke 通過：首頁、研究摘要、互動圖表、執行流程、回測頁均可訪問
 - [ ] 比較模式 smoke 通過：`/compare?coin1=BTC&coin2=ETH` 類似頁面正常載入
@@ -135,17 +137,17 @@
 
 ### 成果驗證
 
-六項提交物（目前三項完整產出）：
+六項提交物（T5 起全部產出）：
 
-已完成產出：
 - [ ] `report.md` 存在，內容包含所有標準區塊
-- [ ] `evidence.json` 存在，每筆 evidence 含 `evidence_id`、`source`、`source_url`、`fetched_at`
-- [ ] `execution_log.json` 存在，記錄三階段時間、provider、fallback 使用狀況
-
-待 T2、T5 完成後產出：
-- [ ] `research_plan.json` 存在（T2 接線後）
-- [ ] `claims.json` 存在（T4 接線後）
-- [ ] `manifest.json` 存在，包含所有檔案的 SHA256 hash（T5 接線後）
+- [ ] `evidence.json` 存在，每筆 evidence 含 `evidence_id`、`source`、`source_url`、`fetched_at`、
+      `content_reference`、`related_claim_ids`、`run_id`
+- [ ] `execution_log.json` 存在，每個 step 有 `started_at`／`completed_at`／`duration_ms`／`tool`
+- [ ] `research_plan.json` 存在（T2 接線）
+- [ ] `claims.json` 存在，每個 Claim 有 Fact／Inference／Conclusion 與正反證據（T4 接線）
+- [ ] `manifest.json` 存在，含五個檔案的 SHA-256、run_id、code commit 與 validation status（T5 接線）
+- [ ] 六個檔案的 run_id 一致（`manifest.run_id` = `execution_log.run_id` = 每筆 evidence 的 `run_id`；
+      `claims.json` 刻意不帶 run_id，用來證明相同輸入產生逐字相同的 Claim）
 
 ### 內容驗證
 
@@ -171,19 +173,28 @@
 ### 檔案備份
 
 - [ ] 完整輸出目錄已備份（例如 `outputs-final/` 或帶時間戳的目錄）
-- [ ] 備份包含六項產物（目前三項，待 T5 完成後補全）
+- [ ] 備份包含六項產物（T5 起全部齊備）
 - [ ] 備份位置已告知評審或保存至安全位置
 
 ### Hash 與完整性驗證
 
-若已實現 T5（manifest 與 hashing）：
+T5 已實作 manifest 與 hashing：
 
-- [ ] 計算 manifest 中每個檔案的 SHA256：
+- [ ] 驗證 manifest 中每個檔案的 SHA-256（`manifest.json` 本身不列入 `files`，因為無法對自己取雜湊）：
   ```bash
-  sha256sum report.md evidence.json execution_log.json
+  python3 -c "
+  import hashlib, json
+  from pathlib import Path
+  out = Path('outputs-final-check')
+  manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
+  for entry in manifest['files']:
+      actual = hashlib.sha256((out / entry['path']).read_bytes()).hexdigest()
+      print(entry['path'], 'OK' if actual == entry['sha256'] else 'MISMATCH')
+  "
   ```
-- [ ] 結果與 manifest 中的 hash 值一致
-- [ ] manifest 本身的 hash 已記錄（用於驗證運行完整性）
+- [ ] 五個檔案全部 OK（`report.md`、`evidence.json`、`execution_log.json`、
+      `research_plan.json`、`claims.json`）
+- [ ] `manifest.validation.citation_gate_status` 不是 `FAIL`
 
 ### 後續優化建議（非必要，紀錄用）
 
@@ -250,8 +261,9 @@
 ### 已知限制文件
 
 - [ ] `docs/COMPETITION_BLOCKERS.md` 已更新，記錄所有已知的邊界例外或待解決項
-- [ ] T2、T3、T4、T5 尚未完成的任務已在文件中明確標示
-- [ ] 三個尚未產出的提交物（research_plan.json / claims.json / manifest.json）已在清單中標示「待 Tn 完成」
+- [ ] 尚未完成的任務已在文件中明確標示（T5 完成後為 T6 Web Demo、T7 formal run、T8 freeze）
+- [ ] 六項提交物皆已產出；仍待處理的邊界（Web UI 未顯示 Claim／Gate、lambda 回應仍只含三檔）
+      已在 `docs/COMPETITION_BLOCKERS.md` 記錄
 
 ### 提交檢查
 
@@ -262,8 +274,9 @@
 
 ### 終極檢查（正式提交前 15 分鐘）
 
-- [ ] `python3 -m unittest discover -s tests` → 267 passed ✓
-- [ ] `python3 -c "from pathlib import Path; from src.orchestrator import run; run('ETH', 'final check', Path('outputs-final-check'), live=False, use_llm=False)"` → 三檔產出 ✓
+- [ ] `python3 -m unittest discover -s tests` → 488 passed ✓
+- [ ] `python3 -c "from pathlib import Path; from src.orchestrator import run; run('ETH', 'final check', Path('outputs-final-check'), live=False, use_llm=False)"` → 六檔產出 ✓
+- [ ] manifest hash 全部相符、citation gate 非 FAIL ✓
 - [ ] `python3 -m src.app` → 首頁加載 ✓
 - [ ] 五幣均可選 ✓
 - [ ] 論文與幻燈片已準備，無對代碼實現的虛假描述 ✓
@@ -288,33 +301,36 @@
 3. **環境限制**：Python 3.9.6（低於 3.10+ 要求）
    - 目前可用，但正式環境應升至 3.10+
 
-### 三項核心提交物的格式
+### 核心提交物的格式
 
-當前實現的三項提交物：
+`report.md` 的段落順序由 `src/report_renderer.py` 的 `render_competition_report()` 固定決定
+（deterministic 純函式，LLM 不能改變報告骨架）：
 
 ```text
 report.md:
   # <幣種> Market Research
   ## Question
-  <研究問題>
-  ## Stance
-  <方向>（信心分）
+  ## 分析標的與題目
+  ## 資料截止與分析區間          （run_id、開始／完成、as-of、時間窗、證據取得範圍、provider）
+  ## Stance                      （立場 + 信心 + 依據 + 訊號權重 + 主要推力）
   ## Market Judgment
-  ...
+  ## Long-horizon Context        （僅在傳入 history_path 時出現）
+  ## 關鍵依據
   ## Facts
-  - EV-001: ...
-  ...
   ## Inferences
-  ...
+  ## Conclusion
+  ## Claims                      （每個 Claim：事實／推論／結論／正反證據／信心分量／生效上限）
+  ## 跨來源一致程度
+  ## Critic Review               （含 deterministic 語意風險；語意稽核未執行時會明說）
+  ## Citation Gate               （PASS / PASS_WITH_WARNINGS / FAIL 與逐條檢查結果）
+  ## Confidence
+  ## Indicators
   ## Counter Evidence
-  ...
-  ## Confidence Limiters
-  ...
-  ## Execution & Critic Review
-  ...
-  ## Sources
-  [1] <來源>
-  ...
+  ## Evidence Sources            （編號、來源、URL、取得時間、可靠度、狀態、分量、使用於哪些 Claim）
+  ## Next Observations
+  ## Risks and Limitations
+  ## 可能推翻結論的條件
+  _This is research support, not investment advice._
 
 evidence.json:
   [
@@ -335,70 +351,62 @@ evidence.json:
 
 execution_log.json:
   {
-    "run_id": "...",
-    "coin": "ETH",
-    "question": "...",
-    "started_at": "...",
-    "ended_at": "...",
-    "stages": [
-      {
-        "name": "collection",
-        "budget_seconds": 420,
-        "actual_seconds": 2.1,
-        "status": "completed"
-      },
-      ...
+    "status": "success",
+    "run_id": "...", "started_at": "...", "completed_at": "...", "mode": "offline",
+    "collection": [...],                     # 每個來源的 success / fallback / skipped
+    "time_budget": {                         # 三階段上限與實際耗時
+      "phase_ceilings_seconds": {"collection": 420, "reasoning": 180, "critic": 120},
+      "phase_actual_ms": {"collection_ms": ..., "reasoning_ms": ..., "critic_ms": ...}
+    },
+    "collection_agents": [...],              # 6 個平行 Agent 的耗時
+    "stage_providers": {"planner": {...}, "analyst": {...}, "critic": {...}, "claims": {...}},
+    "citation_gate": {...},                  # 與 report.md 的 Citation Gate 段同一份資料
+    "steps": [                               # 每步都有時間窗與工具名稱
+      {"name": "parse_input" | "plan_research" | "collect_evidence" | "score_evidence"
+              | "calculate_indicators" | "validate_evidence" | "llm_reasoning"
+              | "critic_review" | "build_claims" | "citation_gate" | "generate_report",
+       "status": "...", "tool": "src....",
+       "started_at": "...", "completed_at": "...", "duration_ms": 1.2,
+       "fallback_reason": null | "...",
+       # collect_evidence 另有：
+       "collectors": [{"collector", "evidence_id", "source_locator", "query_summary", "status"}],
+       "evidence_ids_created": ["EV-001", ...]}
     ],
-    "providers_used": ["gemini", "offline_fallback"],
-    "evidence_count": 9,
-    "report_confidence": 0.55,
-    ...
+    "duration_ms": ...
   }
 ```
 
-### 尚未產出的三項提交物
-
-待 T2、T4、T5 完成後新增：
+### 另外三項提交物（T2／T4／T5 已接線，以下為實際產出的頂層鍵）
 
 ```text
 research_plan.json:
-  {
-    "question": "...",
-    "hypotheses": [ {...}, {...} ],
-    "task_mode": "market_judgment" 或其他七種模式,
-    "time_window": {...}
-  }
+  coins, task_modes, primary_question, time_window, hypotheses,
+  required_domains, comparison_dimensions, assumptions, stop_conditions
 
 claims.json:
-  {
-    "claims": [
-      {
-        "claim_id": "...",
-        "text": "...",
-        "claim_type": "fact" / "inference" / "forecast",
-        "confidence": 0.75,
-        "supporting_evidence": ["EV-001", "EV-003"],
-        "contradicting_evidence": ["EV-005"],
-        ...
-      },
-      ...
-    ]
-  }
+  scoring_version, confidence_type, confidence_note, claim_source, fallback_reason,
+  claims[], hypothesis_assessments[], rejected_evidence_ids[]
+
+  claims[] 的每個 Claim：
+    claim_id, statement, claim_type, verdict, facts[],
+    inference, conclusion, supporting_evidence_ids[], contradicting_evidence_ids[],
+    confidence{score, level, type, components{5 項}, limiters[]},
+    limitations[], invalidation_conditions[], watchpoints[]
+
+  注意：verdict 與 confidence 由 deterministic Python 計算，LLM 只提供敘述；
+  confidence 是 heuristic evidence score，不是市場正確機率。
 
 manifest.json:
-  {
-    "run_id": "...",
-    "execution_time": 15,
-    "files": [
-      {
-        "filename": "report.md",
-        "size_bytes": 4700,
-        "sha256": "abc123..."
-      },
-      ...
-    ],
-    "total_hash": "xyz789..."
-  }
+  manifest_version, run_id, started_at, completed_at, as_of, duration_ms,
+  question, coins, mode, execution_flags{live, use_llm},
+  model{provider, model, region}, stage_providers{planner, analyst, critic, claims},
+  code_commit, config_version,
+  versions{schema, credibility_scoring, claim_confidence_scoring, citation_gate, source_registry},
+  artifact_filenames, artifact_root,
+  files[{path, uri, bytes, sha256, written_at}], manifest_file,
+  validation{evidence_error_count, citation_gate_status, citation_gate_error_count,
+             citation_gate_warning_count, citation_gate_checks, semantic_finding_count},
+  rerun_of
 ```
 
 ---

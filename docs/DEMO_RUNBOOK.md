@@ -51,9 +51,10 @@ BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 python3 -m unittest discover -s tests -v
 ```
 
-預期結果：**267 tests, 267 passed, 0 failed, 0 errors**
+預期結果：**488 tests, 488 passed, 0 failed, 0 errors**
 
-> 舊狀態檔寫的是 175 tests；目前實際為 267（T0.5、T0.6 新增的測試）。
+> 數量隨 Task 增加：T0 基線 117、T0.6 後 267、T5 後 488。以 `docs/COMPETITION_TASK_STATUS.yaml`
+> 的 `full_suite_latest` 為準。
 
 ## 離線 Smoke 測試
 
@@ -69,13 +70,29 @@ run('ETH', '離線 smoke test', output_dir, live=False, use_llm=False)
 "
 ```
 
-預期產出：
+預期產出（T5 後為完整六項提交物）：
 
 - `outputs-demo/report.md`
 - `outputs-demo/evidence.json`
 - `outputs-demo/execution_log.json`
+- `outputs-demo/research_plan.json`
+- `outputs-demo/claims.json`
+- `outputs-demo/manifest.json`
 
-> `research_plan.json`、`claims.json`、`manifest.json` 目前**尚未產生**（T2、T5 接線待完成）。
+驗證 manifest 的 SHA-256 與實際檔案相符：
+
+```bash
+python3 -c "
+import hashlib, json
+from pathlib import Path
+out = Path('outputs-demo')
+manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
+print('run_id:', manifest['run_id'], '| gate:', manifest['validation']['citation_gate_status'])
+for entry in manifest['files']:
+    actual = hashlib.sha256((out / entry['path']).read_bytes()).hexdigest()
+    print(entry['path'], 'OK' if actual == entry['sha256'] else 'MISMATCH')
+"
+```
 
 ## 網頁啟動
 
@@ -232,11 +249,15 @@ done
 
 ### 功能開發狀態
 
-> 以下提交物**目前尚未產生**（待 T2、T3、T4、T5 接線後完成）：
+> 六項提交物自 T5 起全部產生（T2 接 `research_plan.json`、T4 接 `claims.json`、
+> T5 接 `manifest.json` 與 citation gate）。目前仍在進行的邊界：
 
-7. **`research_plan.json`**：待 T2（question-driven planner）完成接線
-8. **`claims.json`**：待 T4（claim-evidence graph）完成接線
-9. **`manifest.json`**：待 T5（citation gate + outputs）完成接線
+7. **`claims.json` 不含 run_id**：刻意如此，用來證明相同輸入產生逐字相同的 Claim；
+   run 與檔案的綁定在 `manifest.json` 與 `evidence.json` 的 `run_id`
+8. **語意稽核在離線模式為 deterministic 詞表偵測**：八個類別都有覆蓋，但只產生 warning，
+   不改分數；LLM Critic 只在 `use_llm=True` 且有配額時執行
+9. **Web UI 尚未顯示 Claim／Citation Gate**：待 T6 接線；目前需開 `claims.json`
+   與 `report.md` 的「## Citation Gate」段查看
 
 ### 外部服務限制
 
@@ -259,10 +280,11 @@ done
 
 展示前 30 分鐘：
 
-- [ ] 確認 `python3 -m unittest discover -s tests` 通過（267 tests）
+- [ ] 確認 `python3 -m unittest discover -s tests` 通過（488 tests）
 - [ ] 驗證 `data/` 目錄下有五個 `.csv` 檔（BTC / ETH / SOL / BNB / XRP）
 - [ ] 若使用 LLM：檢查 `.env` 金鑰與模型 ID 有效
-- [ ] 預先跑一次離線 smoke，確認輸出目錄與三個檔案存在
+- [ ] 預先跑一次離線 smoke，確認輸出目錄有六個提交物，且 manifest hash 全部相符
+- [ ] 確認 `report.md` 的「## Citation Gate」段為 PASS 或 PASS_WITH_WARNINGS
 - [ ] 預先開啟 `/backtest?coin=ETH` 讓結果進快取（避免現場等待）
 
 展示中：
@@ -321,8 +343,8 @@ run('ETH', 'test', Path('outputs-debug'), live=False, use_llm=False)
 正式競賽會使用 `run_formal()` 或 Lambda 入口點；該流程：
 
 1. 經由 `RunContext` 設置內部 deadline（900 秒）
-2. 產出六項提交物（目前三項，待 T2/T3/T4/T5 完成）
-3. 生成 manifest 檔案與 SHA256 hash
-4. 記錄完整 lineage 與降級狀態
+2. 產出六項提交物（T5 起全部齊備）
+3. 生成 manifest 檔案與 SHA256 hash（T5 已完成）
+4. 記錄完整 lineage 與降級狀態（rerun lineage 待 T7）
 
 當前 MVP 在本文所述的 CLI 與網頁介面中已完整演示；正式競賽流程在 T7 完成後會進一步加固 deadline 管理與格式驗證。
