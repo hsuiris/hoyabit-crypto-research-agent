@@ -102,9 +102,13 @@ class EvidenceCompatibilityTests(unittest.TestCase):
         credibility_block = tuple(names[len(legacy):len(legacy) + len(EVIDENCE_CREDIBILITY_FIELDS)])
         self.assertEqual(credibility_block, EVIDENCE_CREDIBILITY_FIELDS)
         self.assertEqual(len(EVIDENCE_CREDIBILITY_FIELDS), 11)
-        self.assertEqual(tuple(names[len(legacy) + len(EVIDENCE_CREDIBILITY_FIELDS):]),
-                         schemas.EVIDENCE_RUN_FIELDS)
+        # 尾端依 Task 順序分段追加：T5 的 run 歸屬，然後 E2 的語意評估。分段比對而不是
+        # 「最後一段必須是 run_id」，否則每次相容擴充都會讓這個測試失敗，卻沒有任何契約被破壞。
+        tail = tuple(names[len(legacy) + len(EVIDENCE_CREDIBILITY_FIELDS):])
+        self.assertEqual(tail, schemas.EVIDENCE_RUN_FIELDS + schemas.EVIDENCE_ASSESSMENT_FIELDS)
         self.assertEqual(schemas.EVIDENCE_RUN_FIELDS, ("run_id",))
+        self.assertEqual(schemas.EVIDENCE_ASSESSMENT_FIELDS,
+                         ("source_items", "semantic_assessment"))
 
     def test_new_field_defaults_match_the_frozen_schema_constants(self):
         """day1_mvp 未 import schemas（避免多一個相對匯入相依），因此在這裡擋住兩邊漂移。"""
@@ -128,6 +132,9 @@ class EvidenceCompatibilityTests(unittest.TestCase):
         self.assertEqual(evidence.scoring_version, "")
         # T5：未標記 run 的證據預設為空字串，由 Orchestrator 在計分前蓋上本次 run_id。
         self.assertEqual(evidence.run_id, "")
+        # E2：未評估過的證據兩個容器都是空的，因此「沒有評估」與「評估為 0」可以區分。
+        self.assertEqual(evidence.source_items, [])
+        self.assertEqual(evidence.semantic_assessment, {})
 
     def test_mutable_defaults_are_not_shared_between_instances(self):
         first = Evidence("EV-4", "S", "u", "2026-08-01T00:00:00+00:00", "news", "ETH", "14d", {}, 0.5)

@@ -464,6 +464,158 @@ MANIFEST_VERSION = "competition-manifest-v1"
 
 
 # --------------------------------------------------------------------------------------
+# E2 — 問題導向的證據語意評估（question-aware evidence assessment）
+# --------------------------------------------------------------------------------------
+
+# 為什麼需要這一層：credibility（T3）衡量的是「這個來源有多可信」，那是來源屬性，**不是**
+# 「這筆證據對使用者問的那個問題有多相關」。一則可信度 0.9 的總經新聞，對「ETH 下行風險」
+# 這個題目可能完全不相關；一筆可信度 0.45 的社群貼文可能直接命中題目。兩者混為一談時，
+# 報告會用來源品質冒充問題相關性。
+#
+# 三條邊界：
+#   1. 標籤（離散）可以由模型提出；**分數一律由 Python 依固定映射得出**，模型不得輸出數值。
+#   2. `relationship_to_question` 與 `impact_direction` 是解釋欄位，不參與任何加權公式。
+#   3. Claim confidence 仍由 `src/claim_graph.py` 的既有公式與 hard caps 計算；本層只提供
+#      `claim_relevance` 這個既有輸入的值，不新增第二套決策邏輯。
+#
+# 另外：市場立場（`_market_stance()` 的固定權重）與 Claim confidence 是**兩條不同的訊號層**。
+# E2 只讓 Claim／Evidence 層的問題相關性可稽核，刻意不動 stance 的權重公式。
+
+ASSESSMENT_VERSION = "evidence-assessment-v1"
+
+# 五種相關性標籤與 Python 固定映射。映射表是唯一的數值來源：模型只能給標籤。
+RELEVANCE_LABEL_DIRECT = "direct"
+RELEVANCE_LABEL_INDIRECT = "indirect"
+RELEVANCE_LABEL_CONTEXT = "context"
+RELEVANCE_LABEL_IRRELEVANT = "irrelevant"
+RELEVANCE_LABEL_UNCLEAR = "unclear"
+RELEVANCE_LABELS = (
+    RELEVANCE_LABEL_DIRECT,
+    RELEVANCE_LABEL_INDIRECT,
+    RELEVANCE_LABEL_CONTEXT,
+    RELEVANCE_LABEL_IRRELEVANT,
+    RELEVANCE_LABEL_UNCLEAR,
+)
+RELEVANCE_LABEL_SCORES = MappingProxyType({
+    RELEVANCE_LABEL_DIRECT: 1.0,
+    RELEVANCE_LABEL_INDIRECT: 0.65,
+    RELEVANCE_LABEL_CONTEXT: 0.35,
+    # 明確不相關就是 0，不是「未知」。這個 0 必須能一路保持到 claim confidence，
+    # 不可在下游被當成缺值而還原成保守的 0.50（見 `claim_graph._relevance`）。
+    RELEVANCE_LABEL_IRRELEVANT: 0.0,
+    # 「看不懂」不等於「不相關」，但也不能假裝知道：給一個低到不足以撐起結論的值。
+    RELEVANCE_LABEL_UNCLEAR: 0.20,
+})
+
+# 這筆證據相對題目站在哪一邊。純解釋欄位。
+QUESTION_RELATIONSHIP_SUPPORT = "support"
+QUESTION_RELATIONSHIP_CONTRADICT = "contradict"
+QUESTION_RELATIONSHIP_CONTEXT = "context"
+QUESTION_RELATIONSHIP_IRRELEVANT = "irrelevant"
+QUESTION_RELATIONSHIP_UNCLEAR = "unclear"
+QUESTION_RELATIONSHIPS = (
+    QUESTION_RELATIONSHIP_SUPPORT,
+    QUESTION_RELATIONSHIP_CONTRADICT,
+    QUESTION_RELATIONSHIP_CONTEXT,
+    QUESTION_RELATIONSHIP_IRRELEVANT,
+    QUESTION_RELATIONSHIP_UNCLEAR,
+)
+
+IMPACT_DIRECTIONS = ("bullish", "bearish", "neutral", "mixed", "not_applicable", "unclear")
+IMPACT_DIRECTION_UNCLEAR = "unclear"
+IMPACT_DIRECTION_NOT_APPLICABLE = "not_applicable"
+
+IMPACT_HORIZONS = ("immediate", "short_term", "medium_term", "long_term", "unclear")
+IMPACT_HORIZON_UNCLEAR = "unclear"
+
+ASSESSMENT_SOURCE_LLM = "llm"
+ASSESSMENT_SOURCE_FALLBACK = "deterministic_fallback"
+ASSESSMENT_SOURCES = (ASSESSMENT_SOURCE_LLM, ASSESSMENT_SOURCE_FALLBACK)
+
+# rationale 是給人讀的一句話（繁體中文），不是敘事段落；上限存在的目的是避免它變成第二份報告。
+MAX_ASSESSMENT_RATIONALE_CHARS = 120
+# 一筆聚合證據最多指出三個子項。超過三個就不再是「實際引用了哪幾則」，而是整份清單。
+MAX_ASSESSMENT_SOURCE_ITEM_IDS = 3
+
+# `semantic_assessment` 的完整鍵集合。`excluded_reason` 只有在 irrelevant 時才有內容，
+# 但鍵一律存在，讀者不必分辨「沒有這個鍵」與「這個鍵是空的」。
+SEMANTIC_ASSESSMENT_KEYS = (
+    "relevance_label",
+    "relevance_score",
+    "relationship_to_question",
+    "impact_direction",
+    "impact_horizon",
+    "rationale",
+    "source_item_ids",
+    "assessment_source",
+    "effective_weight",
+    "excluded_reason",
+    "assessment_version",
+)
+
+# 子項 locator 可保存的鍵。來源沒有提供時一律存 `None`：
+# **禁止**以 `fetched_at` 冒充 `published_at`，也禁止猜作者。
+SOURCE_ITEM_KEYS = (
+    "source_item_id",
+    "title",
+    "text",
+    "url",
+    "publisher",
+    "platform",
+    "author",
+    "author_handle",
+    "published_at",
+    "created_at",
+    "indexed_at",
+)
+
+# `source_item_id` = 母證據 ID + 兩位序號。刻意不用隨機值或 hash：
+# 同一份輸入必須產生同一組 ID，否則「報告引用了哪一則」在每次執行間會漂移。
+SOURCE_ITEM_ID_SEPARATOR = "-ITEM-"
+_SOURCE_ITEM_ID_RE = re.compile(r"^(?P<parent>.+)%s(?P<index>\d{2})$" % re.escape(SOURCE_ITEM_ID_SEPARATOR))
+
+# Evidence 追加的兩個向後相容欄位（E2）。與 T3／T5 的欄位分開列：
+# 這既不是「來源多可信」也不是「屬於哪次執行」，而是「相對這次的問題有多相關」。
+EVIDENCE_ASSESSMENT_FIELDS = ("source_items", "semantic_assessment")
+
+
+def source_item_id(parent_evidence_id: str, index: int) -> str:
+    """子項的穩定 ID。``index`` 由 1 起算，兩位補零。"""
+    return "%s%s%02d" % (parent_evidence_id, SOURCE_ITEM_ID_SEPARATOR, int(index))
+
+
+def source_item_parent_id(item_id) -> str:
+    """從 ``source_item_id`` 反推母證據 ID；格式不符回空字串。"""
+    match = _SOURCE_ITEM_ID_RE.match(str(item_id or "").strip())
+    return match.group("parent") if match else ""
+
+
+def relevance_score_for(label) -> float:
+    """標籤 → 分數。這是唯一的映射入口，模型給的任何數值都不會經過這裡。"""
+    return RELEVANCE_LABEL_SCORES[str(label)]
+
+
+def effective_weight(reliability_score, relevance_score, independence_factor) -> float:
+    """``reliability_score × relevance_score × independence_factor``，四捨五入並夾在 0–1。
+
+    公式放在契約層而不是計分層，是為了讓 Orchestrator（寫入者）與 validation（稽核者）
+    共用同一份算式。兩邊各寫一次的話，稽核只會確認「兩個 bug 一致」。
+
+    `relationship_to_question` 與 `impact_direction` 刻意不在公式裡：它們是解釋欄位，
+    一旦參與加權，模型就能透過選標籤間接調整權重。
+    """
+    def number(value) -> float:
+        try:
+            result = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        return 0.0 if result != result else max(0.0, min(1.0, result))
+
+    product = number(reliability_score) * number(relevance_score) * number(independence_factor)
+    return round(max(0.0, min(1.0, product)), 4)
+
+
+# --------------------------------------------------------------------------------------
 # T5 — Citation Gate
 # --------------------------------------------------------------------------------------
 
@@ -488,6 +640,9 @@ GATE_SEVERITIES = (GATE_SEVERITY_ERROR, GATE_SEVERITY_WARNING)
 
 # T5「Structural Citation Gate」的十條規則，順序與文件一致。每個名稱都是 finding 的 `check`
 # 欄位值，讓執行記錄可以逐條回答「這條規則本次通過了嗎」。
+# T5「Structural Citation Gate」的十條規則，順序與文件一致；E2 在尾端追加第 11 條
+# （聚合證據的子項 locator）。每個名稱都是 finding 的 `check` 欄位值，讓執行記錄可以逐條
+# 回答「這條規則本次通過了嗎」。
 CITATION_GATE_CHECKS = (
     "claim_structure",              # claims.json 本身的形狀（沿用 validate_claims）
     "evidence_id_exists",           # 1. 引用的 Evidence ID 存在
@@ -500,6 +655,10 @@ CITATION_GATE_CHECKS = (
     "confidence_within_cap",        # 8. 信心不得突破 credibility／conflict hard cap
     "related_claim_ids_consistent",  # 9. related_claim_ids 與實際引用一致
     "no_cross_run_citation",        # 10. 跨 run Evidence 不得被引用
+    # 11（E2）. 被引用的聚合證據（news／announcement／social）必須指出實際依據的子項，
+    # 且該子項要有可解析的 http(s) locator。少了它，「引用了 EV-NEWS-001」無法回答
+    # 「引用的是五則裡的哪一則」。
+    "cited_item_locator",
 )
 
 # 語意稽核的八個類別（T5「Semantic Critic」）。同一份清單同時給 LLM Critic 的 prompt／schema

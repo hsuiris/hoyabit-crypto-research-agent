@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
 from .credibility import lineage_id_for, parse_timestamp
-from .schemas import VERIFICATION_STATUS_UNAVAILABLE
+from .schemas import SOURCE_ITEM_KEYS, VERIFICATION_STATUS_UNAVAILABLE, source_item_id
 from .day1_mvp import Evidence, mock_evidence
 from .vegas_strategy import analyze_vegas_channel, check_timeframe_alignment
 
@@ -106,6 +106,9 @@ OFFICIAL_FEEDS = {
 RELEASE_FEED_COINS = frozenset({"XRP", "BNB"})
 
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
+# 多數新聞 RSS 不用 <author>，而是 Dublin Core 的 <dc:creator>。少了這個命名空間，
+# 「這篇是誰寫的」永遠是 None，讀者無從判斷署名報導與匿名聚合的差別。
+DC_NS = "{http://purl.org/dc/elements/1.1/}"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -289,8 +292,12 @@ def _time_semantics(evidence: Evidence) -> tuple[str | None, str | None]:
 
     if data_type in {"news", "announcement"}:
         return _item_times(items, ("published", "updated", "published_at")), None
-    if data_type == "social":
-        return None, _item_times(posts, ("created_utc", "indexed_at", "created_at"))
+    if data_type in SOCIAL_DATA_TYPES:
+        # 三個社群平台各自用不同的時間欄位，而這裡原本只認得 Reddit 舊格式的 `created_utc`：
+        # Reddit 改走子版 feed 後存的是 `published`，Bluesky 存 `created_at`／`indexed_at`，
+        # Hacker News 存 `created_at` —— 三者全部落空，於是社群證據一律沒有自己的時間，
+        # freshness 只能拿 `fetched_at` 推估。剛抓下來的兩年前貼文不該看起來很新鮮。
+        return None, _item_times(posts, SOCIAL_TIME_KEYS)
     if data_type == "macro":
         macro_history = content.get("fear_greed_history")
         latest = macro_history[-1].get("time") if isinstance(macro_history, list) and macro_history else None
@@ -305,6 +312,94 @@ def _time_semantics(evidence: Evidence) -> tuple[str | None, str | None]:
         latest = dates[-1] if isinstance(dates, list) and dates else None
         return None, _newest([latest])
     return None, None
+
+
+# ---------------------------------------------------------------------------------------------
+# E2: item-level source locators
+#
+# 一筆 `EV-NEWS-001` 可以裝五則不同出版商的報導。少了子項 locator，「報告引用了 EV-NEWS-001」
+# 無法回答「實際引用的是哪一則」—— 而那正是主辦方抽查引用真實性時會問的問題。
+#
+# 這裡只做正規化與命名，不做評估：相關性判斷在 `src/orchestrator.py`，分數在 Python。
+# ---------------------------------------------------------------------------------------------
+
+# 三個社群 collector 共用一組 data_type 判斷。集中定義，避免每處各列一次而漏掉其中一個。
+SOCIAL_DATA_TYPES = frozenset({"social", "social_bluesky", "social_hackernews"})
+# 社群貼文可能提供的時間鍵，依「越接近發布時間越優先」排列。
+SOCIAL_TIME_KEYS = ("published", "published_at", "created_at", "created_utc", "indexed_at")
+
+# 子項的欄位對映：目標鍵 → 來源可能用的鍵（依序取第一個有值的）。
+_SOURCE_ITEM_TEXT_KEYS = {
+    "title": ("title",),
+    "text": ("text", "summary"),
+    "url": ("url", "link"),
+    "publisher": ("publisher", "source"),
+    "author": ("author", "creator"),
+    "author_handle": ("author_handle", "handle"),
+}
+_SOURCE_ITEM_TIME_KEYS = {
+    # `published` 是 feed 宣稱的發布時間；`created_at`／`indexed_at` 分別是平台建立與收錄時間。
+    # 三者分開存，**不互相代填**，也絕不拿 `fetched_at` 補：抓取時間不是發布時間。
+    "published_at": ("published_at", "published", "updated"),
+    "created_at": ("created_at", "created_utc"),
+    "indexed_at": ("indexed_at",),
+}
+
+
+def _clean_text(value) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text or None
+
+
+def _clean_time(value) -> str | None:
+    """把子項時間正規化成 ISO-8601；解析不出來就原樣保留字串，完全沒有就回 ``None``。
+
+    保留無法解析的原字串是刻意的：那是來源真的給的內容，比擅自丟掉更誠實。
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    parsed = _epoch_or_timestamp(value)
+    if parsed is not None:
+        return parsed.isoformat()
+    return _clean_text(value)
+
+
+def _first_value(item: dict, keys) -> object:
+    for key in keys:
+        if key in item and item[key] not in (None, ""):
+            return item[key]
+    return None
+
+
+def normalise_source_items(evidence: Evidence) -> list[dict]:
+    """把 ``content["items"]``／``content["posts"]`` 攤成帶穩定 ID 的子項清單。
+
+    順序沿用 adapter 既有的 deterministic 順序（新聞：有 lede 的優先，其餘依 feed 順序），
+    因此 ``source_item_id`` 對同一份輸入永遠相同。ID = 母證據 ID + ``-ITEM-`` + 兩位序號，
+    不用隨機值也不用 hash：讀者要能從 ID 直接看出它屬於哪筆證據、是第幾則。
+
+    來源沒提供的欄位一律 ``None``。不猜作者、不用 ``fetched_at`` 冒充 ``published_at``。
+    """
+    content = evidence.content if isinstance(evidence.content, dict) else {}
+    raw_items = content.get("items")
+    if not isinstance(raw_items, list) or not raw_items:
+        raw_items = content.get("posts")
+    if not isinstance(raw_items, list):
+        return []
+    platform = _clean_text(content.get("platform"))
+    items: list[dict] = []
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            continue
+        values = {"source_item_id": source_item_id(evidence.evidence_id, len(items) + 1),
+                  "platform": platform}
+        for target, keys in _SOURCE_ITEM_TEXT_KEYS.items():
+            values[target] = _clean_text(_first_value(raw, keys))
+        for target, keys in _SOURCE_ITEM_TIME_KEYS.items():
+            values[target] = _clean_time(_first_value(raw, keys))
+        # 鍵順序固定為 `schemas.SOURCE_ITEM_KEYS`，讓 evidence.json 的子項逐字可比。
+        items.append({key: values[key] for key in SOURCE_ITEM_KEYS})
+    return items
 
 
 def stamp_credibility_metadata(evidence: Evidence) -> Evidence:
@@ -335,6 +430,10 @@ def stamp_credibility_metadata(evidence: Evidence) -> Evidence:
 
     if not evidence.source_lineage_id:
         evidence.source_lineage_id = lineage_id_for(evidence)
+
+    # 子項 locator 最後才算，這樣新聞的 lineage 註記已經寫進 items（子項因此能沿用同一份順序）。
+    # 覆寫而不是 setdefault：這個函式是 idempotent 的，重跑必須得到同一組 ID。
+    evidence.source_items = normalise_source_items(evidence)
     return evidence
 
 
@@ -894,6 +993,7 @@ def _parse_feed_entries(raw: bytes, limit: int = 5) -> list[dict]:
         "url": (item.findtext("link") or "").strip(),
         "published": (item.findtext("pubDate") or "").strip(),
         "summary": _strip_html(item.findtext("description") or ""),
+        "author": _rss_author(item),
     } for item in root.findall(".//item")[:limit]]
     if entries:
         return entries
@@ -906,8 +1006,32 @@ def _parse_feed_entries(raw: bytes, limit: int = 5) -> list[dict]:
             "summary": _strip_html(
                 entry.findtext(f"{ATOM_NS}summary") or entry.findtext(f"{ATOM_NS}content") or ""
             ),
+            "author": _atom_author(entry),
         })
     return entries
+
+
+def _rss_author(item) -> str | None:
+    """RSS 2.0 的作者：``<author>``，或 Dublin Core 的 ``<dc:creator>``（多數新聞 feed 用它）。
+
+    找不到就回 ``None``。**不猜作者**：把 feed 名稱或網域填進 author 會讓「誰說的」看起來
+    已經確認，而那正是 Source Statement 不該被放大的地方。
+    """
+    for path in ("author", f"{DC_NS}creator"):
+        value = (item.findtext(path) or "").strip()
+        if value:
+            return value
+    return None
+
+
+def _atom_author(entry) -> str | None:
+    """Atom 的作者：``<author><name>``。Reddit 的子版 feed 用這個帶出 ``/u/<帳號>``。"""
+    author = entry.find(f"{ATOM_NS}author")
+    if author is not None:
+        name = (author.findtext(f"{ATOM_NS}name") or "").strip()
+        if name:
+            return name
+    return None
 
 
 def fetch_macro(coin: str = "ETH") -> Evidence:
@@ -1095,6 +1219,9 @@ def fetch_social_reddit(coin: str = "ETH") -> Evidence:
             "title": title,
             "url": entry.get("url") or "",
             "published": entry.get("published"),
+            # Reddit 的 Atom feed 帶 <author><name>/u/帳號</name>。只保存 feed 真的提供的值，
+            # 沒有就是 None —— 匿名貼文與署名貼文的可追溯性不同，不能讓兩者看起來一樣。
+            "author": entry.get("author"),
             "matched_positive": matched_positive,
             "matched_negative": matched_negative,
         })
@@ -1142,7 +1269,11 @@ def fetch_social_bluesky(coin: str = "ETH") -> Evidence:
         posts.append({
             "text": text[:500],
             "url": f"https://bsky.app/profile/{handle}/post/{rkey}" if handle and rkey else "",
+            # `createdAt` 是貼文自己宣稱的發布時間，`indexedAt` 是 Bluesky 收錄的時間。
+            # 兩者都保存並分開命名：收錄時間不是發布時間，混用會讓舊貼文看起來剛發生。
+            "created_at": item.get("record", {}).get("createdAt"),
             "indexed_at": item.get("indexedAt"),
+            "author_handle": handle or None,
             "likes": item.get("likeCount", 0),
             "replies": item.get("replyCount", 0),
             "reposts": item.get("repostCount", 0),
@@ -1194,6 +1325,8 @@ def fetch_social_hackernews(coin: str = "ETH") -> Evidence:
             "text": text[:500],
             "url": hit.get("url") or f"https://news.ycombinator.com/item?id={object_id}",
             "created_at": hit.get("created_at"),
+            # Algolia 回傳 `author`（HN 帳號）。只在 API 真的給值時保存。
+            "author": hit.get("author") or None,
             "points": hit.get("points") or 0,
             "comments": hit.get("num_comments") or 0,
             "matched_positive": matched_positive,

@@ -39,6 +39,10 @@ from src.schemas import (
     HARD_CAPS,
     HIGH_QUALITY_CONFLICT_CONFIDENCE_CAP,
     MIN_DOMAIN_COVERAGE,
+    RELEVANCE_LABEL_CONTEXT,
+    RELEVANCE_LABEL_IRRELEVANT,
+    RELEVANCE_LABEL_SCORES,
+    RELEVANCE_LABELS,
     SINGLE_DOMAIN_CONFIDENCE_CAP,
     SOURCE_TYPE_FALLBACK_FIXTURE,
     VERDICT_INSUFFICIENT_EVIDENCE,
@@ -122,6 +126,9 @@ LIMITER_SINGLE_DOMAIN = "single_supporting_domain"
 LIMITER_HIGH_QUALITY_CONFLICT = "high_quality_conflict"
 LIMITER_SINGLE_SECONDARY_NEWS = "single_secondary_news_source"
 LIMITER_FALLBACK_ONLY = "fallback_only_primary_support"
+# E2：全部支持證據都只被評為「背景」（relevance_label=context）。背景資料可以襯托一個判斷，
+# 但不能單獨撐起它 —— 與 fallback 唯一支持同一個道理。
+LIMITER_CONTEXT_ONLY = "context_only_primary_support"
 LIMITER_NO_SUPPORT = "no_supporting_evidence"
 LIMITER_LOW_DOMAIN_COVERAGE = "domain_coverage_below_minimum"
 LIMITER_CRITIC_REDUCTION = "critic_confidence_reduction"
@@ -142,6 +149,7 @@ KNOWN_LIMITERS = (
     LIMITER_CRITIC_POSITIVE_REJECTED,
     LIMITER_PLAN_SCOPE_FLOOR,
     LIMITER_PLAN_DOMAIN_VOCABULARY,
+    LIMITER_CONTEXT_ONLY,
 )
 
 CLAIM_TIMEOUT_SECONDS = 60.0
@@ -268,6 +276,7 @@ def normalize_evidence(items) -> list:
             "verification_status": str(raw.get("verification_status") or "unverified"),
             "quality": _quality(raw, breakdown, source_type, list(limiters)),
             "claim_relevance": _relevance(raw),
+            "relevance_label": _relevance_label(raw),
             "independence_factor": _clamp(raw.get("independence_factor"), DEFAULT_INDEPENDENCE),
             "lineage_id": _lineage_id(raw),
             "is_fallback": _is_fallback(source_type, list(limiters), raw),
@@ -290,9 +299,36 @@ def _quality(raw: dict, breakdown: dict, source_type: str, limiters: list) -> fl
     return round(quality, 4)
 
 
+def _relevance_label(raw: dict) -> str:
+    """E2 的相關性標籤；沒有評估過就回空字串。
+
+    這個標籤是「有沒有人真的評估過」的唯一判斷依據。`claim_relevance` 這個 float 做不到：
+    它的預設值就是 0.0，因此「還沒評估」與「評估結果是 0」在數字上長得一模一樣。
+    """
+    assessment = raw.get("semantic_assessment")
+    if not isinstance(assessment, dict):
+        return ""
+    label = str(assessment.get("relevance_label") or "")
+    return label if label in RELEVANCE_LABELS else ""
+
+
 def _relevance(raw: dict) -> float:
-    """claim_relevance 預設 0.0 代表「還沒有人填」，這時給保守的 0.50。"""
+    """相對本次問題的相關性。
+
+    三條路，順序有意義：
+
+    1. 有 E2 評估 → 用標籤的固定映射。**明確的 0（irrelevant）永遠保持 0**，不會被下面的
+       保守預設救回來 —— 舊版程式把任何 <= 0 的值都換成 0.50，於是「已判定與題目無關」和
+       「還沒判定」得到同一個分數，明確的不相關被當成半相關。
+    2. 沒有評估、但 `claim_relevance` 有正值（外部呼叫端或測試自己填的）→ 用它。
+    3. 兩者都沒有 → 保守的 0.50，並且**只有這一種情況**才用預設值。
+    """
+    label = _relevance_label(raw)
+    if label:
+        return round(RELEVANCE_LABEL_SCORES[label], 4)
     value = raw.get("claim_relevance")
+    if value is None:
+        return DEFAULT_CLAIM_RELEVANCE
     relevance = _clamp(value, DEFAULT_CLAIM_RELEVANCE)
     if relevance <= 0.0:
         return DEFAULT_CLAIM_RELEVANCE
@@ -330,17 +366,27 @@ def _is_fallback(source_type: str, limiters: list, raw: dict) -> bool:
 
 
 class EvidencePool:
-    """本次 run 的 Evidence 索引；rejected 的證據一律不得進入 Claim。"""
+    """本次 run 的 Evidence 索引；rejected 與「已判定與題目無關」的證據都不得進入 Claim。
+
+    兩種排除的意義不同，因此分成兩份清單：`rejected_ids` 是「這筆證據本身不可用」，
+    `irrelevant_ids` 是「證據沒問題，但它不談這個題目」。兩者都**留在 evidence.json**
+    供稽核（各自帶狀態或 excluded_reason），只是不能拿來支撐 Claim。
+    """
 
     def __init__(self, evidence) -> None:
         self._records = {}
         self.rejected_ids = []
+        self.irrelevant_ids = []
         for record in normalize_evidence(evidence):
             if record["verification_status"] == "rejected":
                 self.rejected_ids.append(record["evidence_id"])
                 continue
+            if record["relevance_label"] == RELEVANCE_LABEL_IRRELEVANT:
+                self.irrelevant_ids.append(record["evidence_id"])
+                continue
             self._records.setdefault(record["evidence_id"], record)
         self.rejected_ids = sorted(set(self.rejected_ids))
+        self.irrelevant_ids = sorted(set(self.irrelevant_ids))
 
     def __len__(self) -> int:
         return len(self._records)
@@ -355,7 +401,7 @@ class EvidencePool:
     def require(self, evidence_ids) -> list:
         """回傳去重後的有效 ID（保留輸入順序）。未知或 rejected 的 ID 一律拋錯。"""
         resolved, seen = [], set()
-        unknown, rejected = [], []
+        unknown, rejected, irrelevant = [], [], []
         for raw_id in evidence_ids or []:
             evidence_id = str(raw_id).strip()
             if not evidence_id or evidence_id in seen:
@@ -365,12 +411,17 @@ class EvidencePool:
                 resolved.append(evidence_id)
             elif evidence_id in self.rejected_ids:
                 rejected.append(evidence_id)
+            elif evidence_id in self.irrelevant_ids:
+                irrelevant.append(evidence_id)
             else:
                 unknown.append(evidence_id)
         if unknown:
             raise ValueError("unknown evidence ids: " + ", ".join(sorted(unknown)))
         if rejected:
             raise ValueError("rejected evidence cannot be cited: " + ", ".join(sorted(rejected)))
+        if irrelevant:
+            raise ValueError("evidence assessed as irrelevant to the question cannot be cited: "
+                             + ", ".join(sorted(irrelevant)))
         return resolved
 
     def domain(self, evidence_id: str) -> str:
@@ -395,6 +446,11 @@ class EvidencePool:
     def is_fallback(self, evidence_id: str) -> bool:
         record = self.get(evidence_id)
         return bool(record and record["is_fallback"])
+
+    def relevance_label(self, evidence_id: str) -> str:
+        """E2 的相關性標籤；沒有評估過回空字串（因此「未評估」不會誤觸任何 E2 規則）。"""
+        record = self.get(evidence_id)
+        return record["relevance_label"] if record else ""
 
     def is_high_quality(self, evidence_id: str) -> bool:
         record = self.get(evidence_id)
@@ -565,6 +621,11 @@ def evaluate_claim(
         insufficient = True
     elif all(pool.is_fallback(item) for item in supporting):
         limiters.append(LIMITER_FALLBACK_ONLY)
+        insufficient = True
+    elif all(pool.relevance_label(item) == RELEVANCE_LABEL_CONTEXT for item in supporting):
+        # 只在**每一筆**支持證據都被明確評為背景時才成立。標籤缺失（沒跑過 E2 評估）的證據
+        # 不會命中這條規則，因此舊呼叫端與既有測試的行為完全不變。
+        limiters.append(LIMITER_CONTEXT_ONLY)
         insufficient = True
     if domain_coverage < MIN_DOMAIN_COVERAGE:
         limiters.append(LIMITER_LOW_DOMAIN_COVERAGE)
@@ -1109,6 +1170,9 @@ def build_claim_graph(coin, question: str, evidence, *, signals=None, stance=Non
         "fallback_reason": fallback_reason,
         "related_claim_ids": {key: related[key] for key in sorted(related)},
         "rejected_evidence_ids": list(pool.rejected_ids),
+        # E2：被評為與題目無關而排除在 Claim 之外的證據。刻意與 rejected 分開回報：
+        # 前者是「證據不可用」，這裡是「證據可用但不談這題」。
+        "irrelevant_evidence_ids": list(pool.irrelevant_ids),
         "evidence_count": len(pool),
         "scoring_version": CLAIM_SCORING_VERSION,
     }

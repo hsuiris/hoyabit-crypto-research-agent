@@ -29,6 +29,7 @@ from types import MappingProxyType
 
 from .claim_graph import (
     INSUFFICIENT_EVIDENCE_CONFIDENCE_CAP,
+    LIMITER_CONTEXT_ONLY,
     LIMITER_FALLBACK_ONLY,
     LIMITER_HIGH_QUALITY_CONFLICT,
     LIMITER_LOW_DOMAIN_COVERAGE,
@@ -37,6 +38,7 @@ from .claim_graph import (
     LIMITER_SINGLE_SECONDARY_NEWS,
 )
 from .schemas import (
+    ASSESSMENT_SOURCES,
     CITATION_GATE_CHECKS,
     CITATION_GATE_VERSION,
     CONFIDENCE_COMPONENT_KEYS,
@@ -50,17 +52,29 @@ from .schemas import (
     GATE_STATUS_PASS_WITH_WARNINGS,
     HARD_CAPS,
     HIGH_QUALITY_CONFLICT_CONFIDENCE_CAP,
+    IMPACT_DIRECTIONS,
+    IMPACT_HORIZONS,
+    MAX_ASSESSMENT_RATIONALE_CHARS,
+    MAX_ASSESSMENT_SOURCE_ITEM_IDS,
     NON_SUBSTANTIVE_VERIFICATION_STATUSES,
+    QUESTION_RELATIONSHIPS,
+    RELEVANCE_LABEL_IRRELEVANT,
+    RELEVANCE_LABEL_SCORES,
+    RELEVANCE_LABELS,
+    SEMANTIC_ASSESSMENT_KEYS,
     SEMANTIC_CRITIC_CATEGORIES,
     SEMANTIC_CRITIC_CATEGORY_ALIASES,
     SEMANTIC_CRITIC_CATEGORY_OTHER,
     SINGLE_DOMAIN_CONFIDENCE_CAP,
+    SOURCE_ITEM_KEYS,
     SOURCE_TYPE_FALLBACK_FIXTURE,
     SOURCE_TYPES,
     VERDICT_INSUFFICIENT_EVIDENCE,
     VERDICTS,
     VERIFICATION_STATUS_REJECTED,
     VERIFICATION_STATUSES,
+    effective_weight,
+    source_item_parent_id,
 )
 
 
@@ -137,6 +151,189 @@ def _credibility_errors(record: dict, require_scored: bool) -> list[str]:
     return errors
 
 
+# --------------------------------------------------------------------------------------
+# E2 — 問題導向語意評估的契約
+#
+# 這一層回答的是「這筆評估自己解釋得通嗎」：標籤合法、分數等於標籤的固定映射、
+# effective_weight 等於公式算出來的值、引用的子項真的屬於這筆證據。
+#
+# 為什麼要獨立驗一次：`semantic_assessment` 的標籤可以來自模型。模型不得決定數值，因此
+# 「分數是不是照映射算的」必須被檢查，而不是相信寫入者。這與 T3 的 score_breakdown 同理。
+# --------------------------------------------------------------------------------------
+
+# 「一筆證據裝很多子項」的資料型別。它們被引用時，光有母證據 ID 無法回答「引用的是哪一則」。
+AGGREGATED_DATA_TYPES = frozenset({
+    "news", "announcement", "social", "social_bluesky", "social_hackernews",
+})
+
+
+def _source_item_errors(record: dict) -> list[str]:
+    """子項清單的形狀：ID 必須屬於這筆證據、不重複、欄位不得多出來。"""
+    evidence_id = str(record.get("evidence_id") or "?")
+    items = record.get("source_items")
+    if items in (None, []):
+        return []
+    if not isinstance(items, list):
+        return [f"{evidence_id}: source_items must be a list"]
+    errors, seen = [], set()
+    for position, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"{evidence_id}: source_items[{position}] must be an object")
+            continue
+        item_id = str(item.get("source_item_id") or "").strip()
+        if not item_id:
+            errors.append(f"{evidence_id}: source_items[{position}] is missing source_item_id")
+            continue
+        if item_id in seen:
+            errors.append(f"{evidence_id}: duplicate source_item_id {item_id!r}")
+        seen.add(item_id)
+        parent = source_item_parent_id(item_id)
+        if parent != str(record.get("evidence_id") or ""):
+            errors.append(f"{evidence_id}: source_item_id {item_id!r} does not belong to this evidence")
+        unknown = sorted(set(item) - set(SOURCE_ITEM_KEYS))
+        if unknown:
+            errors.append(f"{evidence_id}: source_items[{position}] has unknown keys {unknown}")
+    return errors
+
+
+def _assessment_errors(record: dict) -> list[str]:
+    """`semantic_assessment` 的契約。空 dict 代表「本次未評估」，合法。"""
+    evidence_id = str(record.get("evidence_id") or "?")
+    assessment = record.get("semantic_assessment")
+    if assessment in (None, {}):
+        return []
+    if not isinstance(assessment, dict):
+        return [f"{evidence_id}: semantic_assessment must be an object"]
+
+    errors = []
+    missing = [key for key in SEMANTIC_ASSESSMENT_KEYS if key not in assessment]
+    if missing:
+        return [f"{evidence_id}: semantic_assessment missing {missing}"]
+    unknown = sorted(set(assessment) - set(SEMANTIC_ASSESSMENT_KEYS))
+    if unknown:
+        errors.append(f"{evidence_id}: semantic_assessment has unknown keys {unknown}")
+
+    label = assessment.get("relevance_label")
+    if label not in RELEVANCE_LABELS:
+        errors.append(f"{evidence_id}: unknown relevance_label {label!r}")
+    else:
+        expected = RELEVANCE_LABEL_SCORES[label]
+        score = assessment.get("relevance_score")
+        if not isinstance(score, (int, float)) or abs(float(score) - expected) > _TOLERANCE:
+            # 這是本層最重要的一條：分數只能是標籤的固定映射。放寬它等於允許模型自評分數。
+            errors.append(f"{evidence_id}: relevance_score {score!r} does not match "
+                          f"relevance_label {label!r} (expected {expected})")
+        elif label == RELEVANCE_LABEL_IRRELEVANT and not str(assessment.get("excluded_reason") or "").strip():
+            errors.append(f"{evidence_id}: irrelevant evidence must record an excluded_reason")
+        elif label != RELEVANCE_LABEL_IRRELEVANT and str(assessment.get("excluded_reason") or "").strip():
+            errors.append(f"{evidence_id}: excluded_reason is only allowed when relevance_label is "
+                          f"{RELEVANCE_LABEL_IRRELEVANT!r}")
+
+    for key, allowed in (("relationship_to_question", QUESTION_RELATIONSHIPS),
+                         ("impact_direction", IMPACT_DIRECTIONS),
+                         ("impact_horizon", IMPACT_HORIZONS),
+                         ("assessment_source", ASSESSMENT_SOURCES)):
+        if assessment.get(key) not in allowed:
+            errors.append(f"{evidence_id}: unknown {key} {assessment.get(key)!r}")
+
+    rationale = assessment.get("rationale")
+    if not isinstance(rationale, str) or not rationale.strip():
+        errors.append(f"{evidence_id}: semantic_assessment requires a rationale")
+    elif len(rationale) > MAX_ASSESSMENT_RATIONALE_CHARS:
+        errors.append(f"{evidence_id}: rationale is longer than "
+                      f"{MAX_ASSESSMENT_RATIONALE_CHARS} characters")
+
+    item_ids = assessment.get("source_item_ids")
+    if not isinstance(item_ids, list):
+        errors.append(f"{evidence_id}: source_item_ids must be a list")
+    else:
+        if len(item_ids) > MAX_ASSESSMENT_SOURCE_ITEM_IDS:
+            errors.append(f"{evidence_id}: source_item_ids may name at most "
+                          f"{MAX_ASSESSMENT_SOURCE_ITEM_IDS} items")
+        if len(set(item_ids)) != len(item_ids):
+            errors.append(f"{evidence_id}: source_item_ids contains duplicates")
+        known = {str(item.get("source_item_id")) for item in (record.get("source_items") or [])
+                 if isinstance(item, dict)}
+        unknown_items = sorted(str(item) for item in item_ids if str(item) not in known)
+        if unknown_items:
+            errors.append(f"{evidence_id}: source_item_ids {unknown_items} are not items of this evidence")
+
+    if not str(assessment.get("assessment_version") or "").strip():
+        errors.append(f"{evidence_id}: semantic_assessment must carry an assessment_version")
+
+    weight = assessment.get("effective_weight")
+    expected_weight = effective_weight(record.get("reliability_score"),
+                                       assessment.get("relevance_score"),
+                                       record.get("independence_factor"))
+    if not isinstance(weight, (int, float)) or abs(float(weight) - expected_weight) > _TOLERANCE:
+        errors.append(f"{evidence_id}: effective_weight {weight!r} does not match "
+                      f"reliability × relevance × independence ({expected_weight})")
+    return errors
+
+
+def validate_evidence_assessments(proposals, evidence) -> list[str]:
+    """驗證**模型提出**的整批評估提案；回傳全部問題，呼叫端據此決定整批作廢。
+
+    刻意要求「恰好一筆對一個本次 Evidence ID」：少一筆代表模型沒有讀完證據清單，多一筆或
+    重複代表它在編 ID。部分接受會讓報告出現「有些證據被評估過、有些沒有」的混合狀態，
+    而讀者無從分辨哪一種 —— 所以這裡是全有或全無，`src/orchestrator.py` 隨即改走
+    deterministic fallback。
+    """
+    index = _evidence_index(evidence)
+    if not isinstance(proposals, list) or not proposals:
+        return ["evidence assessment payload contains no entries"]
+
+    errors, seen = [], []
+    for position, proposal in enumerate(proposals, start=1):
+        if not isinstance(proposal, dict):
+            errors.append(f"assessment[{position}] must be an object")
+            continue
+        evidence_id = str(proposal.get("evidence_id") or "").strip()
+        if not evidence_id:
+            errors.append(f"assessment[{position}] is missing evidence_id")
+            continue
+        if evidence_id not in index:
+            errors.append(f"assessment cites unknown evidence id {evidence_id!r}")
+            continue
+        if evidence_id in seen:
+            errors.append(f"assessment repeats evidence id {evidence_id!r}")
+        seen.append(evidence_id)
+
+        for key, allowed in (("relevance_label", RELEVANCE_LABELS),
+                             ("relationship_to_question", QUESTION_RELATIONSHIPS),
+                             ("impact_direction", IMPACT_DIRECTIONS),
+                             ("impact_horizon", IMPACT_HORIZONS)):
+            if proposal.get(key) not in allowed:
+                errors.append(f"{evidence_id}: unknown {key} {proposal.get(key)!r}")
+        for numeric in ("relevance_score", "effective_weight", "reliability_score", "confidence"):
+            if numeric in proposal:
+                # 模型給了數字就代表它在試著自評分數。不靜默忽略：整批作廢並留下原因。
+                errors.append(f"{evidence_id}: assessment may not carry a model-supplied {numeric}")
+
+        item_ids = proposal.get("source_item_ids")
+        if item_ids is None:
+            item_ids = []
+        if not isinstance(item_ids, list):
+            errors.append(f"{evidence_id}: source_item_ids must be a list")
+        else:
+            if len(item_ids) > MAX_ASSESSMENT_SOURCE_ITEM_IDS:
+                errors.append(f"{evidence_id}: source_item_ids may name at most "
+                              f"{MAX_ASSESSMENT_SOURCE_ITEM_IDS} items")
+            if len(set(str(item) for item in item_ids)) != len(item_ids):
+                errors.append(f"{evidence_id}: source_item_ids contains duplicates")
+            known = {str(item.get("source_item_id"))
+                     for item in (index[evidence_id].get("source_items") or [])
+                     if isinstance(item, dict)}
+            for item in item_ids:
+                if str(item) not in known:
+                    errors.append(f"{evidence_id}: source_item_id {str(item)!r} does not belong to it")
+
+    uncovered = sorted(set(index) - set(seen))
+    if uncovered:
+        errors.append(f"assessment does not cover every evidence id: {uncovered}")
+    return errors
+
+
 def validate_evidence(evidence: list[object], referenced_ids: list[str],
                       require_scored: bool = False) -> list[str]:
     """Return every problem found, rather than raising on the first one.
@@ -166,6 +363,8 @@ def validate_evidence(evidence: list[object], referenced_ids: list[str],
         except ValueError:
             errors.append(f"{record.get('evidence_id', '?')}: invalid fetched_at")
         errors.extend(_credibility_errors(record, require_scored))
+        errors.extend(_source_item_errors(record))
+        errors.extend(_assessment_errors(record))
     missing_refs = set(referenced_ids) - seen
     errors.extend(f"report references unknown evidence_id: {item}" for item in sorted(missing_refs))
     return errors
@@ -341,6 +540,7 @@ CLAIM_CONFIDENCE_LIMITER_CAPS = MappingProxyType({
     LIMITER_NO_SUPPORT: INSUFFICIENT_EVIDENCE_CONFIDENCE_CAP,
     LIMITER_FALLBACK_ONLY: INSUFFICIENT_EVIDENCE_CONFIDENCE_CAP,
     LIMITER_LOW_DOMAIN_COVERAGE: INSUFFICIENT_EVIDENCE_CONFIDENCE_CAP,
+    LIMITER_CONTEXT_ONLY: INSUFFICIENT_EVIDENCE_CONFIDENCE_CAP,
 })
 
 # 允許「同一筆 Evidence 同時出現在支持與反對」的唯一情況：Claim 自己已經說明這筆證據是混合／
@@ -553,6 +753,68 @@ def critique_semantic_findings(critique) -> list[dict]:
     return normalised
 
 
+def _resolvable_item_url(item: dict) -> bool:
+    url = str(item.get("url") or "").strip().lower()
+    return url.startswith("http://") or url.startswith("https://")
+
+
+def _cited_item_locator_findings(record: dict, citing: str) -> list[tuple]:
+    """規則 11：被引用的聚合證據要指出「實際是哪一則」。
+
+    只在證據**真的有子項**時檢查。沒有子項的紀錄有兩種：採集失敗的降級 fixture（本來就沒有
+    內容可指），以及非聚合型的單一觀測（市場、鏈上）—— 對這兩種要求子項 locator 沒有意義。
+
+    嚴重度分成兩級，依「這是結構漏洞還是資料品質問題」：
+
+    * **完全沒指出任何子項** → error。這是結構漏洞：沒有人說過引用的是哪一則。本管線的寫入者
+      永遠會填（見 `orchestrator._citable_source_item_ids`），因此這條規則實際攔的是外部產生
+      或手改過的 `claims.json`／`evidence.json`。降級來源例外，只給 warning —— 它的狀態已經
+      標成 unavailable／fallback，沒有子項是採集失敗的結果。
+    * **指出了子項，但該子項自己沒有 http(s) URL** → warning。子項已經被指名、母證據仍有
+      locator 與 fetched_at，因此引用仍可回溯；缺的是那一則自己的網址，屬資料品質問題。
+      把它升為 error 會讓「某個平台這次沒給貼文網址」直接讓整份報告發不出去。
+
+    author／published_at 缺值同樣只警告、不阻擋，且**不得**用 fetched_at 代填：來源沒署名就是
+    沒署名，偽造一個作者比留 null 糟得多。
+    """
+    items = [item for item in (record.get("source_items") or []) if isinstance(item, dict)]
+    if str(record.get("data_type") or "") not in AGGREGATED_DATA_TYPES or not items:
+        return []
+    evidence_id = str(record.get("evidence_id") or "?")
+    is_fallback = _is_fallback(record)
+
+    assessment = record.get("semantic_assessment")
+    named = {str(item) for item in ((assessment or {}).get("source_item_ids") or [])}
+    chosen = [item for item in items if str(item.get("source_item_id")) in named]
+    if not chosen:
+        severity = GATE_SEVERITY_WARNING if is_fallback else GATE_SEVERITY_ERROR
+        return [(severity, f"{evidence_id}: 被 {citing} 引用的聚合證據沒有指出實際依據的子項，"
+                           f"無法回答引用的是哪一則")]
+    try:
+        datetime.fromisoformat(str(record.get("fetched_at") or "").replace("Z", "+00:00"))
+    except ValueError:
+        severity = GATE_SEVERITY_WARNING if is_fallback else GATE_SEVERITY_ERROR
+        return [(severity, f"{evidence_id}: 被 {citing} 引用，但 fetched_at 無法解析，"
+                           f"子項 locator 不可重現")]
+    if is_fallback:
+        return []
+    if not any(_resolvable_item_url(item) for item in chosen):
+        return [(GATE_SEVERITY_WARNING,
+                 f"{evidence_id}: 被 {citing} 引用的子項都沒有自己的 http(s) URL，"
+                 f"只能回溯到母來源 {record.get('source_url') or '(無)'}")]
+    def unattributed(item: dict) -> bool:
+        no_author = not (item.get("author") or item.get("author_handle"))
+        no_time = not (item.get("published_at") or item.get("created_at") or item.get("indexed_at"))
+        return no_author or no_time
+
+    incomplete = sorted(str(item.get("source_item_id")) for item in chosen if unattributed(item))
+    if incomplete:
+        return [(GATE_SEVERITY_WARNING,
+                 f"{evidence_id}: 子項 {incomplete} 缺少 author 或發布時間（已存 null，未以 "
+                 f"fetched_at 代填），引用仍可追溯但署名與時序無法確認")]
+    return []
+
+
 def run_citation_gate(run_id: str, evidence, claims, *, cited_evidence_ids=(), critique=None,
                       check_related_claim_ids: bool = True) -> dict:
     """T5 的最後一道關卡：報告裡的每個主要判斷是否都能追溯回本次 run 的 Evidence。
@@ -636,6 +898,9 @@ def run_citation_gate(run_id: str, evidence, claims, *, cited_evidence_ids=(), c
             if not record.get(field_name):
                 add("evidence_required_fields", GATE_SEVERITY_ERROR,
                     f"{evidence_id}: 被引用的 Evidence 缺少 {field_name}", evidence_ids=[evidence_id])
+        # 規則 11（E2）：聚合證據被引用時要指出實際依據的子項。
+        for severity, message in _cited_item_locator_findings(record, citing):
+            add("cited_item_locator", severity, message, evidence_ids=[evidence_id])
 
     for claim in claim_list:
         claim_id = str(claim.get("claim_id") or "?")

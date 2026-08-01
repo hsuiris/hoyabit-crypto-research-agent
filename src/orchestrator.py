@@ -6,7 +6,7 @@ import json
 import re
 import time
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .artifact_store import LocalArtifactStore
@@ -14,20 +14,33 @@ from .claim_graph import (CLAIM_SCORING_VERSION, CLAIM_TIMEOUT_SECONDS, DOMAIN_B
                           GRAPH_SOURCE_LLM, apply_related_claim_ids, build_claim_graph,
                           claims_document)
 from .comparison import build_profile, compare_profiles, comparison_markdown
-from .credibility import load_source_registry, score_evidence_batch
-from .day2_sources import collect_evidence_detailed, stamp_credibility_metadata
+from .credibility import load_source_registry, parse_timestamp, score_evidence_batch
+from .day2_sources import (SOCIAL_DATA_TYPES, collect_evidence_detailed,
+                           stamp_credibility_metadata)
 from .report_renderer import render_claims_section, render_competition_report
 from .run_context import RunContext
 from .run_manager import (FINALIZATION_DEADLINE_SECONDS_MAX, HARD_DEADLINE_SECONDS_MAX,
                           STATUS_COMPLETED, STATUS_COMPLETED_DEGRADED, STATUS_CREATED,
                           STATUS_FAILED, STATUS_RUNNING, compute_question_hash, evaluate_deadline)
-from .schemas import (ARTIFACT_FILENAMES, CITATION_GATE_VERSION, CONFIDENCE_WEIGHTS,
-                      CREDIBILITY_WEIGHTS, GATE_STATUS_FAIL, HARD_CAPS, MANIFEST_VERSION,
-                      SCHEMA_VERSION, SCORING_VERSION, VERDICT_INSUFFICIENT_EVIDENCE)
-from .validation import run_citation_gate, validate_claims, validate_evidence
+from .schemas import (ARTIFACT_FILENAMES, ASSESSMENT_SOURCE_FALLBACK, ASSESSMENT_SOURCE_LLM,
+                      ASSESSMENT_VERSION, CITATION_GATE_VERSION, CONFIDENCE_WEIGHTS,
+                      CREDIBILITY_WEIGHTS, GATE_STATUS_FAIL, HARD_CAPS,
+                      IMPACT_DIRECTION_NOT_APPLICABLE, IMPACT_DIRECTION_UNCLEAR,
+                      IMPACT_HORIZON_UNCLEAR, MANIFEST_VERSION,
+                      MAX_ASSESSMENT_RATIONALE_CHARS, MAX_ASSESSMENT_SOURCE_ITEM_IDS,
+                      QUESTION_RELATIONSHIP_CONTEXT, QUESTION_RELATIONSHIP_IRRELEVANT,
+                      QUESTION_RELATIONSHIP_UNCLEAR, RELEVANCE_LABEL_CONTEXT,
+                      RELEVANCE_LABEL_DIRECT, RELEVANCE_LABEL_INDIRECT,
+                      RELEVANCE_LABEL_IRRELEVANT, RELEVANCE_LABEL_SCORES,
+                      RELEVANCE_LABEL_UNCLEAR, SCHEMA_VERSION, SCORING_VERSION,
+                      SOURCE_TYPE_FALLBACK_FIXTURE, VERDICT_INSUFFICIENT_EVIDENCE,
+                      effective_weight, relevance_score_for)
+from .validation import (run_citation_gate, validate_claims, validate_evidence,
+                         validate_evidence_assessments)
 from .errors import AgentInputError, validate_request
-from .llm import (CLAIM_PROPOSAL_RESULT_FIELD, analyze_with_llm, critique_with_llm,
-                  default_llm_client, llm_is_configured, llm_runtime_info)
+from .llm import (CLAIM_PROPOSAL_RESULT_FIELD, EVIDENCE_ASSESSMENT_RESULT_FIELD,
+                  analyze_with_llm, critique_with_llm, default_llm_client, llm_is_configured,
+                  llm_runtime_info)
 from .ohlcv import downsample, load_ohlcv, price_windows
 from .planner import (PLANNER_TIMEOUT_SECONDS, PLANNING_PATH_LLM, build_research_plan,
                       plan_to_dict)
@@ -596,6 +609,16 @@ def _llm_evidence_payload(evidence: list) -> list[dict]:
                 content[key] = f"<{len(series)} points omitted from prompt; charted from evidence.json>"
         record["content"] = content
         record.pop("content_reference", None)  # duplicates content; doubles the cost of every record
+        # 子項要留在 prompt 裡（模型必須能引用 source_item_id），但只留 locator 需要的欄位：
+        # 完整子項與 content["items"] 幾乎重複一次，會讓每筆聚合證據的成本加倍。
+        record["source_items"] = [
+            {"source_item_id": entry.get("source_item_id"),
+             "title": (entry.get("title") or entry.get("text") or "")[:160] or None,
+             "url": entry.get("url"),
+             "published_at": entry.get("published_at") or entry.get("created_at")
+             or entry.get("indexed_at")}
+            for entry in (record.get("source_items") or []) if isinstance(entry, dict)
+        ]
         payload.append(record)
     return payload
 
@@ -671,6 +694,322 @@ def enrich_and_score_evidence(evidence: list, *, registry=None, now=None) -> lis
         }
         item.reliability_score = record["final_score"]
     return records
+
+
+# --------------------------------------------------------------------------------------
+# E2 — 相對「這一題」的證據語意評估
+#
+# credibility（T3）回答「這個來源多可信」，那是來源屬性。它**不**回答「這筆證據對使用者問的
+# 那個問題有多相關」—— 一則可信度 0.9 的總經新聞對「ETH 下行風險」可能完全不相關，而一筆
+# 可信度 0.45 的社群貼文可能直接命中。兩者混用時，報告會用來源品質冒充問題相關性。
+#
+# 三條邊界：
+#   1. 標籤（離散）可以由模型在**同一次**分析回應裡順便給出，因此不多花一次呼叫；
+#      模型不得輸出任何數值。
+#   2. 分數與 `effective_weight` 一律由 `src/schemas.py` 的固定映射與公式算出。
+#   3. 模型提案只要有一處不合法就**整批**作廢，改走下面的 deterministic fallback ——
+#      部分採用會讓報告出現「有些證據評估過、有些沒有」的混合狀態，而讀者分不出來。
+#
+# 立場（`_market_stance()` 的固定權重）與 Claim confidence 是兩條不同的訊號層。E2 只讓
+# Claim／Evidence 層的問題相關性可稽核，刻意不動 stance 的權重公式。
+# --------------------------------------------------------------------------------------
+
+ASSESSMENT_PATH_LLM = "llm"
+ASSESSMENT_PATH_FALLBACK = "deterministic_fallback"
+
+# deterministic fallback 對各 data_type 的相關性標籤。
+#
+# 只有「結構化的市場／技術／衍生品資料」敢說 direct：它們是可計算的觀測，直接構成市場狀況。
+# 鏈上與 TVL 是 indirect（它們描述基本面，不直接定價）。macro 明確標示為全市場範圍、非個別
+# 幣種，因此是 context。
+#
+# news／announcement 一律 unclear：**沒有模型時本程式讀不懂新聞在講什麼**。給它 direct 等於
+# 假裝知道；給它 irrelevant 等於假裝確定不相關。unclear（0.20）是唯一誠實的答案。
+_FALLBACK_RELEVANCE_BY_DATA_TYPE = {
+    "market": RELEVANCE_LABEL_DIRECT,
+    "price_history": RELEVANCE_LABEL_DIRECT,
+    "ohlcv": RELEVANCE_LABEL_DIRECT,
+    "vegas_channel": RELEVANCE_LABEL_DIRECT,
+    "derivatives": RELEVANCE_LABEL_DIRECT,
+    "long_short_ratio": RELEVANCE_LABEL_DIRECT,
+    "onchain": RELEVANCE_LABEL_INDIRECT,
+    "whale": RELEVANCE_LABEL_INDIRECT,
+    "tvl": RELEVANCE_LABEL_INDIRECT,
+    "macro": RELEVANCE_LABEL_CONTEXT,
+    "news": RELEVANCE_LABEL_UNCLEAR,
+    "announcement": RELEVANCE_LABEL_UNCLEAR,
+}
+
+# 訊號盤點的方向 → impact_direction。同一筆證據同時有多空訊號時是 mixed。
+_SIDE_TO_IMPACT = {"bull": "bullish", "bear": "bearish", "neutral": "neutral"}
+
+# 各 data_type 的影響期間。依既有 collector 的觀測窗口設定，不由模型決定。
+_FALLBACK_HORIZON_BY_DATA_TYPE = {
+    "market": "short_term",
+    "vegas_channel": "immediate",
+    "derivatives": "immediate",
+    "long_short_ratio": "immediate",
+    "social": "immediate",
+    "social_bluesky": "immediate",
+    "social_hackernews": "immediate",
+    "price_history": "long_term",
+    "onchain": "medium_term",
+    "whale": "medium_term",
+    "tvl": "medium_term",
+    "macro": "medium_term",
+}
+
+
+def _assessment_record(item, *, label: str, relationship: str, impact: str, horizon: str,
+                       rationale: str, source_item_ids, path: str, excluded_reason: str = "") -> dict:
+    """組出一筆 `semantic_assessment`。分數與權重在這裡算，呼叫端不得自帶數字。"""
+    score = relevance_score_for(label)
+    return {
+        "relevance_label": label,
+        "relevance_score": score,
+        "relationship_to_question": relationship,
+        "impact_direction": impact,
+        "impact_horizon": horizon,
+        "rationale": rationale[:MAX_ASSESSMENT_RATIONALE_CHARS],
+        "source_item_ids": list(source_item_ids)[:MAX_ASSESSMENT_SOURCE_ITEM_IDS],
+        "assessment_source": (ASSESSMENT_SOURCE_LLM if path == ASSESSMENT_PATH_LLM
+                              else ASSESSMENT_SOURCE_FALLBACK),
+        "effective_weight": effective_weight(item.reliability_score, score,
+                                             item.independence_factor),
+        "excluded_reason": excluded_reason if label == RELEVANCE_LABEL_IRRELEVANT else "",
+        "assessment_version": ASSESSMENT_VERSION,
+    }
+
+
+def _citable_source_item_ids(item) -> list[str]:
+    """挑出最多三個帶 http(s) locator 的子項 ID，供 deterministic 路徑引用。
+
+    優先取有可解析 URL 的子項：Citation Gate 要能從評估回答「引用的是哪一則」，而沒有 URL
+    的子項回答不了。順序沿用 `source_items` 的既有順序，因此同一份輸入永遠得到同一組 ID。
+    """
+    with_url, without_url = [], []
+    for entry in item.source_items or []:
+        if not isinstance(entry, dict):
+            continue
+        item_id = str(entry.get("source_item_id") or "")
+        if not item_id:
+            continue
+        url = str(entry.get("url") or "").lower()
+        (with_url if url.startswith(("http://", "https://")) else without_url).append(item_id)
+    return (with_url or without_url)[:MAX_ASSESSMENT_SOURCE_ITEM_IDS]
+
+
+def _window_start(plan_dict: dict, now: datetime):
+    """plan 時間窗的起點。取不到天數就回 ``None``，代表「不判斷是否超出區間」。"""
+    window = plan_dict.get("time_window") if isinstance(plan_dict, dict) else None
+    try:
+        days = int((window or {}).get("days"))
+    except (TypeError, ValueError):
+        return None
+    return now - timedelta(days=days) if days > 0 else None
+
+
+def _evidence_own_time(item):
+    """證據自己的時間（事件時間優先於發布時間）。抓取時間**不算**，那是我們的時間。"""
+    for value in (item.event_time, item.published_at):
+        parsed = parse_timestamp(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _deterministic_assessment(item, *, coin: str, sides: set, plan_dict: dict, now: datetime) -> dict:
+    """不靠模型的評估。看不懂就說看不懂，絕不假裝知道方向。"""
+    item_ids = _citable_source_item_ids(item)
+
+    if coin and str(item.coin or "").upper() != coin.upper():
+        return _assessment_record(
+            item, label=RELEVANCE_LABEL_IRRELEVANT, relationship=QUESTION_RELATIONSHIP_IRRELEVANT,
+            impact=IMPACT_DIRECTION_NOT_APPLICABLE, horizon=IMPACT_HORIZON_UNCLEAR,
+            rationale="證據標的為 %s，與本次研究標的 %s 不符。" % (item.coin, coin.upper()),
+            source_item_ids=item_ids, path=ASSESSMENT_PATH_FALLBACK,
+            excluded_reason="標的不符：%s ≠ %s" % (item.coin, coin.upper()))
+
+    horizon = _FALLBACK_HORIZON_BY_DATA_TYPE.get(item.data_type, IMPACT_HORIZON_UNCLEAR)
+
+    # 降級來源沒有實際觀測內容，所以「它對題目多相關」本身就是未知，不是不相關。
+    #
+    # 這一項刻意排在時間窗檢查**之前**：fixture 裡的日期是佔位值，不是觀測時間。拿佔位日期
+    # 去比對研究區間，等於把一個沒有意義的數字讀成「這筆資料太舊」。
+    if item.source_type == SOURCE_TYPE_FALLBACK_FIXTURE:
+        return _assessment_record(
+            item, label=RELEVANCE_LABEL_UNCLEAR, relationship=QUESTION_RELATIONSHIP_UNCLEAR,
+            impact=IMPACT_DIRECTION_UNCLEAR, horizon=IMPACT_HORIZON_UNCLEAR,
+            rationale="本筆為降級／離線 fixture，沒有實際觀測內容可判斷與題目的關係。",
+            source_item_ids=item_ids, path=ASSESSMENT_PATH_FALLBACK)
+
+    start = _window_start(plan_dict, now)
+    own_time = _evidence_own_time(item)
+    if start is not None and own_time is not None and own_time < start:
+        return _assessment_record(
+            item, label=RELEVANCE_LABEL_IRRELEVANT, relationship=QUESTION_RELATIONSHIP_IRRELEVANT,
+            impact=IMPACT_DIRECTION_NOT_APPLICABLE, horizon=IMPACT_HORIZON_UNCLEAR,
+            rationale="證據時間 %s 早於研究區間起點 %s。" % (own_time.date(), start.date()),
+            source_item_ids=item_ids, path=ASSESSMENT_PATH_FALLBACK,
+            excluded_reason="超出 plan 時間窗：%s < %s" % (own_time.date(), start.date()))
+
+    if item.data_type in SOCIAL_DATA_TYPES:
+        content = item.content if isinstance(item.content, dict) else {}
+        sentiment = content.get("sentiment")
+        if content.get("post_count") and sentiment in ("positive", "negative"):
+            return _assessment_record(
+                item, label=RELEVANCE_LABEL_INDIRECT,
+                relationship=QUESTION_RELATIONSHIP_CONTEXT,
+                impact="bullish" if sentiment == "positive" else "bearish", horizon=horizon,
+                rationale="%d 則提及本幣的貼文，固定詞表判為%s，屬間接情緒指標。"
+                          % (content.get("post_count"), "偏正向" if sentiment == "positive" else "偏負向"),
+                source_item_ids=item_ids, path=ASSESSMENT_PATH_FALLBACK)
+        return _assessment_record(
+            item, label=RELEVANCE_LABEL_UNCLEAR, relationship=QUESTION_RELATIONSHIP_UNCLEAR,
+            impact=IMPACT_DIRECTION_UNCLEAR, horizon=horizon,
+            rationale="社群樣本不足或正負向詞數相同，無法判斷與題目的關係。",
+            source_item_ids=item_ids, path=ASSESSMENT_PATH_FALLBACK)
+
+    label = _FALLBACK_RELEVANCE_BY_DATA_TYPE.get(item.data_type, RELEVANCE_LABEL_UNCLEAR)
+    if label == RELEVANCE_LABEL_UNCLEAR:
+        return _assessment_record(
+            item, label=label, relationship=QUESTION_RELATIONSHIP_UNCLEAR,
+            impact=IMPACT_DIRECTION_UNCLEAR, horizon=horizon,
+            rationale="離線規則無法判讀此來源的文字語意，因此不宣稱方向，標為待判定。",
+            source_item_ids=item_ids, path=ASSESSMENT_PATH_FALLBACK)
+
+    # 結構化資料：方向沿用既有訊號盤點的分側，不新增第二套判斷邏輯。
+    directional = sides & {"bull", "bear"}
+    if len(directional) > 1:
+        impact = "mixed"
+    elif directional:
+        impact = _SIDE_TO_IMPACT[next(iter(directional))]
+    elif sides:
+        impact = "neutral"
+    else:
+        impact = IMPACT_DIRECTION_UNCLEAR
+    return _assessment_record(
+        item, label=label,
+        # relationship 只有讀懂題目才能說 support／contradict。離線規則做不到，因此一律 context：
+        # 這筆資料為題目提供依據，但它站哪一邊要由能讀題的那一層來說。
+        relationship=QUESTION_RELATIONSHIP_CONTEXT,
+        impact=impact, horizon=horizon,
+        rationale="結構化%s資料，方向沿用本次訊號盤點（%s）。"
+                  % (item.data_type, impact),
+        source_item_ids=item_ids, path=ASSESSMENT_PATH_FALLBACK)
+
+
+def _model_assessment(item, proposal: dict) -> dict:
+    """把驗證過的模型提案轉成最終評估。標籤照抄，數值一律重算。"""
+    label = str(proposal.get("relevance_label"))
+    rationale = str(proposal.get("rationale") or "").strip() or "模型未說明理由。"
+    excluded = ""
+    if label == RELEVANCE_LABEL_IRRELEVANT:
+        excluded = "模型評估與研究問題無關：%s" % rationale
+    # 模型沒指出子項時用 deterministic 選擇補上，而不是留空。
+    #
+    # 留空會讓聚合證據被引用時失去 item-level locator，Citation Gate 因此擋下整份報告 ——
+    # 而模型漏填一個欄位不該讓正式執行沒有產出。子項的**選擇**一向是機械的（照既有順序取前
+    # 幾個有 locator 的），補上它不等於替模型編造理由：標籤與 rationale 仍然完全是模型的。
+    item_ids = [str(value) for value in (proposal.get("source_item_ids") or [])]
+    return _assessment_record(
+        item, label=label,
+        relationship=str(proposal.get("relationship_to_question")),
+        impact=str(proposal.get("impact_direction")),
+        horizon=str(proposal.get("impact_horizon")),
+        rationale=rationale,
+        source_item_ids=item_ids or _citable_source_item_ids(item),
+        path=ASSESSMENT_PATH_LLM,
+        excluded_reason=excluded[:MAX_ASSESSMENT_RATIONALE_CHARS + 40])
+
+
+def assess_evidence_relevance(evidence: list, *, coin: str, signals: list[dict],
+                              plan_dict: dict, proposals=None, now=None) -> dict:
+    """把每筆證據相對本次問題的評估寫回 Evidence，並回報這一步怎麼做的。
+
+    回傳的 summary 直接進 Execution Log：走哪條路、為什麼降級、評了幾筆、哪些被判定不相關。
+    **不含新聞全文**，只有 ID、標籤與計數。
+
+    `claim_relevance` 在這裡被填上。在 E2 之前這個欄位在正式流程中沒有任何寫入者，永遠是
+    預設的 0.0，而 `claim_graph._relevance()` 又把 0.0 當成缺值換成 0.50 —— 於是 Claim 信心
+    裡的「相關性」其實是一個常數。
+    """
+    scoring_now = parse_timestamp(now) or datetime.now(timezone.utc)
+    sides_by_id: dict[str, set] = {}
+    for signal in signals or []:
+        sides_by_id.setdefault(str(signal.get("evidence_id") or ""), set()).add(
+            str(signal.get("side") or "neutral"))
+
+    path, fallback_reason = ASSESSMENT_PATH_FALLBACK, ""
+    accepted: dict[str, dict] = {}
+    if proposals:
+        errors = validate_evidence_assessments(proposals, evidence)
+        if errors:
+            # 全批作廢。部分採用會讓「已評估」與「未評估」混在同一份報告裡，而讀者無從分辨。
+            fallback_reason = "model assessment rejected: " + "; ".join(errors[:3])
+        else:
+            path = ASSESSMENT_PATH_LLM
+            accepted = {str(entry.get("evidence_id")): entry for entry in proposals}
+    else:
+        fallback_reason = "analysis response carried no evidence assessment"
+
+    for item in evidence:
+        proposal = accepted.get(item.evidence_id)
+        if proposal is not None:
+            item.semantic_assessment = _model_assessment(item, proposal)
+        else:
+            item.semantic_assessment = _deterministic_assessment(
+                item, coin=coin, sides=sides_by_id.get(item.evidence_id, set()),
+                plan_dict=plan_dict, now=scoring_now)
+        # claim_graph 讀這個欄位算 strength；標籤與數值必須一致，否則兩處會各說一套。
+        item.claim_relevance = item.semantic_assessment["relevance_score"]
+
+    excluded = [item.evidence_id for item in evidence
+                if item.semantic_assessment["relevance_label"] == RELEVANCE_LABEL_IRRELEVANT]
+    label_counts: dict[str, int] = {}
+    for item in evidence:
+        label = item.semantic_assessment["relevance_label"]
+        label_counts[label] = label_counts.get(label, 0) + 1
+    weights = {item.evidence_id: item.semantic_assessment["effective_weight"] for item in evidence}
+    return {
+        "path": path,
+        "provider": ASSESSMENT_SOURCE_LLM if path == ASSESSMENT_PATH_LLM else "deterministic",
+        "fallback_reason": fallback_reason,
+        "assessed_count": len(evidence),
+        "assessment_version": ASSESSMENT_VERSION,
+        "relevance_label_counts": dict(sorted(label_counts.items())),
+        "excluded_evidence_ids": excluded,
+        "excluded_reasons": {item.evidence_id: item.semantic_assessment["excluded_reason"]
+                             for item in evidence if item.evidence_id in excluded},
+        "effective_weights": dict(sorted(weights.items())),
+        "relevance_label_scores": dict(RELEVANCE_LABEL_SCORES),
+        "effective_weight_formula": "reliability_score × relevance_score × independence_factor",
+    }
+
+
+def _assessment_step(summary: dict, timing: dict) -> dict:
+    """Execution Log 的 `assess_evidence` 條目。"""
+    return {
+        "name": "assess_evidence",
+        "status": "success" if summary["path"] == ASSESSMENT_PATH_LLM else "fallback",
+        # 標籤可以來自模型，分數永遠不會。這兩行是這一步最重要的紀錄。
+        "labelled_by": "llm" if summary["path"] == ASSESSMENT_PATH_LLM else "deterministic_rules",
+        "scored_by": "deterministic_rules",
+        "path": summary["path"],
+        "provider": summary["provider"],
+        "fallback_reason": summary["fallback_reason"],
+        "assessed_count": summary["assessed_count"],
+        "relevance_label_counts": summary["relevance_label_counts"],
+        "excluded_evidence_ids": summary["excluded_evidence_ids"],
+        "excluded_reasons": summary["excluded_reasons"],
+        "effective_weights": summary["effective_weights"],
+        "effective_weight_formula": summary["effective_weight_formula"],
+        "relevance_label_scores": summary["relevance_label_scores"],
+        "assessment_version": summary["assessment_version"],
+        # 「這一步沒有多打模型」是可稽核的事實：評估搭既有分析回應的便車。
+        "extra_llm_calls": 0,
+        **timing,
+    }
 
 
 def _credibility_risk_factors(credibility: dict) -> list[str]:
@@ -1384,6 +1723,15 @@ def _run_pipeline(coin: str, question: str, output_dir: Path, live: bool = False
     else:
         result["reasoning"] = _offline_reasoning(result, evidence)
     timeline.finish("llm_reasoning")
+
+    # E2：問題相關性評估。刻意排在分析之後、Claim 之前 —— 標籤搭的是同一次分析回應的便車
+    # （因此模型呼叫次數不變），而 Claim 的信心分量要用得到評估算出的 claim_relevance。
+    timeline.start("assess_evidence")
+    assessment_summary = assess_evidence_relevance(
+        evidence, coin=result["coin"], signals=signals, plan_dict=plan_dict,
+        proposals=result["reasoning"].get(EVIDENCE_ASSESSMENT_RESULT_FIELD) or None)
+    result["evidence_assessment"] = assessment_summary
+    timeline.finish("assess_evidence")
     phase_timings["reasoning_ms"] = round((time.monotonic() - reasoning_started) * 1000, 1)
 
     # Phase 3: audit. The critic sees the finished analysis and its evidence, and may only annotate
@@ -1661,6 +2009,8 @@ def _run_pipeline(coin: str, question: str, output_dir: Path, live: bool = False
              # 「後續觀察重點」是模型寫的、被過濾過的，還是整段改用規則產生的。
              "observation_points_source": observation_source,
              **timeline.entry("llm_reasoning")},
+            {**_assessment_step(assessment_summary, timeline.entry("assess_evidence")),
+             "tool": "src.orchestrator.assess_evidence_relevance"},
             {"name": "critic_review", "status": critic_status, **llm_info,
              "tool": "src.llm.critique_with_llm",
              # `status` 維持既有字面值；具體原因附在 fallback_reason 之後，讓 Execution Log

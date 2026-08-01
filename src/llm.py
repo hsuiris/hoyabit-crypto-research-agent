@@ -7,12 +7,54 @@ import os
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from .schemas import (
+    IMPACT_DIRECTIONS,
+    IMPACT_HORIZONS,
+    MAX_ASSESSMENT_RATIONALE_CHARS,
+    MAX_ASSESSMENT_SOURCE_ITEM_IDS,
+    QUESTION_RELATIONSHIPS,
+    RELEVANCE_LABELS,
+)
+
 try:
     import boto3
     from botocore.config import Config as BotoConfig
 except ImportError:  # Local offline use remains possible without the AWS SDK.
     boto3 = None
     BotoConfig = None
+
+
+# E2：每個 Evidence 相對**這一題**的離散語意評估。模型只給標籤，不給任何數字 ——
+# relevance_score、effective_weight、reliability 與 claim confidence 全部由 Python 計算
+# （見 `src/schemas.py` 的 `relevance_score_for()` 與 `effective_weight()`）。
+# 少了這條邊界，模型就能靠自評分數間接決定報告的信心。
+EVIDENCE_ASSESSMENT_ITEM_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "evidence_id": {"type": "string"},
+        "relevance_label": {"type": "string", "enum": list(RELEVANCE_LABELS)},
+        "relationship_to_question": {"type": "string", "enum": list(QUESTION_RELATIONSHIPS)},
+        "impact_direction": {"type": "string", "enum": list(IMPACT_DIRECTIONS)},
+        "impact_horizon": {"type": "string", "enum": list(IMPACT_HORIZONS)},
+        "rationale": {"type": "string"},
+        "source_item_ids": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": [
+        "evidence_id", "relevance_label", "relationship_to_question",
+        "impact_direction", "impact_horizon", "rationale", "source_item_ids",
+    ],
+    "additionalProperties": False,
+}
+
+# 這個欄位刻意**不**加進 `ANALYSIS_SCHEMA["required"]`。
+#
+# 原因是失敗範圍：把它列為必填時，只要模型漏了它，`_validate_required_fields()` 就會讓
+# **整份分析**失效並降級成離線推理 —— 為了一組解釋性標籤，賠掉整段敘事。列在 properties
+# 但不必填時，漏掉的代價只是 assessment 走 deterministic fallback，而那條路本來就存在。
+# OpenAI 的 strict 模式要求所有 property 皆必填，因此送給 OpenAI 的 schema 會在
+# `_generate_openai()` 內另行補齊（見 `_strict_json_schema`），不影響本常數。
+EVIDENCE_ASSESSMENT_FIELD = "evidence_assessments"
+EVIDENCE_ASSESSMENT_RESULT_FIELD = "evidence_assessment_proposals"
 
 
 ANALYSIS_SCHEMA = {
@@ -26,6 +68,8 @@ ANALYSIS_SCHEMA = {
         "counter_evidence": {"type": "array", "items": {"type": "string"}},
         "observation_points": {"type": "array", "items": {"type": "string"}},
         "cited_evidence_ids": {"type": "array", "items": {"type": "string"}},
+        # E2：同一次分析順便帶回每筆 Evidence 的離散評估，因此**不會多一次模型呼叫**。
+        EVIDENCE_ASSESSMENT_FIELD: {"type": "array", "items": EVIDENCE_ASSESSMENT_ITEM_SCHEMA},
     },
     "required": [
         "market_judgment", "confidence", "facts", "inferences", "conclusion",
@@ -33,6 +77,22 @@ ANALYSIS_SCHEMA = {
     ],
     "additionalProperties": False,
 }
+
+
+def _strict_json_schema(schema: object) -> object:
+    """遞迴補齊 ``required``，讓 schema 符合 OpenAI 的 strict 模式（所有 property 皆必填）。
+
+    只在送出前複製一份，不改動模組常數：`ANALYSIS_SCHEMA["required"]` 必須維持「真正非它不可」
+    的那幾個欄位，否則模型漏掉一組解釋性標籤就會讓整份分析作廢。
+    """
+    if isinstance(schema, dict):
+        copied = {key: _strict_json_schema(value) for key, value in schema.items()}
+        if isinstance(copied.get("properties"), dict):
+            copied["required"] = list(copied["properties"])
+        return copied
+    if isinstance(schema, list):
+        return [_strict_json_schema(item) for item in schema]
+    return schema
 
 
 # T4：分析回應允許額外帶 `claims` 提案。`ANALYSIS_SCHEMA` 本身不變（既有欄位與 required 清單
@@ -64,7 +124,27 @@ def build_prompt(coin: str, question: str, evidence: list[dict]) -> str:
             "不要提供買賣建議。\n"
             "confidence 只是你的參考值：每個 Claim 的最終信心分數由程式依證據品質、領域覆蓋度、"
             "來源多元性、訊號一致性與反方覆蓋度計算，你的數字不會成為最終分數。\n\n"
+            + _EVIDENCE_ASSESSMENT_INSTRUCTIONS
             + json.dumps({"coin": coin, "question": question, "evidence": evidence}, ensure_ascii=False))
+
+
+_EVIDENCE_ASSESSMENT_INSTRUCTIONS = (
+    "evidence_assessments：**逐筆**評估下面每一個 Evidence 相對上面那個 question 的關係。\n"
+    "每筆 Evidence 都要有一筆評估，evidence_id 必須逐字取自清單，**不得少、不得多、不得重複**；"
+    "任何一項不符會使整批評估作廢並改用程式規則，你的評估就完全不會被採用。\n"
+    "- relevance_label：direct（直接回答題目）、indirect（間接有關）、context（只是背景）、"
+    "irrelevant（與題目無關，例如講的不是這個標的或不是這段期間）、unclear（資料不足以判斷）。"
+    "看不出來就填 unclear，**不要猜**。\n"
+    "- relationship_to_question：support（支持題目所問的方向）、contradict（相反）、"
+    "context（提供背景但不站邊）、irrelevant、unclear。\n"
+    "- impact_direction：bullish／bearish／neutral／mixed／not_applicable／unclear。\n"
+    "- impact_horizon：immediate／short_term／medium_term／long_term／unclear。\n"
+    "- rationale：一句繁體中文，說明為什麼給這個標籤，最多 %d 字。\n"
+    "- source_item_ids：這筆評估實際依據哪幾個子項，最多 %d 個，只能填該 Evidence 的 "
+    "source_items 裡出現過的 source_item_id；沒有子項就填空陣列。\n"
+    "不要輸出 relevance_score、effective_weight、reliability 或任何分數 —— "
+    "數值一律由程式依固定映射計算，你填了也會被忽略。\n\n"
+) % (MAX_ASSESSMENT_RATIONALE_CHARS, MAX_ASSESSMENT_SOURCE_ITEM_IDS)
 
 
 def normalise_analysis_claims(result: dict) -> dict:
@@ -78,6 +158,21 @@ def normalise_analysis_claims(result: dict) -> dict:
     normalised = dict(result)
     proposals = normalised.pop(CLAIM_PROPOSAL_FIELD)
     normalised[CLAIM_PROPOSAL_RESULT_FIELD] = proposals if isinstance(proposals, list) else []
+    return normalised
+
+
+def normalise_analysis_assessments(result: dict) -> dict:
+    """把分析回應裡的 `evidence_assessments` 改名成 `evidence_assessment_proposals`。
+
+    與 `normalise_analysis_claims()` 同一個理由：改名本身就是邊界宣告。模型給的是**提案**，
+    要先經 `src/validation.py` 驗過 Evidence ID、子項歸屬與 enum，分數再由 Python 依固定映射
+    計算；沿用原欄位名會讓下游誤以為手上拿的已經是最終評估。
+    """
+    if EVIDENCE_ASSESSMENT_FIELD not in result:
+        return result
+    normalised = dict(result)
+    proposals = normalised.pop(EVIDENCE_ASSESSMENT_FIELD)
+    normalised[EVIDENCE_ASSESSMENT_RESULT_FIELD] = proposals if isinstance(proposals, list) else []
     return normalised
 
 
@@ -357,7 +452,10 @@ def _generate_openai(prompt: str, schema: dict, schema_name: str, timeout_second
     payload = {
         "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
         "input": prompt,
-        "text": {"format": {"type": "json_schema", "name": schema_name, "strict": True, "schema": schema}},
+        # strict 模式要求每個 property 都列在 required；模組常數刻意不那樣寫（見
+        # `_strict_json_schema`），所以在送出前補齊，而不是把限制推回契約層。
+        "text": {"format": {"type": "json_schema", "name": schema_name, "strict": True,
+                            "schema": _strict_json_schema(schema)}},
         "store": False,
     }
     request = Request(
@@ -509,4 +607,4 @@ def analyze_with_llm(coin: str, question: str, evidence: list[dict], client: obj
         timeout_seconds=60,
     )
     validated = _validate_analysis_result(_validate_required_fields(raw, ANALYSIS_SCHEMA, "LLM"))
-    return normalise_analysis_claims(validated)
+    return normalise_analysis_assessments(normalise_analysis_claims(validated))

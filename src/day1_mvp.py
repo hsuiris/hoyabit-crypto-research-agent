@@ -49,6 +49,16 @@ class Evidence:
     # 跨 run 引用。沒有這個欄位，一筆從別次 run 流進來的證據看起來會完全正常。
     run_id: str = ""
 
+    # --- 以下為 E2 的問題導向語意評估欄位（schemas.EVIDENCE_ASSESSMENT_FIELDS） ---
+    # `source_items`：聚合證據（最多五則新聞包成一個 EV-NEWS-001）的子項 locator。少了它，
+    # 「報告引用了這筆證據」無法回答「實際引用的是哪一則」。ID 由母證據 ID 加兩位序號組成，
+    # 因此同一份輸入永遠得到同一組 ID。
+    # `semantic_assessment`：這筆證據相對**本次的研究問題**有多相關。刻意與 credibility 分開：
+    # 來源可信度是來源屬性，問題相關性是這一題的屬性，同一筆證據換個題目就該換分數。
+    # 兩者都預設為空容器，既有呼叫端與舊 fixture 完全不受影響。
+    source_items: list = field(default_factory=list)
+    semantic_assessment: dict = field(default_factory=dict)
+
     def __post_init__(self):
         if not self.content_reference:
             self.content_reference = {"summary": self.content, "time_range": self.time_range}

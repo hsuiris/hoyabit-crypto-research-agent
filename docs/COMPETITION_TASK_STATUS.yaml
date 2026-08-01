@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
-branch: hackathon/competition-ready
-current_task: T8.6
-last_updated_at: 2026-08-02T04:10:00+08:00
+branch: release/final-4h   # T8.6 之後的四小時交付分支（E 系列）
+current_task: E2
+last_updated_at: 2026-08-02T05:40:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 683 tests, 683 passed, 0 failed, 0 errors
+full_suite_latest: 777 tests, 777 passed, 0 failed, 0 errors   # E2 前為 703
 
 allowed_statuses:
   - TODO
@@ -1014,4 +1014,140 @@ tasks:
         相關性過濾只看是否提及幣種，不判斷語意相關。提及幣種但實際在講別的事情的貼文仍會
         通過（例如把幣價當背景資訊的自動化貼文）
       - X／Twitter 仍未納入（需付費 API）；社群面因此偏向開發者與自動化帳號，不代表散戶情緒
+      - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
+
+  E2:
+    title: Add question-aware evidence assessment
+    status: PASS
+    depends_on: [E1]
+    branch: release/final-4h
+    started_at: 2026-08-02T04:50:00+08:00
+    completed_at: 2026-08-02T05:40:00+08:00
+    # 一個 Task 一個 commit，無法在該 commit 內寫入自己的 hash；實際 hash 見
+    # `git log --grep "feat(E2)"`。
+    commit: 'feat(E2): add question-aware evidence assessment'
+    note: >-
+      credibility（T3）衡量來源品質，那是來源屬性，不回答「這筆證據對使用者問的這一題有多相關」。
+      E2 把問題相關性拆成獨立且可稽核的一層，並讓聚合證據能回答「引用的是五則裡的哪一則」。
+      不改 market stance 的固定權重公式，也不新增任何模型呼叫。
+    fixed_gaps:
+      - >-
+        `Evidence.claim_relevance` 預設 0.0，正式 src 流程原本沒有任何寫入者，因此 Claim 信心裡的
+        「相關性」實際上是一個常數。E2 由 `assess_evidence_relevance()` 填入。
+      - >-
+        `claim_graph._relevance()` 把任何 <= 0 的值換成 0.50，於是「已判定與題目無關」與
+        「還沒判定」得到同一個分數。改為以 `semantic_assessment.relevance_label` 判斷是否評估過：
+        明確的 irrelevant 永遠保持 0.0，缺值才用保守預設。
+      - >-
+        credibility／reliability 與問題相關性被混為一談。新增
+        `effective_weight = reliability_score × relevance_score × independence_factor`，
+        兩個維度因此在 evidence.json 裡分開呈現。
+      - >-
+        `_signal_inventory()` 不讀 question；news 沒有方向規則、announcement 固定 neutral。
+        deterministic 路徑現在對 news／announcement 一律回 `unclear`（0.20），不再假裝知道方向。
+      - >-
+        新聞最多五篇包成一個 EV-NEWS-001，原本無法回答「實際引用哪一篇」。新增 `source_items`
+        與穩定的 `source_item_id`（母證據 ID + `-ITEM-` + 兩位序號），Citation Gate 第 11 條據此檢查。
+      - >-
+        social 時間語意原本只認得 Reddit 舊格式的 `created_utc`：Reddit 改走子版 feed 後存的是
+        `published`，Bluesky 存 `created_at`／`indexed_at`，Hacker News 存 `created_at`，三者全部
+        落空，社群證據因此一律沒有自己的時間、freshness 只能用 fetched_at 推估。三個 data_type
+        現在各讀自己真正提供的欄位。
+      - >-
+        feed parser 原本不讀作者。補上 RSS `<author>`／Dublin Core `<dc:creator>` 與 Atom
+        `<author><name>`；Bluesky 保存 `author_handle`、Hacker News 保存 `author`。
+        來源沒提供就是 `None`，不以 fetched_at 或 feed 名稱代填。
+    contract:
+      evidence_fields: [source_items, semantic_assessment]
+      relevance_label_scores: {direct: 1.0, indirect: 0.65, context: 0.35, irrelevant: 0.0, unclear: 0.20}
+      effective_weight_formula: reliability_score × relevance_score × independence_factor
+      assessment_version: evidence-assessment-v1
+      llm_may_output: [relevance_label, relationship_to_question, impact_direction, impact_horizon, rationale, source_item_ids]
+      llm_may_not_output: [relevance_score, effective_weight, reliability_score, confidence]
+    signal_layers: >-
+      市場立場（`_market_stance()` 的固定權重）與 Claim confidence 是**兩條不同的訊號層**，
+      E2 沒有把它們合併。stance 仍讀完整訊號盤點（含被判為 irrelevant 的證據所產生的訊號），
+      Claim confidence 則走 `evaluate_claim()`，其 strength 已納入本層算出的 claim_relevance。
+      一次只改一套決策邏輯是刻意的：同時改兩套會讓任何行為變化無法歸因。
+    test_summary: >-
+      targeted：python3 -m unittest discover -s tests -p 'test_semantic_evidence_assessment.py'
+      → 74 tests OK（模型端一律注入 client，不觸網路）。
+      完整套件：python3 -m unittest discover -s tests → 777 tests, 777 passed, 0 failed, 0 errors
+      （E2 前為 703）。
+      語法：python3 -m compileall -q src lambda_handler.py tests → OK。
+      部署包：bash aws/deploy.sh --dry-run → 29 檔／421 KB。git diff --check → 乾淨。
+      五幣 offline E2E：BTC／ETH／SOL／BNB／XRP 各六檔齊備、manifest 五個 SHA-256 全部相符、
+      Citation Gate 皆 PASS，九筆證據全部為 `unclear`（離線證據都是 fixture，這是誠實答案）。
+      比較 smoke：SOL vs BNB 兩腳各六檔、gate 皆 PASS。
+      Live 形狀模擬（patch collector 換成非 fallback 的市場／新聞／社群／鏈上／衍生品證據）：
+      gate PASS_WITH_WARNINGS、0 error，權重確實分開兩個維度 ——
+      market 0.8775、derivatives 0.8375、onchain 0.6013、social 0.3169、news 0.1160
+      （新聞可信度 0.60 但 deterministic 路徑判為 unclear，因此權重被壓到 0.116）。
+      LLM 路徑 E2E：模型在同一次分析回應帶回 9 筆評估，spy 記錄的呼叫恰為
+      ['market_analysis', 'research_critique'] 兩次，與不帶評估時完全相同；被標 irrelevant 的
+      EV-002 權重 0.0、related_claim_ids 為空、未被任何 Claim 引用，且仍留在 evidence.json。
+      不合法評估 E2E：非法 enum ＋模型自帶分數 → 整批作廢、9 筆全部 deterministic_fallback、
+      六檔仍齊備、execution log 記著 `model assessment rejected: ...`。
+    artifacts:
+      - src/schemas.py
+      - src/day1_mvp.py
+      - src/day2_sources.py
+      - src/llm.py
+      - src/claim_graph.py
+      - src/orchestrator.py
+      - src/validation.py
+      - tests/test_semantic_evidence_assessment.py
+      - tests/test_schema_contract.py
+    integration_points:
+      - >-
+        `stamp_credibility_metadata()` 在最後呼叫 `normalise_source_items()`，因此子項 ID 在
+        news lineage 註記之後才產生，且重複 stamp 得到同一組 ID。
+      - >-
+        `ANALYSIS_SCHEMA` 的 properties 新增 `evidence_assessments`，但**刻意不列入 required**：
+        列為必填時模型漏填就會讓整份分析作廢並降級成離線推理，為一組解釋性標籤賠掉整段敘事。
+        OpenAI strict 模式要求所有 property 必填，因此在 `_generate_openai()` 送出前用
+        `_strict_json_schema()` 補齊，模組常數不受影響。
+      - >-
+        `normalise_analysis_assessments()` 把回應裡的 `evidence_assessments` 改名成
+        `evidence_assessment_proposals`（與 T4 的 claim_proposals 同一個模式）：改名本身就是
+        邊界宣告，下游不會誤以為手上已經是最終評估。
+      - >-
+        管線新增 `assess_evidence` step，排在 `llm_reasoning` 之後、`critic_review` 之前 ——
+        標籤搭同一次分析回應的便車，而 Claim 的信心分量需要用到本步算出的 claim_relevance。
+      - >-
+        `EvidencePool` 新增 `irrelevant_ids`，與 `rejected_ids` 分開：前者是「證據不可用」，
+        後者是「證據可用但不談這題」。兩者都留在 evidence.json，都不得被 Claim 引用。
+      - >-
+        新增 limiter `context_only_primary_support`：支持證據全部被明確評為背景時輸出
+        insufficient_evidence。標籤缺失（未評估）的證據不會命中，因此舊呼叫端行為不變。
+      - >-
+        Citation Gate 新增第 11 條 `cited_item_locator`。分兩級：完全沒指出子項是 error
+        （結構漏洞），指出了但該子項自己沒有 http(s) URL 只是 warning（資料品質）。
+        缺 author／published_at 一律只 warning。降級來源一律只 warning。
+    blockers: []
+    known_limitations:
+      - >-
+        評估是 **record-level**，不是 statement-level：一筆聚合證據只有一個標籤，
+        `source_item_ids` 指出依據哪幾則，但沒有逐則各自評分
+      - >-
+        `relevance_score` 與 `effective_weight` 是 heuristic evidence score，**不是**校準過的
+        歷史機率，也沒有做過任何歷史回測校準
+      - >-
+        評估只針對本次 collector 取回的證據，**不是全網搜尋**：沒有被採集到的資訊不會因為
+        它與題目相關而出現在評估裡
+      - >-
+        deterministic 路徑讀不懂文字語意，因此 news／announcement 一律 `unclear`（0.20）。
+        離線模式的整份報告因此都是 unclear —— 這是誠實答案，不是評估失效
+      - >-
+        `relationship_to_question` 在 deterministic 路徑一律是 `context`：判斷 support／contradict
+        需要讀懂題目，離線規則做不到，宣稱它站哪一邊會是編造
+      - >-
+        「超出 plan 時間窗」只在證據有可解析的 `published_at`／`event_time` 時生效；降級 fixture
+        刻意跳過這條檢查（fixture 裡的日期是佔位值，拿它比對研究區間會讀出不存在的意思）
+      - >-
+        模型漏填 `source_item_ids` 時由 Python 用既有順序補上前三個有 locator 的子項。
+        標籤仍是模型的，但「依據哪幾則」在這種情況下是機械選擇，不是模型的判斷
+      - >-
+        `report.md` 未顯示 assessment（`src/report_renderer.py` 不在本 Task 的修改範圍）；
+        評估目前只出現在 `evidence.json` 與 `execution_log.json`
       - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
