@@ -116,6 +116,18 @@ offline fallback，執行仍然成功、報告仍然產出，只是模型路徑�
   reserved concurrency 上限、CloudWatch log 保留期、AWS Budgets 告警，
   以及可選的 `AuthType: AWS_IAM`。
 
+### 公開端點是 test-only demo
+
+首頁不再提供 formal（正式）執行選項，只保留固定的 `mode=test`。`lambda_handler.py` 會在建立
+任何 run record（`RunManager`）、呼叫 collector 或 LLM／Bedrock **之前**，擋下 `mode=formal`
+（任何大小寫）與 `authorized_rerun`／`rerun_of`／`rerun_reason`／`rerun` 等正式重跑旗標，
+一律回 HTTP 403；其他未知 `mode` 回 HTTP 400。錯誤回應不含例外內容、AWS 帳號或 Function URL。
+
+這是因為 formal 執行對同一「問題＋幣種」只允許一次（`src/run_manager.py` 的 formal lock），
+公開端點（`AuthType: NONE`）一旦被匿名觸發就會把這唯一一次額度用掉，且事後無法回溯是誰
+送出的。需要 formal 執行時，請改用本機 CLI／`src/app.py`（不受此限制）。
+測試見 `tests/test_final_release_guardrails.py`。
+
 ## us-west-2 的固有限制：Binance 來源會降級
 
 Binance 封鎖美國 IP，而 `us-west-2` 是美國 region。三個 collector 原本都只打 Binance；
@@ -248,7 +260,7 @@ CloudFormation 只會更新有變動的資源，通常 30–60 秒完成。Funct
 憑證會比 stack 先失效，此時已經無法用 `describe-stacks` 查狀態，但服務可能還跑著。
 
 ```bash
-./aws/verify-deployment.sh          # 首頁、五個幣種、執行性質選單
+./aws/verify-deployment.sh          # 首頁、五個幣種、test-only 標示
 ./aws/verify-deployment.sh --run    # 加上一次 test 模式完整分析
 ```
 
@@ -256,7 +268,9 @@ CloudFormation 只會更新有變動的資源，通常 30–60 秒完成。Funct
 最後這項靠 `deploy.sh` 在部署時注入 `CODE_COMMIT`（Lambda 套件裡沒有 `.git`，不注入的話
 `manifest.json` 的 `code_commit` 永遠是 `unknown`，「線上跑的是哪一版」就無法從產物回答）。
 
-腳本永遠只送 `mode=test`：formal 模式對同一題目只允許一次正式執行，誤送會把正式額度用掉。
+腳本永遠只送 `mode=test`：公開端點是 test-only demo（見上方「公開端點是 test-only demo」），
+formal 模式對同一題目只允許一次正式執行，誤送會把正式額度用掉。首頁檢查也已改為確認
+「不提供 formal 選項、明確標示 test-only」，不再把 test／formal selector 當成 PASS。
 
 > `--run` 會消耗 Bedrock 配額（每次分析 4 次模型呼叫）。上台前確認一次就好。
 

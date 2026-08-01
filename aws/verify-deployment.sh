@@ -11,8 +11,10 @@
 #   ./aws/verify-deployment.sh          # 只檢查首頁（不消耗 Bedrock 配額）
 #   ./aws/verify-deployment.sh --run    # 額外跑一次 test 模式分析（會消耗 Bedrock 配額）
 #
-# test 模式刻意是預設之外的選項：formal 模式對同一題目只允許一次正式執行，用 --run 誤送
-# formal 會把正式執行額度用掉。這支腳本永遠只送 mode=test。
+# 公開端點是 test-only demo（E1）：首頁不再提供 formal 選項，且 `lambda_handler.py` 會在
+# 建立任何 run record 之前擋下 mode=formal 與 authorized_rerun／rerun 類請求（回 403）。
+# 這支腳本永遠只送 mode=test，也不會嘗試送 formal 去驗證 403（那屬於 targeted tests
+# 的職責，見 tests/test_final_release_guardrails.py），避免對公開端點做非必要的探測。
 
 set -uo pipefail
 
@@ -73,7 +75,7 @@ fi
 grep -q 'HOYA BIT' "$BODY" && pass "回應內容是 HOYA BIT 首頁" \
   || fail "HTTP 200 但內容不是預期的首頁（可能被其他服務佔用同一網址）"
 
-# 幣種池與執行性質選單：這兩個是命題要求的輸入面，缺了就不是可用的 Demo。
+# 幣種池：命題要求的輸入面，缺了就不是可用的 Demo。
 MISSING_COINS=""
 for coin in BTC ETH SOL BNB XRP; do
   grep -q ">$coin<" "$BODY" || MISSING_COINS="$MISSING_COINS $coin"
@@ -81,8 +83,21 @@ done
 [ -z "$MISSING_COINS" ] && pass "五個幣種都可選（BTC／ETH／SOL／BNB／XRP）" \
   || fail "首頁缺少幣種：$MISSING_COINS"
 
-grep -q "name='mode'" "$BODY" && pass "有執行性質選單（test／formal）" \
-  || warn "首頁沒有執行性質選單，正式執行控制可能未部署"
+# test-only 守衛（E1）：公開端點（AuthType NONE）只能執行 test mode。
+# 這裡刻意不再把「有 mode selector」當成 PASS —— selector 本身不代表安全，
+# 真正的判準是「formal 選項不存在」且「頁面明確標示 test-only」。
+if grep -qE "value=['\"]formal['\"]" "$BODY" || grep -q '>Formal<' "$BODY"; then
+  fail "首頁仍可選擇 formal（公開展示必須是 test-only，見 E1）"
+else
+  pass "首頁未提供 formal 選項（test-only）"
+fi
+
+grep -q 'test-only' "$BODY" && pass "首頁明確標示 test-only demo" \
+  || warn "首頁沒有找到 test-only 字樣，措辭可能已變更（非阻斷）"
+
+grep -qE "name=['\"]mode['\"][^>]*value=['\"]test['\"]" "$BODY" \
+  && pass "固定送出 mode=test（hidden field）" \
+  || warn "找不到固定的 mode=test hidden field，測試表單送出的 mode 值時請留意"
 
 # ----------------------------------------------------------------------------------
 # 2. 線上程式版本

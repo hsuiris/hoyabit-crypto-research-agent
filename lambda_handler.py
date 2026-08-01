@@ -12,8 +12,8 @@ from urllib.parse import parse_qs
 from src.errors import AgentInputError
 from src.llm import configured_provider, llm_is_configured
 from src.orchestrator import run
-from src.run_manager import (RUN_MODE_TEST, VALID_RUN_MODES, FormalRunAlreadyExistsError,
-                            RunManager, artifact_root)
+from src.run_manager import (RUN_MODE_FORMAL, RUN_MODE_TEST, VALID_RUN_MODES,
+                            FormalRunAlreadyExistsError, RunManager, artifact_root)
 from src.schemas import ARTIFACT_FILENAMES
 
 # Lambda 的容器檔案系統只有暫存目錄可寫。輸出仍然一個 run 一個目錄
@@ -82,6 +82,86 @@ def _prepare_run(question: str, coins, mode: str):
 def _run_mode(raw) -> str:
     mode = str(raw or RUN_MODE_TEST).strip().lower()
     return mode if mode in VALID_RUN_MODES else RUN_MODE_TEST
+
+
+# --------------------------------------------------------------------------------------
+# 公開端點 test-only 守衛（E1）
+# --------------------------------------------------------------------------------------
+#
+# 這個 Function URL 的 AuthType 是 NONE：任何取得網址的人都能呼叫。formal 執行對同一
+# 「問題＋幣種」只允許一次（見 `src/run_manager.py` 的 formal lock），一旦被匿名觸發就會
+# 佔用掉這唯一一次額度，且事後無法回溯是誰送出的。因此公開端點一律只接受 test mode；
+# 需要 formal 執行或授權重跑（authorized_rerun／rerun_of／rerun_reason）時，必須改用
+# 本機 CLI／app（`src/app.py`），不受本守衛限制，也不在本次修改範圍內。
+#
+# 這一層必須在建立 RunManager、呼叫 collector 或 LLM 之前擋下請求——先跑一部分才拒絕，
+# 等於已經消耗了一次 formal lock 的嘗試，也提早觸發不必要的外部呼叫成本。
+
+# 這些欄位屬於正式重跑的授權契約（見 `RunManager.create_run` 的 rerun_of／rerun_reason／
+# authorized_rerun）。公開端點看到任一個帶有實際值，都視為嘗試繞過 test-only 限制。
+_RERUN_FLAG_KEYS = ("authorized_rerun", "rerun_of", "rerun_reason", "rerun")
+_FALSY_FLAG_VALUES = {"", "false", "0", "no", "off", "none", "null"}
+
+
+def _first_value(raw):
+    """把 JSON（純值）與 form（`parse_qs` 產生的 list）收斂成單一值或 None。"""
+    if isinstance(raw, list):
+        return raw[0] if raw else None
+    return raw
+
+
+def _flag_present(raw) -> bool:
+    """判斷某個 rerun 相關欄位是否帶有「要求重跑」的實際值，而非缺省或明確關閉。"""
+    value = _first_value(raw)
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in _FALSY_FLAG_VALUES
+
+
+def _rejection_logged(status: int, reason: str, message: str) -> dict:
+    """記錄拒絕原因並回傳對應的 HTTP 回應。
+
+    訊息只包含固定的中文說明或使用者自己送出的值，不包含例外內容、堆疊追蹤、
+    AWS 帳號、Function URL 或 token。
+    """
+    log_run_summary("run-rejected", {"reason": reason})
+    return _html(status, f"<meta charset='utf-8'><h1>請求被拒絕</h1><p>{message}</p>")
+
+
+def _public_mode_guard(values: dict) -> dict | None:
+    """公開端點的 test-only 守衛：回傳非 None 時，呼叫端必須立即回傳該回應。
+
+    - 未帶 mode 或 mode=test（任何大小寫）：回傳 None，維持既有行為。
+    - mode=formal（任何大小寫）：回傳 403。
+    - 帶有 authorized_rerun／rerun_of／rerun_reason／rerun 任一實際值：回傳 403。
+    - 其他未知 mode：回傳 400。
+
+    必須在建立 run record（`_prepare_run`）之前呼叫，這樣才能保證 RunManager、
+    collector 與 LLM／Bedrock 都不會被觸發——不得先跑一段再把 formal 悄悄降級成 test。
+    """
+    for key in _RERUN_FLAG_KEYS:
+        if _flag_present(values.get(key)):
+            return _rejection_logged(
+                403, "public_rerun_flag_blocked",
+                "公開雲端展示不支援正式重跑（rerun）。此端點只提供 test mode。")
+
+    raw_mode = _first_value(values.get("mode"))
+    if raw_mode is None or str(raw_mode).strip() == "":
+        return None  # 未帶 mode：維持既有行為（視為 test）
+
+    normalised = str(raw_mode).strip().lower()
+    if normalised == RUN_MODE_TEST:
+        return None
+    if normalised == RUN_MODE_FORMAL:
+        return _rejection_logged(
+            403, "public_formal_mode_blocked",
+            "公開雲端展示只提供 test mode，不支援 formal（正式）執行。"
+            "正式執行僅提供受控管道使用。")
+    return _rejection_logged(
+        400, "public_unknown_mode_blocked",
+        f"不支援的 mode：{escape(str(raw_mode)[:100])}（只接受 test）。")
 
 
 def _load_llm_credentials() -> bool:
@@ -249,11 +329,13 @@ def handler(event, context):
             "</p>"
         )
         return _html(200, """<!doctype html><meta charset='utf-8'><title>HOYA BIT Research Agent</title>
-        <h1>加密市場分析 AI Agent</h1><form method='post'>
+        <h1>加密市場分析 AI Agent</h1>
+        <p style='color:#a33'><strong>公開雲端展示僅提供 test mode（test-only demo）</strong>，
+        不提供 formal（正式）執行選項；正式執行僅透過受控管道進行。</p>
+        <form method='post'>
         <label>幣種 <select name='coin'><option>BTC</option><option selected>ETH</option><option>SOL</option><option>BNB</option><option>XRP</option></select></label><br>
         <label>研究問題 <input name='question' size='70' value='分析近期市場狀況、主要驅動因素與風險'></label><br>
-        <label>執行性質 <select name='mode'><option value='test' selected>Test（可重複）</option>
-        <option value='formal'>Formal（正式，不可覆寫）</option></select></label><br>
+        <input type='hidden' name='mode' value='test'>
         <button>開始分析</button></form>""" + sdk_note)
     raw_body = event.get("body", "")
     if event.get("isBase64Encoded"):
@@ -262,11 +344,15 @@ def handler(event, context):
     if "application/json" in content_type:
         values = json.loads(raw_body or "{}")
         coin, question = values.get("coin", "ETH"), values.get("question", "分析近期市場狀況")
-        mode = _run_mode(values.get("mode"))
     else:
         values = parse_qs(raw_body)
         coin, question = values.get("coin", ["ETH"])[0], values.get("question", ["分析近期市場狀況"])[0]
-        mode = _run_mode(values.get("mode", [RUN_MODE_TEST])[0])
+    # test-only 守衛必須在建立 run record、呼叫 RunManager、collector 或 LLM／Bedrock 之前
+    # 執行——這是公開端點（AuthType NONE）唯一的防線，不得偷偷把 formal 降級成 test。
+    rejection = _public_mode_guard(values)
+    if rejection is not None:
+        return rejection
+    mode = _run_mode(_first_value(values.get("mode")))
     try:
         record, output_dir = _prepare_run(question, [coin], mode)
     except FormalRunAlreadyExistsError as error:
