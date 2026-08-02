@@ -321,7 +321,13 @@ color:inherit;background:#fff;border:1px solid #c9d2db;border-radius:9px}
 form.run select:hover,form.run input[type=text]:hover{border-color:#9fb0c0}
 form.run select:focus,form.run input[type=text]:focus,form.run button:focus-visible{
 outline:3px solid #7aa8cc;outline-offset:2px;border-color:#12507f}
-form.run .actions{grid-column:1/-1}
+form.run .actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+form.run button:disabled{background:#7f95a8;cursor:progress;box-shadow:none}
+.progress{display:inline-flex;align-items:center;gap:9px;color:var(--muted);font-size:.9rem}
+.spinner{width:15px;height:15px;border:2px solid #c9d2db;border-top-color:#12507f;
+border-radius:50%;display:inline-block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none}}
 form.run button{padding:12px 30px;font:inherit;font-size:1.02rem;font-weight:700;color:#fff;
 background:#12507f;border:0;border-radius:9px;cursor:pointer;
 box-shadow:0 2px 6px rgba(18,80,127,.28)}
@@ -338,6 +344,43 @@ color:var(--muted);font-size:.85rem;margin:0}
   form.run{grid-template-columns:1fr}
   .steps{grid-template-columns:1fr}
 }
+"""
+
+
+# 送出後的進度提示與重複送出防護。
+#
+# 為什麼只能做到這個程度：Lambda Function URL 是同步的請求／回應，一次 POST 從送出到回應之間
+# 沒有任何可回報進度的通道。要做真正的階段進度需要非同步 job（送出後立刻回 202、前端輪詢狀態），
+# 但產物寫在容器的 /tmp 且 reserved concurrency 是 5，輪詢很可能被路由到另一個容器而查不到那個
+# job —— 那需要共用儲存（S3 或 DynamoDB），屬於架構變更，不是前端能補的。
+#
+# 因此這裡只誠實做兩件事：讓使用者知道「請求已送出、正在執行」與「已經過了多久」，並防止重複
+# 送出。真正的階段細節在完成後的執行紀錄裡逐項列出。
+#
+# 寫成模組常數而不是嵌在 f-string 裡：JS 的大括號在 f-string 中會被當成格式化欄位，必須逐個
+# 轉義成 {{ }}，那既難讀也容易漏。以常數插入就沒有這個問題。
+# 刻意不用外部檔案或 CDN：Function URL 只回傳這一頁，多一個資源就多一個現場可能失敗的環節。
+_HOME_JS = """
+  (function () {
+    var form = document.querySelector('form.run');
+    var button = document.getElementById('go');
+    var progress = document.getElementById('progress');
+    var label = document.getElementById('progress-text');
+    if (!form || !button || !progress || !label) { return; }
+    form.addEventListener('submit', function () {
+      // 停用而不是隱藏：位置不變、畫面不跳動，而且 disabled 的按鈕不會再次送出表單。
+      button.disabled = true;
+      button.textContent = '分析中…';
+      progress.hidden = false;
+      var started = Date.now();
+      var tick = function () {
+        var seconds = Math.floor((Date.now() - started) / 1000);
+        label.textContent = '分析中… 已經過 ' + seconds + ' 秒（採集 → 評分 → 推理 → 稽核）';
+      };
+      tick();
+      setInterval(tick, 1000);
+    });
+  })();
 """
 
 
@@ -390,11 +433,22 @@ def _home_page() -> str:
                value='分析近期市場狀況、主要驅動因素與風險'>
       </div>
       <input type='hidden' name='mode' value='test'>
-      <div class='actions'><button>開始分析</button></div>
+      <div class='actions'>
+        <button id='go'>開始分析</button>
+        <span id='progress' class='progress' hidden aria-live='polite'>
+          <span class='spinner' aria-hidden='true'></span>
+          <span id='progress-text'>分析中…</span>
+        </span>
+      </div>
     </form>
     <p class='small muted' style='margin:16px 0 0'>單次分析需要數十秒：六個領域的採集是平行的，
-    但仍要等最慢的來源回應。請勿重複送出。</p>
+    但仍要等最慢的來源回應。送出後按鈕會停用，完成時本頁會直接換成研究報告。</p>
+    <noscript><p class='small notice' style='margin:12px 0 0'>你的瀏覽器停用了 JavaScript：
+    表單仍可正常送出，但不會顯示進度提示，也不會阻止重複點擊。送出後請耐心等待頁面換頁，
+    不要重複按下按鈕。</p></noscript>
   </section>
+
+  <script>{_HOME_JS}</script>
 
   <section class='panel'>
     <h2>你會拿到什麼</h2>

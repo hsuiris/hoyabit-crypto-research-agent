@@ -347,6 +347,43 @@ class HomePagePresentationTests(unittest.TestCase):
         """降級的報告與正常報告外觀相同，所以模型路徑狀態必須在首頁就看得到。"""
         self.assertIn("Bedrock Converse", self._body())
 
+    def test_submitting_disables_the_button_and_shows_progress(self):
+        """送出後必須停用按鈕並顯示進度。
+
+        Function URL 是同步請求／回應：使用者按下按鈕之後，畫面在數十秒內完全沒有變化，
+        看起來像沒反應，於是會重複點擊 —— 而每一次點擊都是一次完整的採集與模型呼叫。
+        """
+        body = self._body()
+        self.assertIn("id='go'", body)
+        self.assertIn("button.disabled = true", body)
+        self.assertIn("id='progress'", body)
+        self.assertIn("aria-live='polite'", body)
+
+    def test_progress_reports_elapsed_time(self):
+        """只顯示「處理中」不夠：使用者要能判斷是還在跑還是卡住了。"""
+        body = self._body()
+        self.assertIn("已經過 ", body)
+        self.assertIn("setInterval", body)
+
+    def test_page_works_without_javascript(self):
+        """JS 失效時表單仍可送出，並明確告知不會有進度提示。"""
+        body = self._body()
+        self.assertIn("<noscript>", body)
+        self.assertIn("不要重複按下按鈕", body)
+        # 表單本身不依賴 JS：method/action 由 HTML 決定，沒有 onclick 攔截。
+        self.assertIn("<form method='post' class='run'>", body)
+
+    def test_spinner_respects_reduced_motion(self):
+        """會動的元素必須尊重系統的減少動態偏好設定。"""
+        self.assertIn("prefers-reduced-motion", self._body())
+
+    def test_home_page_uses_no_external_resources(self):
+        """不得引入 CDN、外部字型或外部腳本：現場網路不可控。"""
+        body = self._body()
+        for pattern in ("src='http", 'src="http', "href='http://", 'href="http://',
+                        "cdn.", "googleapis", "unpkg", "jsdelivr"):
+            self.assertNotIn(pattern, body, pattern)
+
     def test_home_page_keeps_the_form_contract(self):
         """樣式改動不得動到表單契約（E1 的守衛測試依賴這些字串）。"""
         body = self._body()

@@ -142,7 +142,11 @@ class ExecutionLogTests(unittest.TestCase):
             self.assertTrue(step["fallback_used"])
             self.assertEqual(step["provider"], "deterministic")
             self.assertIsNone(step["model"])
-            self.assertEqual(step["fallback_reason"], "no_client_injected")
+            # 原本這裡斷言的是 planner 自己回報的 `no_client_injected`，但那個字串同時涵蓋
+            # 「呼叫端關掉 LLM」「provider 未設定」「時間預算不足」三種情況，讀 Execution Log
+            # 的人無法分辨要不要去修設定。Orchestrator 現在會把實際原因寫清楚。
+            self.assertIn("llm_disabled_by_caller", step["fallback_reason"])
+            self.assertIn("use_llm=False", step["fallback_reason"])
 
     def test_step_records_duration_and_time_window_assumptions(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -225,7 +229,10 @@ class PlannerDegradationTests(unittest.TestCase):
 
             self.assertEqual(client.calls, [], "剩餘預算不足時不得啟動模型呼叫")
             self.assertEqual(step["path"], "fallback")
-            self.assertEqual(step["fallback_reason"], "no_client_injected")
+            # 這一條原本與「LLM 被關掉」斷言同一個字串，因此它其實證明不了「是預算造成的」。
+            # 現在原因分開了，這個測試才真的釘住 watchdog 這條路徑。
+            self.assertIn("planner_skipped_time_budget", step["fallback_reason"])
+            self.assertNotIn("llm_disabled_by_caller", step["fallback_reason"])
 
     def test_offline_default_run_never_calls_a_model_for_planning(self):
         with patch.object(orchestrator, "default_llm_client",

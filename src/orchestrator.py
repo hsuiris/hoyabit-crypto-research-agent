@@ -39,8 +39,8 @@ from .validation import (run_citation_gate, validate_claims, validate_evidence,
                          validate_evidence_assessments)
 from .errors import AgentInputError, validate_request
 from .llm import (CLAIM_PROPOSAL_RESULT_FIELD, EVIDENCE_ASSESSMENT_RESULT_FIELD,
-                  analyze_with_llm, critique_with_llm, default_llm_client, llm_is_configured,
-                  llm_runtime_info)
+                  analyze_with_llm, configured_provider, critique_with_llm, default_llm_client,
+                  llm_is_configured, llm_runtime_info)
 from .ohlcv import downsample, load_ohlcv, price_windows
 from .planner import (PLANNER_TIMEOUT_SECONDS, PLANNING_PATH_LLM, build_research_plan,
                       plan_to_dict)
@@ -68,6 +68,15 @@ _CLAIM_MIN_SECONDS = 15.0
 # ceiling of its own, so adding a planner cannot push the run past the competition limit. Below this
 # remaining margin the planner is not attempted at all -- the deterministic keyword plan is instant.
 _PLANNER_MIN_SECONDS = 5.0
+# `plan_research` 走 deterministic fallback 的三個原因。`src/planner.py` 只能回報
+# `no_client_injected`（它只知道自己沒拿到 client），但那一個字串涵蓋了三種完全不同的情況：
+# 使用者關掉 LLM、環境沒設定 provider、時間預算不足以嘗試。讀 Execution Log 的人要據此決定
+# 「這是預期行為」還是「要去修設定」，所以在這一層把原因寫清楚。
+_PLANNER_REASON_LLM_DISABLED = "llm_disabled_by_caller：本次執行以 use_llm=False 呼叫，未嘗試模型規劃"
+_PLANNER_REASON_LLM_UNCONFIGURED = ("llm_not_configured：provider=%s 未通過設定檢查"
+                                    "（缺金鑰或缺模型 ID），未嘗試模型規劃")
+_PLANNER_REASON_TIME_BUDGET = ("planner_skipped_time_budget：剩餘 %.1f 秒低於門檻 %.1f 秒，"
+                               "改用即時的關鍵字 plan 以保留預算給採集與推理")
 
 # Where the plan came from, as recorded in the Execution Log. "shared" means the plan was built once
 # by a comparison run and handed to both legs, so both coins are judged over the same time window.
@@ -1189,9 +1198,21 @@ def _plan_research(question: str, coins: list[str], *, use_llm: bool, client: ob
     if remaining < _PLANNER_MIN_SECONDS:
         # Same watchdog rule as the analyst phase: a call started with seconds left burns budget and
         # still fails, and the deterministic plan costs nothing.
-        return build_research_plan(question, coins, client=None)
+        plan, log = build_research_plan(question, coins, client=None)
+        # `build_research_plan()` 只知道「沒有 client」，不知道 client 是被時間預算擋掉的。
+        # 不覆寫的話，這條路徑與「使用者關掉 LLM」在 Execution Log 上完全一樣，讀者無法分辨
+        # 「模型沒被呼叫」是設定造成的還是預算耗盡造成的 —— 而這兩者的處置完全不同。
+        return plan, {**log, "fallback_reason": _PLANNER_REASON_TIME_BUDGET % (
+            max(remaining, 0.0), _PLANNER_MIN_SECONDS)}
     if client is None and use_llm and llm_is_configured():
         client = default_llm_client()
+    if client is None:
+        # 同理：把「為什麼沒有 client」講清楚。`use_llm=False` 是使用者的選擇，
+        # provider 未設定是環境問題，兩者都不是錯誤，但要能分辨。
+        plan, log = build_research_plan(question, coins, client=None)
+        reason = (_PLANNER_REASON_LLM_DISABLED if not use_llm
+                  else _PLANNER_REASON_LLM_UNCONFIGURED % (configured_provider() or "未設定"))
+        return plan, {**log, "fallback_reason": reason}
     return build_research_plan(question, coins, client=client,
                                timeout_seconds=min(PLANNER_TIMEOUT_SECONDS, remaining))
 
