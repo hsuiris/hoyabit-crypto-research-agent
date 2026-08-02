@@ -224,6 +224,74 @@ def _resolve_run_dir(run_id: str = "") -> Path | None:
     return _LATEST_RUN_DIR
 
 
+def _load_artifacts(run_dir: Path) -> dict | None:
+    """讀出某個 run 目錄的六份提交物；缺任一份即回 None。
+
+    只讀檔，不重跑分析：`GET /report?run=` 必須是純讀取，否則重新整理頁面就會再打一次
+    collector 與 Bedrock，而正式執行的一次性額度也可能因此被消耗。
+    """
+    loaded: dict = {}
+    for key, name in ARTIFACT_FILENAMES.items():
+        target = run_dir / name
+        if not target.is_file():
+            return None
+        text = target.read_text(encoding="utf-8")
+        loaded[key] = json.loads(text) if name.endswith(".json") else text
+    return loaded
+
+
+def _report_page(run_id: str, artifacts: dict, *, mode: str = "", status: str = "",
+                 result: dict | None = None, footer_note: str = "") -> str:
+    """把提交物交給純渲染層。此處只負責取值，不做任何判斷或計算。"""
+    from src.cloud_report_view import render_report_page
+
+    lifecycle = (artifacts.get("execution_log") or {}).get("run_lifecycle") or {}
+    log = artifacts.get("execution_log") or {}
+    return render_report_page(
+        run_id=run_id,
+        mode=mode or log.get("run_mode") or lifecycle.get("run_mode") or RUN_MODE_TEST,
+        status=status or log.get("run_status") or lifecycle.get("status") or "",
+        result=result if result is not None else _result_from_artifacts(artifacts),
+        report=artifacts.get("report") or "",
+        evidence=artifacts.get("evidence") or [],
+        claims=artifacts.get("claims") or {},
+        execution_log=log,
+        manifest=artifacts.get("manifest") or {},
+        artifact_filenames=tuple(ARTIFACT_FILENAMES.values()),
+        footer_note=footer_note,
+    )
+
+
+def _result_from_artifacts(artifacts: dict) -> dict:
+    """`GET /report?run=` 沒有記憶體裡的 result，改從 manifest／log 重建展示所需的最小欄位。
+
+    只取幣種與研究問題這類標識欄位。**不重建 stance**：那是分析結果，若從別處猜一個值出來，
+    畫面就會變成第二份真相來源。stance 缺失時，立場區塊直接不顯示。
+    """
+    manifest = artifacts.get("manifest") or {}
+    plan = artifacts.get("research_plan") or {}
+    coins = plan.get("coins") or manifest.get("coins") or []
+    return {
+        "coin": (coins[0] if isinstance(coins, list) and coins else manifest.get("coin") or ""),
+        "question": plan.get("question") or manifest.get("question") or "",
+    }
+
+
+def _render_existing_run(event: dict) -> dict:
+    """`GET /report?run=<run_id>`：只渲染既有產物，絕不觸發研究管線。"""
+    params = _query(event)
+    run_id = (params.get("run") or "").strip()
+    run_dir = _resolve_run_dir(run_id)
+    if run_dir is None:
+        return _no_run_response()
+    artifacts = _load_artifacts(run_dir)
+    if artifacts is None:
+        return _no_run_response()
+    return _html(200, _report_page(
+        run_dir.name, artifacts,
+        footer_note="本頁由既有提交物渲染，未重新執行任何分析。"))
+
+
 def _no_run_response() -> dict:
     return _html(404, "<meta charset='utf-8'><h1>沒有可下載的執行結果</h1>"
                       "<p>提交物寫在處理該次執行的容器暫存目錄，只有那個容器讀得到。"
@@ -318,6 +386,8 @@ def handler(event, context):
         return _download_bundle(event)
     if method == "GET" and path.rstrip("/").endswith("/artifact"):
         return _single_artifact(event)
+    if method == "GET" and path.rstrip("/").endswith("/report"):
+        return _render_existing_run(event)
     if method == "GET":
         # 把 SDK 能力放在首頁，讓部署驗收不必先跑一次完整分析就能看出模型路徑是否可用。
         # 只顯示版本與布林值，不顯示 detail（例外訊息），並仍經 escape 處理。
@@ -379,16 +449,9 @@ def handler(event, context):
         # sdk_capability 讓呼叫端能程式化區分「模型成功」與「SDK 太舊而靜默降級」，
         # 不必回頭撈 CloudWatch Logs。
         return {"statusCode": 200, "headers": {"content-type": "application/json"}, "body": json.dumps({"result": result, "run_id": record.run_id, "run_mode": record.mode, "run_status": record.status, "artifact_directory": str(output_dir), "sdk_capability": SDK_CAPABILITY, **artifacts}, ensure_ascii=False)}
-    # 下載連結帶上 run_id：容器若同時服務多次執行，不帶 run_id 只會拿到最後一次的產物。
-    downloads = (
-        f"<h2>下載提交物</h2><p>"
-        f"<a href='/download?scope=required&run={escape(record.run_id)}'>下載三份提交物（ZIP）</a>"
-        f"　｜　"
-        f"<a href='/download?scope=all&run={escape(record.run_id)}'>下載全部產出（ZIP）</a></p><p>"
-        + "　".join(
-            f"<a href='/artifact?path={escape(name)}&run={escape(record.run_id)}&download=1'>"
-            f"{escape(name)}</a>"
-            for name in ARTIFACT_FILENAMES.values())
-        + "</p>"
-    )
-    return _html(200, f"<meta charset='utf-8'><h1>{result['coin']} 分析完成</h1><p>Run {record.run_id}（{record.mode}／{record.status}）</p>{downloads}<pre style='white-space:pre-wrap'>{report}</pre><h2>執行紀錄（Execution Log）</h2><pre>{json.dumps(log, ensure_ascii=False, indent=2)}</pre>")
+    # 三段式報告頁（E3）。原本這裡是兩個 `<pre>`：report.md 與 execution log 的 raw JSON，
+    # 而 evidence.json 在畫面上完全不存在——於是「每個結論都能點回原始來源」在雲端只能靠下載
+    # JSON 再人工比對 ID。渲染邏輯放在 `src/cloud_report_view.py` 的純函式，這裡只傳值。
+    return _html(200, _report_page(
+        record.run_id, artifacts, mode=record.mode, status=record.status, result=result,
+        footer_note=f"可用 /report?run={record.run_id} 重新開啟本次結果（不會重跑分析）。"))
