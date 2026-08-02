@@ -324,10 +324,16 @@ outline:3px solid #7aa8cc;outline-offset:2px;border-color:#12507f}
 form.run .actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
 form.run button:disabled{background:#7f95a8;cursor:progress;box-shadow:none}
 .progress{display:inline-flex;align-items:center;gap:9px;color:var(--muted);font-size:.9rem}
+/* `display:inline-flex` 是作者樣式，會蓋掉瀏覽器預設的 `[hidden]{display:none}`。
+   少了這一條，任何加上 hidden 的 .progress 仍然會顯示 —— 實測就是「還沒按就在轉」。 */
+.progress[hidden]{display:none}
+/* 預設靜止。轉動只在 .running 時發生，因此「還沒點擊」與「正在執行」在視覺上不同：
+   一個一直在轉的圖示會讓人以為系統已經在跑，那是錯誤的狀態訊息。 */
 .spinner{width:15px;height:15px;border:2px solid #c9d2db;border-top-color:#12507f;
-border-radius:50%;display:inline-block;animation:spin .8s linear infinite}
+border-radius:50%;display:inline-block;animation:none}
+.progress.running .spinner{animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.spinner{animation:none}}
+@media (prefers-reduced-motion:reduce){.progress.running .spinner{animation:none}}
 form.run button{padding:12px 30px;font:inherit;font-size:1.02rem;font-weight:700;color:#fff;
 background:#12507f;border:0;border-radius:9px;cursor:pointer;
 box-shadow:0 2px 6px rgba(18,80,127,.28)}
@@ -371,7 +377,8 @@ _HOME_JS = """
       // 停用而不是隱藏：位置不變、畫面不跳動，而且 disabled 的按鈕不會再次送出表單。
       button.disabled = true;
       button.textContent = '分析中…';
-      progress.hidden = false;
+      // 轉動由 class 控制，不是由顯示／隱藏控制：送出前圖示是靜止的，代表「尚未開始」。
+      progress.className = 'progress running';
       var started = Date.now();
       var tick = function () {
         var seconds = Math.floor((Date.now() - started) / 1000);
@@ -435,9 +442,9 @@ def _home_page() -> str:
       <input type='hidden' name='mode' value='test'>
       <div class='actions'>
         <button id='go'>開始分析</button>
-        <span id='progress' class='progress' hidden aria-live='polite'>
+        <span id='progress' class='progress' aria-live='polite'>
           <span class='spinner' aria-hidden='true'></span>
-          <span id='progress-text'>分析中…</span>
+          <span id='progress-text'>點擊後開始分析</span>
         </span>
       </div>
     </form>

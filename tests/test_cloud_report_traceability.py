@@ -347,6 +347,27 @@ class HomePagePresentationTests(unittest.TestCase):
         """降級的報告與正常報告外觀相同，所以模型路徑狀態必須在首頁就看得到。"""
         self.assertIn("Bedrock Converse", self._body())
 
+    def test_progress_indicator_is_idle_before_the_first_click(self):
+        """未點擊時圖示必須靜止，文字必須說「還沒開始」。
+
+        背景（實測缺陷）：進度區塊原本用 HTML 的 `hidden` 屬性隱藏，但 `.progress` 的
+        `display:inline-flex` 是作者樣式，會蓋掉瀏覽器預設的 `[hidden]{display:none}`。
+        結果是頁面一載入就有一個轉動的圖示，等於對使用者宣告「系統已經在跑」——
+        那是錯誤的狀態訊息，比沒有提示更糟。
+        """
+        body = self._body()
+        self.assertIn("點擊後開始分析", body)
+        self.assertNotIn(" hidden aria-live", body)
+        # 預設 animation:none，只有 .running 才轉。
+        self.assertIn("animation:none", body)
+        self.assertIn(".progress.running .spinner{animation:spin", body)
+        # 保留 [hidden] 修正：其他地方若再用 hidden，不能重演同一個 bug。
+        self.assertIn(".progress[hidden]{display:none}", body)
+
+    def test_submitting_switches_the_indicator_to_running(self):
+        """送出後才切換成執行中狀態。"""
+        self.assertIn("progress.className = 'progress running'", self._body())
+
     def test_submitting_disables_the_button_and_shows_progress(self):
         """送出後必須停用按鈕並顯示進度。
 
