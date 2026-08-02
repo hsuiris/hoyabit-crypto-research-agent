@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: release/final-4h   # T8.6 之後的四小時交付分支（E 系列）
-current_task: E2
-last_updated_at: 2026-08-02T05:40:00+08:00
+current_task: E4
+last_updated_at: 2026-08-02T07:10:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 777 tests, 777 passed, 0 failed, 0 errors   # E2 前為 703
+full_suite_latest: 927 tests, 927 passed, 0 failed, 0 errors   # E2 後 777 → E2.5 791 → E2.6 816 → E3 847 → E3.1／E3.2 927
 
 allowed_statuses:
   - TODO
@@ -1016,6 +1016,61 @@ tasks:
       - X／Twitter 仍未納入（需付費 API）；社群面因此偏向開發者與自動化帳號，不代表散戶情緒
       - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
 
+  E0:
+    title: Create a safe release branch from the correct remote commit
+    status: PASS
+    depends_on: [T8.6]
+    branch: release/final-4h
+    target_minutes: 15
+    completed_at: 2026-08-02T01:53:24+08:00
+    commit: 6e4106f
+    note: >-
+      E 系列的起點。本機 GoToAWS0801 與 origin/GoToAWS0801 分叉（remote-only 19、local-only 11），
+      因此不合併、不重寫歷史，改以 origin/GoToAWS0801（84079f5）建立乾淨的 release/final-4h。
+    artifacts:
+      - docs/KIRO_4H_AWS_DELIVERY_PROMPTS.md
+      - docs/KIRO_REMEDIATION_TASK_PROMPTS.md
+    blockers: []
+    known_limitations:
+      - 純文件與分支操作，未修改任何產品程式碼
+
+  E1:
+    title: Make the public lambda demo test-only
+    status: PASS
+    depends_on: [E0]
+    branch: release/final-4h
+    target_minutes: 20
+    completed_at: 2026-08-02T02:38:09+08:00
+    commit: 536ed74
+    note: >-
+      公開 Function URL 的 AuthType 是 NONE，任何取得網址的人都能觸發完整執行並消耗 Bedrock
+      配額。正式執行（formal）具一次性語意且會寫入 formal lock，不該由匿名請求發動。
+    fix: >-
+      `lambda_handler.py` 在 `_prepare_run`、RunManager、collector 與任何模型呼叫**之前**攔下請求：
+      `mode=formal`（含大小寫變體）回 403 `public_formal_mode_blocked`；
+      帶 `authorized_rerun`／`rerun` 類旗標回 403 `public_rerun_flag_blocked`；
+      未知 mode 回 400 `public_unknown_mode_blocked`。不偷偷把 formal 降級為 test。
+      首頁移除 formal 選項並明示公開雲端展示只提供 test mode。
+      `aws/verify-deployment.sh` 的首頁檢查改為確認 test-only，不再把 test／formal selector
+      當成 PASS。本機 CLI 與 `src/app.py` 的 formal 能力未刪除。
+    artifacts:
+      - lambda_handler.py
+      - aws/verify-deployment.sh
+      - aws/README.md
+      - tests/test_final_release_guardrails.py
+    test_summary: >-
+      tests/test_final_release_guardrails.py 新增，以 mock 證明被拒絕的請求對執行管線的呼叫
+      次數為 0；錯誤回應不含 stack trace、AWS account、Function URL 或原始 exception。
+      GET、`/artifact`、`/download?scope=required`、JSON／form 相容性均無回歸。
+    blockers: []
+    known_limitations:
+      - >-
+        未部署驗證。E4 的 preflight 已實測線上首頁仍同時顯示 test 與 formal 選項，
+        證明這個護欄尚未上線（線上為 f94acfb）
+      - >-
+        線上 guard 是否生效不得用 mode=formal 探測驗證 —— 若 guard 未生效，該探測會意外觸發
+        一次正式執行。只能以本 Task 的測試、部署的 SHA 與首頁 HTML 判斷
+
   E2:
     title: Add question-aware evidence assessment
     status: PASS
@@ -1151,3 +1206,337 @@ tasks:
         `report.md` 未顯示 assessment（`src/report_renderer.py` 不在本 Task 的修改範圍）；
         評估目前只出現在 `evidence.json` 與 `execution_log.json`
       - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
+
+  E2.5:
+    title: Let evidence reliability drive the market stance
+    status: PASS
+    depends_on: [E2]
+    branch: release/final-4h
+    completed_at: 2026-08-02T04:02:56+08:00
+    commit: 6f485d3
+    note: >-
+      原始 E0-E4 計畫沒有這個 Task。起因是 `_signal_inventory()` 對每個訊號套用字面常數權重，
+      reliability 0.90 的市場資料與 reliability 0.20 的 fallback fixture 對 stance 的貢獻完全相同。
+    root_cause: >-
+      症狀是報告內部自相矛盾：離線全 fallback 的 ETH 執行在 report.md 標題喊「偏多 Bullish
+      信心 0.55」，同一批證據在 claims.json 卻正確判定 insufficient_evidence。兩層讀同一批
+      Evidence，卻只有 claim_graph 看得到 reliability_score。
+    fix: >-
+      `_signal_inventory()` 內建 evidence_id → reliability_score 查表，`add()` 依
+      `min(1.0, reliability / 0.70)` 計算有效權重（0.70 對齊 source_registry 第一方即時來源的
+      source_quality 基準）；reliability 缺值視為達標、不降權，避免訊號被靜靜吃掉。
+      `signal` dict 同時保留 `base_weight` 供報告解釋為什麼被調降。
+      `_market_stance()` 新增 reliability <= 0.30 的訊號不得列入 drivers。
+      `_dynamic_risk_factors()` 新增 freshness < 0.40 的過期風險輸出，補上 freshness 分量原本
+      沒有 hard cap limiter、因此在報告路徑上沒有出口的缺口。
+    verified: >-
+      離線全 fallback 的 ETH 執行現在輸出「中性（Neutral）」，basis 為「方向性訊號權重僅 0.9
+      （門檻 1.5），不足以形成方向判讀」，與 claims.json 的 insufficient_evidence 一致。
+    artifacts:
+      - src/orchestrator.py
+      - tests/test_stance_reliability_weighting.py
+    test_summary: >-
+      新增 14 個測試；python3 -m unittest discover -s tests → 791 passed, 0 failed, 0 errors
+      （E2 後為 777）。未修改任何既有測試。
+    blockers: []
+    known_limitations:
+      - >-
+        只修 stance 方向。報告標題的「信心」仍來自 `_offline_reasoning()` 的
+        `0.30 + 0.35 × 一致度`，完全不讀 reliability，因此離線報告會同時出現標題信心 0.55
+        與 Claim 信心 0.35 兩個同名但不同尺度的數字
+      - demo-fixtures 未重新產生，仍是 T8.6 時期的舊語意版本
+
+  E2.6:
+    title: Raise the Bedrock output cap so long analyses stop truncating
+    status: PASS
+    depends_on: [E2.5]
+    branch: release/final-4h
+    completed_at: 2026-08-02T06:05:00+08:00
+    commit: 3ce524d
+    note: >-
+      原始 E0-E4 計畫沒有這個 Task，由使用者指派。屬缺陷修復，不新增功能。
+    root_cause: >-
+      `BEDROCK_MAX_TOKENS` 預設寫死 2048，而 `aws/template.yaml` 的 Lambda 環境變數裡沒有這個
+      變數、`.env` 也不進部署包 —— 因此雲端只能吃程式內建預設值，完全沒有調整途徑。
+      同時 E2 把每筆 Evidence 的語意評估併進**同一次**分析回應：實測雲端 analyst 輸出約
+      1,000 字中文（約 1,100–1,500 tokens，見 demo-fixtures/competition-ready/live-success/），
+      再加 13 筆評估後很容易超過 2048。
+      超過時 Converse 不會報錯，而是回 `stopReason=max_tokens` 並把 JSON 截在一半，於是
+      `json.loads()` 的訊息與已修好的 markdown fence bug 一模一樣；更糟的是既有重試會把整份
+      JSON Schema 附在 prompt 後面，讓輸出要求**更長**，第二次保證再被截，整份分析降級成離線推理。
+    fix: >-
+      1. `aws/template.yaml` 新增 `BedrockMaxTokens` 參數（預設 5000、範圍 512–5000，對齊
+         amazon.nova-lite-v1:0 的文件輸出上限）與 `BEDROCK_MAX_TOKENS: !Ref BedrockMaxTokens`
+         環境變數。後者才是雲端能不能調整的關鍵。
+      2. `aws/deploy.sh` 新增 `--max-tokens`，讀 `DEPLOY_BEDROCK_MAX_TOKENS` 而非執行期的
+         `BEDROCK_MAX_TOKENS`（本機 .env 不該決定雲端部署什麼），並在打包前攔下非數字。
+      3. `src/llm.py`：程式內建預設 2048 → 4096；新增 `stopReason == max_tokens` 偵測，錯誤
+         訊息指名當時的上限與 stopReason；截斷與格式錯誤改走**相反**的重試策略 —— 截斷要求縮短
+         且不附 schema，並明確允許捨棄 `evidence_assessments` 與 `claims`（兩者都不在
+         `ANALYSIS_SCHEMA["required"]`），因此最壞情況是那兩層走 deterministic fallback，
+         敘事仍由模型撰寫。
+    reverse_verified: >-
+      以 HEAD 版 `_generate_bedrock` 餵一個截斷回應，舊行為的錯誤訊息是
+      `Unterminated string starting at: line 1 column 13 (char 12)`（看不出是撞到上限），
+      maxTokens 為 2048，且重試 prompt 由 275 字元加長到 342（附上 schema）。
+    artifacts:
+      - src/llm.py
+      - aws/template.yaml
+      - aws/deploy.sh
+      - .env.example
+      - tests/test_bedrock_output_cap.py
+    test_summary: >-
+      targeted：tests/test_bedrock_output_cap.py 25 tests OK。
+      完整套件：python3 -m unittest discover -s tests → 816 passed, 0 failed（E2.5 後為 791）。
+      compileall OK；bash -n aws/deploy.sh OK；--dry-run 425 KB；
+      `--max-tokens abc` 正確以退出碼 2 擋下；離線端到端 gate PASS 六檔齊備。
+    blockers: []
+    known_limitations:
+      - >-
+        **不是解除上限。** amazon.nova-lite-v1:0 的硬上限是 5,000 output tokens，超過必定截斷；
+        本 Task 只是把 2048 拉到模型允許範圍內，並讓截斷可診斷、重試策略正確
+      - >-
+        上限拉高後模型會生成更多字，analyst 那一段預估由 20 秒增至 50–60 秒，整趟由 47 秒
+        增至 60–95 秒（仍遠低於命題 900 秒上限）
+      - 未部署，因此雲端仍吃 2048；下次部署後才生效
+      - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
+
+  E3:
+    title: Render traceable cloud research reports
+    status: PASS
+    depends_on: [E2.6]
+    branch: release/final-4h
+    target_minutes: 45
+    completed_at: 2026-08-02T06:40:00+08:00
+    commit: 8696661
+    executor: 由另一個 agent 實作；本文件的驗收由協調端獨立複驗（見 independently_verified）
+    scope_note: >-
+      只動 allowlist 內的三個檔案：`lambda_handler.py`、新增 `src/cloud_report_view.py`、
+      新增 `tests/test_cloud_report_traceability.py`。`src/report_renderer.py` 在 allowlist 內
+      但未使用（這造成下方 criterion_10_gap）。`src/cloud_report_view.py` 只 import `json` 與
+      `html.escape`，零第三方相依，部署包由 29 檔增為 30 檔。
+    delivered:
+      - >-
+        新增不觸發研究管線的 `GET /report?run=<run_id>`：`_load_artifacts()` 只讀檔，缺任一份
+        提交物即回 None；找不到 run 時回 404 並說明容器暫存限制。
+      - >-
+        三個報告區塊（研究報告／證據清單／執行紀錄），以站內 anchor 導覽而非 JavaScript tab，
+        因此無 JS 也能閱讀；有 `:focus` 樣式與表格 `overflow`。
+      - >-
+        Final Report 的每個 Fact、supporting／contradicting Evidence ID 與 source_item_id
+        都是可解析的站內 anchor。
+      - POST 結果頁與 `GET /report` 共用同一個渲染層，不是兩份實作。
+    independently_verified: >-
+      協調端未採信實作方 agent 的自測，另行產生一個 run 並實際渲染驗證：
+      HTTP 200、`lang="zh-Hant-TW"`、77 KB；
+      **anchor 完整性 100%** —— Claim 引用的 EV-001／EV-006／EV-007 全部有 anchor target、
+      Claim 卡片有 `#claim-CL-001`、source_item anchor 5/5、**零斷鏈**（所有 `href='#…'` 都有
+      對應 `id`）、9 筆 Evidence 全部顯示；
+      **XSS 防護正確** —— 注入 `<script>alert('xss')</script>`、`javascript:alert(1)`、
+      `data:text/html,<script>`、`<img src=x onerror=alert(1)>` 後，頁面無可執行 `<script>`、
+      `javascript:` 與 `data:` 都沒有變成 href、惡意字串 escape 成純文字（`onerror=` 僅出現在
+      escape 後的文字節點，不在任何標籤內部）；
+      **`/report` 真的不觸發管線** —— patch `orchestrator.run`、`collect_evidence_detailed`、
+      `RunManager.create_run` 三者使其一被呼叫即拋錯，狀態仍 200 且三者呼叫次數皆為 0；
+      未知 run_id、`../..`、`../runs` 全部 404，內容說明容器限制且不含 stack trace；
+      頁首 run_id／mode／status／開始／完成／as-of／Citation Gate／降級項目全在；
+      條件 3 列舉的 13 項欄位（verdict、信心分量、生效上限、三層分離、推翻條件、reliability
+      breakdown、問題相關性、effective weight、related claim ID、stage duration、collector
+      locator、evidence_ids_created、fallback reason）全部渲染；
+      E1 test-only 未退化（首頁無 formal 選項、POST mode=formal → 403）；
+      `/download?scope=required|all` 仍回 base64 ZIP、`/artifact?path=report.md` 200；
+      `<pre>` 共 11 次全部合法（report.md 原文與 execution_log.json 原文折疊在 `<details>` 內，
+      其餘 9 次是證據表格內已 escape 的 `content_reference`），主畫面是結構化 HTML。
+    criterion_10_gap:
+      status: 已於 E3.1 關閉
+      detail: >-
+        E3 的 commit 8696661 當時**未達成**驗收條件第 10 條的「`report.md` 本身也必須呈現
+        每個 Claim 與可點擊 Evidence／source-item URL」。因為 `src/report_renderer.py` 未被
+        修改，Claim 段仍是純文字（`- 支持證據：EV-001, EV-006`），該段 markdown 連結數實測為 0，
+        也沒有任何 `ITEM-` 參照。雲端 HTML UI 的溯源是完整的，缺的只有 markdown 這份獨立提交物。
+      closed_by: E3.1
+      note: >-
+        本文件把 E3 記為 PASS 並保留這段紀錄，而不是把缺口從歷史裡刪掉：E3 的實作範圍與
+        E3.1 的補件是兩次不同的變更，各有自己的 commit。
+    test_summary: >-
+      targeted：python3 -m unittest discover -s tests -p 'test_cloud_report_traceability.py'
+      → 31 tests OK。
+      完整套件：python3 -m unittest discover -s tests → 847 passed, 0 failed, 0 errors
+      （E2.6 後為 816）。
+      compileall OK；bash -n aws/deploy.sh 與 aws/verify-deployment.sh 皆 OK；
+      --dry-run 30 檔 437 KB；git diff --check 乾淨；commit subject 與 TARGET_COMMIT 逐字相符。
+    blockers: []
+    known_limitations:
+      - >-
+        `GET /report?run=` 只讀容器本機 `/tmp`。冷啟動或被路由到其他容器時回 404；
+        這是 Function URL 的固有限制，已在回應中說明
+      - >-
+        `_result_from_artifacts()` 刻意不重建 stance：那是分析結果，若從 manifest 猜一個值出來，
+        畫面就會變成第二份真相來源。stance 缺失時立場區塊直接不顯示
+      - 未部署，雲端仍是 f94acfb；`/report` 尚未在真實 Function URL 上驗證
+      - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）
+
+  E3.1:
+    title: Make report.md claim citations clickable
+    status: PASS
+    depends_on: [E3]
+    branch: release/final-4h
+    completed_at: 2026-08-02T07:00:00+08:00
+    commit: 3a169bd
+    note: >-
+      關閉 E3 唯一未達成的驗收條件（第 10 條）。與 E3.2 平行開發，兩者檔案零重疊。
+    fix: >-
+      `render_claims_section(graph, confidence_weights, evidence=())` 新增有預設值的第三個
+      參數，不傳時輸出與改動前逐字相同，因此 `src/orchestrator.py` 的 `_claims_markdown()`
+      零修改仍可運作；`render_competition_report()` 把它手上已有的 evidence 傳進去。
+      `- 事實：`／`- 支持證據：`／`- 反方證據：` 三處改為 `[EV-001](https://…)`，聚合來源
+      額外列出 `semantic_assessment.source_item_ids` 指到的子項。
+    safety_boundary: >-
+      「不產生錯的連結」優先於「多一個連結」：只放行 http(s) 且不含會破壞 markdown 語法的位址；
+      缺 URL、`javascript:`、`data:` 一律純文字，不生成指向空字串或 `#` 的假連結；
+      `verification_status == "rejected"` 的證據不連結也不展開子項（沿用 `_build_footnotes()`／
+      `_cite()` 對 rejected 的同一個判斷）；連結文字跳脫 `\`、`[`、`]`、`(`、`)`。
+      段落順序與既有行前綴全部保留，`src/report_renderer.py` 維持純渲染層。
+    artifacts:
+      - src/report_renderer.py
+      - tests/test_report_claim_citations.py
+      - tests/test_t5_citation_gate.py
+      - tests/test_t4_claim_graph_wiring.py
+    test_summary: >-
+      新增 33 個測試。五幣 offline E2E 實測：Claim 段連結數由 **0 變成 5**（BTC／ETH／SOL／
+      BNB／XRP 一致），六檔齊備、Citation Gate 皆 PASS、manifest hash 全相符。
+      完整套件見 E3.2（兩者同一輪驗證）。
+    assertion_changes: >-
+      沒有既有斷言被刪除或放寬。`test_t5_citation_gate` 斷言的是行前綴（只在冒號後加內容）、
+      `test_t4_claim_graph_wiring` 走不傳 evidence 的路徑，兩者原樣通過。新增的
+      `test_claim_section_citations_are_clickable` 強度高於原斷言：要求所有連結文字都必須是
+      該次 `evidence.json` 裡真實存在的 Evidence ID 或 source_item_id。
+    blockers: []
+    known_limitations:
+      - >-
+        含 `(`、`)`、空白、`<`、`>`、`"` 的 URL 一律退回純文字。這是刻意取捨：這些字元會破壞
+        markdown 連結解析，寧可少一個連結也不要產生錯的。正解是改用 `[text](<url>)` 角括號
+        形式，不是放寬字元檢查
+      - >-
+        子項連結只在 `semantic_assessment.source_item_ids` 有值時出現。離線 Claim 引用的
+        EV-001／EV-006／EV-007 皆無 `source_items`，因此離線 demo 的 Claim 段看不到子項連結
+      - Claim 段仍會列出 rejected 的 ID（只是不連結）；濾掉會改變既有輸出，超出本次範圍
+
+  E3.2:
+    title: Make the social credibility cap an actual quality judgement
+    status: PASS
+    depends_on: [E3]
+    branch: release/final-4h
+    completed_at: 2026-08-02T07:05:00+08:00
+    commit: 5dcf2c8
+    note: >-
+      原始 E0-E4 計畫沒有這個 Task，由使用者指派。與 E3.1 平行開發，兩者檔案零重疊。
+      屬缺陷修復，**與 E3 的範圍無關**，只是時序上落在 E3 之後。
+    root_cause: >-
+      `anonymous_or_low_trace_social`（上限 0.35）宣稱處理「匿名或低可追溯帳號」，但判斷只是
+      「post dict 裡有沒有 author 這個鍵」，而 `_metadata_scopes()` 會下探 `content` → `posts`
+      逐則展開、`_find_key()` 找到第一個就 return。實測三個問題：
+      (1) 一則署名替 24 則匿名擔保 —— 只有 1/25 則有作者時 cap 完全解除；
+      (2) 作者集中度不可見 —— 同一帳號刷 25 則與 25 個不同帳號各發一則分數一模一樣
+          （`independence` 只被 news lineage 稀釋，社群沒有等價機制）；
+      (3) cap 本身幾乎是 no-op —— `social_public` 的 raw score 就是 0.3875，cap 只扣 0.0375。
+    fix: >-
+      1. `src/day2_sources.py` 新增 `social_account_trace()`：覆蓋率、不同帳號數、單一帳號
+         佔比、profile locator 計數。三平台各讀自己真正提供的欄位（Reddit／HN `author`、
+         Bluesky `author_handle`），不互相冒充，不以 `fetched_at` 或 feed 名稱代填作者。
+         分母是通過相關性過濾後實際採用的貼文。純計數，不做方向性判斷。
+      2. `src/credibility.py` 的 cap 改讀這些統計；門檻寫在
+         `config/source_registry.json` 的 `social_public.account_trace_thresholds`
+         （覆蓋率 0.80、單一帳號佔比 0.50、最少 3 個不同帳號、需有 profile locator）。
+         沒有統計欄位的舊資料退回原本的作者鍵檢查並在 notes 明講，不無聲放行也不無聲觸發。
+      3. 把集中度回饋到 `independence`（比照 news lineage 的 `independence_base / divisor`
+         與同一個 `INDEPENDENCE_FLOOR`），匿名貼文併成一個無法辨識的來源而非各算一個獨立
+         聲音。這一步是必要的：光改觸發條件只值 0.0375。
+    measured_before_after: |
+      情境                      修復前 final / cap        修復後 final / independence / cap
+      25 則全部匿名              0.3500 / 生效             0.3475 / 0.0500 / 生效
+      只有 1/25 則有作者         0.3875 / 無               0.3475 / 0.0500 / 生效
+      同一帳號刷 25 則           0.3875 / 無               0.3475 / 0.0500 / 生效
+      25 個不同作者              0.3875 / 無               0.3875 / 0.4500 / 無
+    small_sample_behaviour: >-
+      漸進降級，非二元：1 則或 2 則（不同作者 < 3）套 cap 0.3500；3 則／3 作者放行 0.3875；
+      5 則／4 作者（一人發兩則）輕微稀釋至 0.3785 且不套 cap。T8.6 記錄的相關性過濾很兇
+      （HN BNB 濾掉 24/25），因此雲端會實際遇到小樣本被 cap 的情況。
+    scope_containment_verified: >-
+      協調端把 HEAD 版 `credibility.py` 與舊 registry 載進獨立路徑逐項比對：market_api／
+      major_media／blockchain_raw／derivatives_api／macro_api／local_csv／
+      official_announcement 七個 source_type 的 final_score、independence、
+      independence_factor 與 score_limiters **全部逐項相同**。變更完全侷限在社群。
+    reverse_verified: >-
+      只還原行為（保留常數，把 `_hard_caps` 社群區塊改回鍵存在檢查、`divisor = size`）後
+      10 failed，訊息如 `'anonymous_or_low_trace_social' not found in []` 與 `0.45 != 0.05`。
+    artifacts:
+      - src/day2_sources.py
+      - src/credibility.py
+      - config/source_registry.json
+      - tests/test_social_account_trace.py
+      - tests/test_credibility.py
+      - tests/test_social_sources.py
+    test_summary: >-
+      新增 37 個測試。
+      完整套件（含 E3.1）：python3 -m unittest discover -s tests → 927 passed, 0 failed,
+      0 errors（E3 後為 847）。compileall OK；循環 import 檢查 OK；
+      --dry-run 30 檔 444 KB；secret scan 乾淨；git diff --check 乾淨。
+      整合驗證：五幣 offline E2E 六檔齊備、gate 皆 PASS、manifest hash 全相符；
+      E3 的 `/report` 仍渲染正常（77 KB、三報告在、無 `<script>`）；首頁仍無 formal 選項；
+      `/download?scope=all` 仍回 ZIP；本機 Web `GET /` 200 且含 HOYA BIT。
+      Offline fallback 未受影響：離線仍 9 筆 fixture、最高 0.20、limiters 不變。
+    blockers: []
+    known_limitations:
+      - >-
+        **這不是機器人或假帳號偵測。** 只量測帳號可追溯性與聲量集中度，不判斷帳號真偽，
+        也不宣稱能識別協同帳號
+      - >-
+        無法取得帳號年齡與發文歷史。Reddit 子版 feed、Bluesky public search、HN Algolia
+        都不提供；硬做會需要額外 API 呼叫並產生假精度，因此明確不做
+      - 同一人操作多個帳號、或多帳號轉貼同一內容，在本統計中仍看起來像多個獨立聲音
+      - >-
+        `profile_locator` 只證明連結指向該帳號頁，不證明帳號真實存在或活躍（未做連結解析）
+      - >-
+        覆蓋率 0.80／集中度 0.50／最少 3 個帳號是工程判斷的門檻，不是統計檢定；
+        門檻寫在 config，可調整而不動程式
+      - >-
+        舊資料（手寫測試資料、離線 fixture）沿用舊檢查，因此「一則署名解除整筆」在那條路徑上
+        仍存在 —— 這是刻意保留既有行為，並在 notes 標明
+      - >-
+        `independence_factor` 對社群證據不再恆為 1.0，因此 E2 的
+        `effective_weight = reliability × relevance × independence_factor` 會反映集中度。
+        非社群來源已逐項確認未變
+
+  E4:
+    title: Deploy to AWS and run exactly one live smoke
+    status: TODO
+    depends_on: [E3.1, E3.2]
+    branch: release/final-4h
+    target_minutes: 70
+    task_document: docs/KIRO_4H_AWS_DELIVERY_PROMPTS.md（E4 段）
+    blockers:
+      - >-
+        **AWS 憑證不可用。** `~/.aws/credentials` 的 `[hoyabit]` profile 回 `ExpiredToken`
+        （Workshop Studio 臨時憑證），環境變數只有 `AWS_PAGER`。需回活動頁重新取
+        「Get AWS CLI credentials」（含 `AWS_SESSION_TOKEN`）並寫入 profile，或由使用者
+        在自己的終端執行部署。
+    preflight_state_verified_at: 2026-08-02T07:10:00+08:00
+    preflight_state: >-
+      既有 stack 仍存活：對 Function URL 發首頁 GET 回 HTTP 200、801 bytes，頁面顯示
+      `botocore 1.42.97／Converse 可用`。因此 CloudFormation 走 UPDATE 而非 CREATE，
+      部署 bucket、IAM role、log group 都已存在。
+      但線上程式是 f94acfb（T8.4），落後 HEAD 五個 commit：首頁仍同時顯示 test 與 formal
+      選項，證明 E1 的 test-only 護欄尚未上線；E2／E2.5／E2.6／E3／E3.1／E3.2 也都未部署。
+      本機工作樹乾淨，`CODE_COMMIT` 為 5dcf2c8（不是 `-dirty`），因此 E4 要求的
+      「線上 code_commit 等於 candidate SHA」條件成立。
+    estimated_duration_note: >-
+      runbook 的 70–90 分鐘是含緩衝的上限。因既有 stack 存活、模型存取權已驗證、
+      Lambda 內建 botocore 已支援 Converse（不需 --bundle-sdk）、Binance 地理封鎖已由 T8.4 的
+      Kraken 備援解決、nova-lite 的 markdown fence 已由 D5 修復，實際預估 30–45 分鐘。
+    outstanding_decisions:
+      - >-
+        `demo-fixtures/` 尚未重新產生，仍是 T8.6 時期的舊語意版本（早於 E2.5 的 stance 修正、
+        E3.1 的連結與 E3.2 的社群分數）。`live-success/` **不該**重生 —— 那是 f94acfb 的真實
+        雲端執行紀錄。要重生的是 `offline-backup/`、`comparison-backup/` 與頂層 `demo-fixtures/`。
+      - 是否建立 competition-demo-ready tag（T8 起即懸而未決）。
