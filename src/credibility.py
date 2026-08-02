@@ -10,8 +10,9 @@
    cap 名稱；``missing_fetched_at`` 依 schema 語意是「命中即 reject」而不是降到 0.0 的分數。
 3. **LLM 不得寫最終分數。** 呼叫端可以用 LLM 補 metadata（例如判斷 source_type），但
    ``final_score`` 只能由本模組算出來。
-4. **同源轉載不得灌高獨立性。** 20 篇引用同一原始消息只算一條主要來源鏈，independence 隨
-   lineage 群組大小遞減。
+4. **同源轉載與同帳號刷量都不得灌高獨立性。** 20 篇引用同一原始消息只算一條主要來源鏈，
+   independence 隨 lineage 群組大小遞減；社群證據再依「可辨識帳號數 vs 貼文數」二次稀釋，
+   同一帳號刷 25 則不會等於 25 個帳號各發一則。
 5. **舊新聞不會因為剛抓下來就變新鮮。** freshness 優先使用 ``event_time``／``published_at``；
    只有在來源類別明確標記「fetched_at 就是觀測時間」（例如 API 快照）時，才允許用
    ``fetched_at`` 主張新鮮度。
@@ -133,8 +134,32 @@ _INTENT_ATTRIBUTION_KEYS = frozenset({
     "planned_action", "interpretation", "reason",
 })
 
-# 社群來源的可追溯身分訊號。
+# 社群來源的可追溯身分訊號。舊資料（沒有帳號統計的手寫測試資料與離線 fixture）仍靠這組鍵判斷。
 _AUTHOR_KEYS = frozenset({"author", "account", "handle", "username", "user", "profile_url", "author_url"})
+
+# --------------------------------------------------------------------------------------
+# 社群帳號可追溯性統計的欄位契約
+#
+# 統計由 ``src/day2_sources.social_account_trace()`` 產生並放進 social 證據的
+# ``content["account_trace"]``；本模組**只讀不寫**。兩邊的鍵名靠這裡的常數與
+# ``tests/test_social_account_trace.py`` 的契約測試綁在一起，避免各寫一份字面值而漂移。
+#
+# 這些統計量測的是**帳號可追溯性與聲量集中度**，不是帳號真偽：公開 feed 拿不到帳號年齡或
+# 發文歷史，因此本模組不宣稱能識別機器人或假帳號。
+# --------------------------------------------------------------------------------------
+SOCIAL_ACCOUNT_TRACE_KEY = "account_trace"
+SOCIAL_ACCOUNT_TRACE_FIELDS = (
+    "posts_considered", "attributed_post_count", "author_coverage", "distinct_author_count",
+    "top_author_share", "profile_locator_count", "has_profile_locator",
+)
+# registry 的 ``social_public`` 才是門檻正本；這裡只是 config 缺項或壞掉時的保守預設。
+SOCIAL_TRACE_THRESHOLD_KEY = "account_trace_thresholds"
+DEFAULT_SOCIAL_TRACE_THRESHOLDS = {
+    "min_author_coverage": 0.80,
+    "max_top_author_share": 0.50,
+    "min_distinct_author_count": 3,
+    "require_profile_locator": True,
+}
 
 _UNUSABLE_LOCATOR_VALUES = frozenset({"", "-", "n/a", "na", "none", "null", "unknown", "tbd"})
 
@@ -502,6 +527,106 @@ def _freshness(data: dict, entry: dict, now):
     return _clamp(score), basis, round(age_days, _ROUND), notes
 
 
+def _number(value, default: float) -> float:
+    """把 registry／統計裡的數值轉成 float；壞值一律退回預設，不讓計分中斷。"""
+    if isinstance(value, bool):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _social_trace_thresholds(entry: dict) -> dict:
+    """讀 registry 的帳號可追溯性門檻。缺項或壞值退回保守預設（config 壞掉不得中斷計分）。"""
+    thresholds = dict(DEFAULT_SOCIAL_TRACE_THRESHOLDS)
+    configured = entry.get(SOCIAL_TRACE_THRESHOLD_KEY)
+    if isinstance(configured, dict):
+        for key, default in DEFAULT_SOCIAL_TRACE_THRESHOLDS.items():
+            if key not in configured:
+                continue
+            value = configured[key]
+            if isinstance(default, bool):
+                thresholds[key] = bool(value)
+            else:
+                thresholds[key] = _number(value, default)
+    return thresholds
+
+
+def _social_trace(data: dict, entry: dict) -> dict:
+    """社群證據的帳號可追溯性評估。純函式，只讀 metadata。
+
+    回傳::
+
+        applicable     此來源類別是否為社群（``is_social``）
+        available      是否讀到帳號統計（舊資料沒有）
+        reasons        觸發 ``anonymous_or_low_trace_social`` 的原因（可讀字串，不參與計算）
+        voice_divisor  independence 的集中度稀釋倍數（1.0 = 不稀釋）
+        notes          要寫進 notes 的說明
+
+    ``voice_divisor`` 的定義刻意比照 news lineage 的 ``independence_base / size``：把「可辨識
+    的獨立聲音數」當成分母，貼文數當成分子。匿名貼文全部併成**一個**無法辨識的來源，而不是
+    各自算一個獨立聲音 —— 無從證明它們互相獨立，把匿名當成獨立等於獎勵匿名。
+    """
+    result = {"applicable": bool(entry.get("is_social")), "available": False,
+              "reasons": [], "voice_divisor": 1.0, "notes": []}
+    if not result["applicable"]:
+        return result
+
+    raw = _lookup(data, SOCIAL_ACCOUNT_TRACE_KEY)
+    if not isinstance(raw, dict) or "posts_considered" not in raw or "author_coverage" not in raw:
+        # 保守預設：讀不到統計時**退回 T3 原本的作者欄位檢查**（見 `_hard_caps`），並在 notes
+        # 說明用的是退回路徑。理由是這條路徑上的資料都是舊資料（手寫測試資料、離線 fixture），
+        # 它們的既有行為必須保持不變；而「無聲放行」會讓 cap 消失，「無聲觸發」會讓所有 fixture
+        # 都多背一個看不出原因的上限，兩者都比明講更糟。
+        result["notes"].append(
+            "此社群證據未附帳號可追溯性統計，改以舊版作者欄位檢查判斷 "
+            "anonymous_or_low_trace_social；集中度無法評估，independence 不做稀釋")
+        return result
+
+    result["available"] = True
+    thresholds = _social_trace_thresholds(entry)
+    # 單一欄位缺漏或壞值時的預設一律偏保守（覆蓋率 0、集中度 1.0、locator 0），
+    # 也就是「讀不到就當成不可追溯」，而不是當成通過。
+    considered = int(_number(raw.get("posts_considered"), 0.0))
+    attributed = int(_number(raw.get("attributed_post_count"), 0.0))
+    coverage = _number(raw.get("author_coverage"), 0.0)
+    distinct = int(_number(raw.get("distinct_author_count"), 0.0))
+    top_share = _number(raw.get("top_author_share"), 1.0)
+    profile_count = int(_number(raw.get("profile_locator_count"), 0.0))
+
+    reasons = result["reasons"]
+    if considered <= 0:
+        reasons.append("採用貼文數為 0，無法判斷帳號可追溯性")
+    else:
+        if coverage < thresholds["min_author_coverage"]:
+            reasons.append("可解析帳號的貼文覆蓋率 {:.2f} 低於門檻 {:.2f}".format(
+                coverage, thresholds["min_author_coverage"]))
+        if top_share > thresholds["max_top_author_share"]:
+            reasons.append("單一帳號貼文佔比 {:.2f} 高於門檻 {:.2f}，聲量集中於少數帳號".format(
+                top_share, thresholds["max_top_author_share"]))
+        if distinct < thresholds["min_distinct_author_count"]:
+            reasons.append("可辨識帳號僅 {} 個，低於門檻 {}".format(
+                distinct, int(thresholds["min_distinct_author_count"])))
+        if thresholds["require_profile_locator"] and profile_count <= 0:
+            reasons.append("沒有任何貼文可連回帳號公開頁（無 profile locator）")
+    if _flag(data, "anonymous"):
+        reasons.append("來源自行標記為匿名")
+
+    if considered > 0:
+        voices = distinct + (1 if considered > attributed else 0)
+        result["voice_divisor"] = max(round(considered / max(voices, 1), _ROUND), 1.0)
+        if result["voice_divisor"] > 1.0:
+            unattributed = max(considered - attributed, 0)
+            result["notes"].append(
+                "社群 {} 則採用貼文只能算成 {} 個獨立聲音{}，independence 依集中度稀釋 {:.2f} 倍".format(
+                    considered, voices,
+                    "（其中 {} 則無法解析帳號，全部併為 1 個無法辨識的來源）".format(unattributed)
+                    if unattributed else "",
+                    result["voice_divisor"]))
+    return result
+
+
 def _components(data: dict, entry: dict, now, lineage_size: int):
     notes = []
 
@@ -528,9 +653,16 @@ def _components(data: dict, entry: dict, now, lineage_size: int):
 
     size = max(int(lineage_size or 1), 1)
     independence_base = _clamp(entry.get("independence_base", CONSERVATIVE_ENTRY["independence_base"]))
-    independence = max(round(independence_base / size, _ROUND), INDEPENDENCE_FLOOR)
+    social_trace = _social_trace(data, entry)
+    notes.extend(social_trace["notes"])
+    # 兩層稀釋相乘：lineage 是「同一則消息被算幾次」，voice_divisor 是「同一個帳號被算幾次」。
+    # 語意相同，所以用同一個公式與同一個下限，cap 之外真的把分數壓下去。
+    divisor = size * social_trace["voice_divisor"]
+    independence = max(round(independence_base / divisor, _ROUND), INDEPENDENCE_FLOOR)
     if size > 1:
         notes.append("與其他 {} 筆證據屬於同一來源鏈，independence 已稀釋".format(size - 1))
+    for reason in social_trace["reasons"]:
+        notes.append("社群帳號可追溯性不足：{}".format(reason))
 
     components = {
         "source_quality": round(source_quality, _ROUND),
@@ -543,8 +675,11 @@ def _components(data: dict, entry: dict, now, lineage_size: int):
         "has_source_locator": has_locator,
         "freshness_basis": basis,
         "age_days": age_days,
-        "independence_factor": round(1.0 / size, _ROUND),
+        "independence_factor": round(1.0 / divisor, _ROUND),
         "lineage_size": size,
+        # 給 `_hard_caps()` 用：cap 的觸發條件與 independence 稀釋讀的是同一份評估結果，
+        # 不會出現「分數被稀釋但沒說原因」或「說了原因但分數沒動」的不一致。
+        "social_trace": social_trace,
     }
     return components, meta, notes
 
@@ -574,8 +709,14 @@ def _hard_caps(data: dict, entry: dict, meta: dict, corroborating_lineage_count:
         hits.add("fallback_fixture")
 
     if bool(entry.get("is_social")):
-        author = _find_key(data, _AUTHOR_KEYS)
-        if not author or _flag(data, "anonymous"):
+        trace = meta.get("social_trace") or {}
+        if trace.get("available"):
+            # 依帳號覆蓋率、聲量集中度與 profile locator 判斷。**不是**「有沒有任何一則帶
+            # author 欄位」：一則署名不能替 24 則匿名擔保可追溯性。
+            if trace.get("reasons"):
+                hits.add("anonymous_or_low_trace_social")
+        elif not _find_key(data, _AUTHOR_KEYS) or _flag(data, "anonymous"):
+            # 沒有統計的舊資料：維持 T3 原本的作者欄位檢查（`_social_trace()` 已在 notes 說明）。
             hits.add("anonymous_or_low_trace_social")
 
     if bool(entry.get("is_secondary_news")) and int(corroborating_lineage_count or 1) <= 1:

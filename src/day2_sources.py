@@ -14,7 +14,7 @@ from urllib.robotparser import RobotFileParser
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
-from .credibility import lineage_id_for, parse_timestamp
+from .credibility import SOCIAL_ACCOUNT_TRACE_KEY, lineage_id_for, parse_timestamp
 from .schemas import SOURCE_ITEM_KEYS, VERIFICATION_STATUS_UNAVAILABLE, source_item_id
 from .day1_mvp import Evidence, mock_evidence
 from .vegas_strategy import analyze_vegas_channel, check_timeframe_alignment
@@ -211,6 +211,112 @@ def social_sentiment(positive: int, negative: int) -> str:
     return "positive" if positive > negative else "negative" if negative > positive else "mixed"
 
 
+# 社群貼文的帳號身分欄位。三個平台各自保存自己真正提供的欄位（Reddit／Hacker News 是
+# `author`，Bluesky 是 `author_handle`），這裡只按固定順序讀取：**不互相冒充**，也不用 feed
+# 名稱、子版名稱或 `fetched_at` 代填。來源沒提供就是「無作者」。
+SOCIAL_AUTHOR_KEYS = ("author_handle", "author")
+# 可連回帳號公開頁的連結，由 collector 依平台固定的網址格式產出（見 `_social_profile_url`）。
+SOCIAL_AUTHOR_PROFILE_KEYS = ("author_profile_url",)
+
+# 這句話會跟著統計一起進 evidence.json，避免讀者把它讀成別的東西。
+SOCIAL_ACCOUNT_TRACE_RULE = (
+    "統計對象為通過相關性過濾後實際採用的貼文；量測的是帳號可追溯性與聲量集中度"
+    "（可解析帳號的覆蓋率、不同帳號數、單一帳號最高佔比、可連回帳號頁的連結數）。"
+    "這不是機器人或假帳號偵測：公開 feed 取不到帳號年齡與發文歷史，本專案也不額外呼叫 API "
+    "推測帳號真偽。"
+)
+
+
+def _social_author_identity(post: dict) -> str | None:
+    """單則貼文的正規化帳號識別；來源沒給就回 ``None``。
+
+    正規化只做「同一個帳號要被算成同一個」所需的最小處理：去空白、去掉 Reddit 的 ``/u/``
+    前綴與 ``@``、轉小寫。不做任何猜測 —— 沒有帳號欄位就是匿名。
+    """
+    if not isinstance(post, dict):
+        return None
+    for key in SOCIAL_AUTHOR_KEYS:
+        value = post.get(key)
+        if value is None or isinstance(value, bool):
+            continue
+        text = str(value).strip()
+        if not text:
+            continue
+        lowered = text.lower()
+        for prefix in ("/u/", "u/", "/user/", "@"):
+            if lowered.startswith(prefix):
+                text = text[len(prefix):]
+                break
+        text = text.strip().lower()
+        if text:
+            return text
+    return None
+
+
+def _social_profile_url(platform: str, account) -> str | None:
+    """由來源真正給出的帳號名稱組出該帳號的公開頁連結；沒有帳號就回 ``None``。
+
+    三個平台的帳號頁網址格式是固定的，所以這是正規化而不是猜測：連結一定落在同一個帳號上。
+    有 profile locator 代表讀者能自己回去看這個帳號還說過什麼 —— 那正是「可追溯」與「匿名」
+    的差別，也是 credibility 判斷的依據之一。
+    """
+    name = str(account or "").strip()
+    if not name:
+        return None
+    lowered = name.lower()
+    for prefix in ("/u/", "u/", "/user/", "@"):
+        if lowered.startswith(prefix):
+            name = name[len(prefix):].strip()
+            break
+    if not name:
+        return None
+    if platform == "reddit":
+        return f"https://www.reddit.com/user/{quote(name, safe='')}"
+    if platform == "bluesky":
+        return f"https://bsky.app/profile/{quote(name, safe='')}"
+    if platform == "hackernews":
+        return f"https://news.ycombinator.com/user?id={quote(name, safe='')}"
+    return None
+
+
+def social_account_trace(posts: list[dict]) -> dict:
+    """採用貼文的帳號可追溯性與聲量集中度統計。
+
+    純函式且完全確定性：同一批貼文永遠得到同一組數字。分母是**通過相關性過濾後實際採用的
+    貼文**，與 ``post_count``／``irrelevant_filtered_out`` 的語意一致。
+
+    這裡只做計數，不做任何方向性判斷；門檻與降分由 ``src/credibility.py`` 與
+    ``config/source_registry.json`` 決定。
+    """
+    considered = [item for item in posts if isinstance(item, dict)]
+    counts: dict[str, int] = {}
+    profile_locators = 0
+    for item in considered:
+        identity = _social_author_identity(item)
+        if identity:
+            counts[identity] = counts.get(identity, 0) + 1
+        for key in SOCIAL_AUTHOR_PROFILE_KEYS:
+            value = item.get(key)
+            if value is not None and not isinstance(value, bool) and str(value).strip():
+                profile_locators += 1
+                break
+    total = len(considered)
+    attributed = sum(counts.values())
+    top = max(counts.values()) if counts else 0
+    return {
+        "posts_considered": total,
+        "attributed_post_count": attributed,
+        # 覆蓋率是「有幾則可追溯」，不是「有沒有任何一則可追溯」。
+        "author_coverage": round(attributed / total, 4) if total else 0.0,
+        "distinct_author_count": len(counts),
+        # 只統計可辨識帳號的最高佔比；匿名貼文不會湊出一個假的「帳號」。
+        "top_author_share": round(top / total, 4) if total else 0.0,
+        "profile_locator_count": profile_locators,
+        "has_profile_locator": profile_locators > 0,
+        "trace_rule": SOCIAL_ACCOUNT_TRACE_RULE,
+    }
+
+
 def social_content(posts: list[dict], positive: int, negative: int, *,
                    platform: str, query: str, filtered_out: int) -> dict:
     """社群證據的統一 content 形狀，含被相關性過濾掉的筆數（過濾必須可稽核）。"""
@@ -224,6 +330,9 @@ def social_content(posts: list[dict], positive: int, negative: int, *,
         # 過濾掉幾則、為什麼過濾，讀者要能判斷這個情緒值代表多少樣本。
         "irrelevant_filtered_out": filtered_out,
         "relevance_rule": "貼文必須以完整詞提及幣種代號或全名，否則不計入",
+        # 帳號可追溯性與集中度；`src/credibility.py` 的 anonymous_or_low_trace_social 依此判斷，
+        # 鍵名契約為 `credibility.SOCIAL_ACCOUNT_TRACE_KEY` 與 `SOCIAL_ACCOUNT_TRACE_FIELDS`。
+        SOCIAL_ACCOUNT_TRACE_KEY: social_account_trace(posts),
         "posts": posts,
     }
 
@@ -1222,6 +1331,8 @@ def fetch_social_reddit(coin: str = "ETH") -> Evidence:
             # Reddit 的 Atom feed 帶 <author><name>/u/帳號</name>。只保存 feed 真的提供的值，
             # 沒有就是 None —— 匿名貼文與署名貼文的可追溯性不同，不能讓兩者看起來一樣。
             "author": entry.get("author"),
+            # 由 feed 給的帳號名稱組出帳號公開頁；沒有帳號時為 None，不編造連結。
+            "author_profile_url": _social_profile_url("reddit", entry.get("author")),
             "matched_positive": matched_positive,
             "matched_negative": matched_negative,
         })
@@ -1274,6 +1385,8 @@ def fetch_social_bluesky(coin: str = "ETH") -> Evidence:
             "created_at": item.get("record", {}).get("createdAt"),
             "indexed_at": item.get("indexedAt"),
             "author_handle": handle or None,
+            # Bluesky 的 handle 本身就是帳號頁的路徑；沒有 handle 時為 None。
+            "author_profile_url": _social_profile_url("bluesky", handle),
             "likes": item.get("likeCount", 0),
             "replies": item.get("replyCount", 0),
             "reposts": item.get("repostCount", 0),
@@ -1327,6 +1440,8 @@ def fetch_social_hackernews(coin: str = "ETH") -> Evidence:
             "created_at": hit.get("created_at"),
             # Algolia 回傳 `author`（HN 帳號）。只在 API 真的給值時保存。
             "author": hit.get("author") or None,
+            # HN 的帳號頁網址格式固定；沒有帳號時為 None。
+            "author_profile_url": _social_profile_url("hackernews", hit.get("author")),
             "points": hit.get("points") or 0,
             "comments": hit.get("num_comments") or 0,
             "matched_positive": matched_positive,

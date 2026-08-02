@@ -17,6 +17,8 @@ from src.credibility import (
     CONSERVATIVE_ENTRY,
     DEFAULT_REGISTRY_PATH,
     FRESHNESS_CAP_WITHOUT_EVENT_TIME,
+    INDEPENDENCE_FLOOR,
+    SOCIAL_ACCOUNT_TRACE_KEY,
     group_by_lineage,
     lineage_id_for,
     load_source_registry,
@@ -149,6 +151,7 @@ class HardCapTest(unittest.TestCase):
         self.assertNotIn("single_secondary_news_source", results[0]["score_limiters"])
 
     def test_anonymous_social_caps_at_035(self):
+        """沒有帳號統計的舊格式：維持退回舊版作者欄位檢查的既有行為，並在 notes 說明。"""
         evidence = make_evidence(
             source_type="social_public", data_type="social", published_at=iso(0),
             content={"posts": [{"title": "ETH 討論", "url": "https://social.example.com/p/1"}]},
@@ -156,6 +159,8 @@ class HardCapTest(unittest.TestCase):
         result = score_evidence(evidence, REGISTRY, now=NOW)
         self.assertIn("anonymous_or_low_trace_social", result["score_limiters"])
         self.assertLessEqual(result["final_score"], HARD_CAPS["anonymous_or_low_trace_social"])
+        self.assertTrue(any("未附帳號可追溯性統計" in note for note in result["notes"]),
+                        "讀不到統計就退回舊檢查是可以的，但不得無聲進行")
 
     def test_unverifiable_entity_attribution_caps_at_060(self):
         evidence = make_evidence(
@@ -197,6 +202,61 @@ class HardCapTest(unittest.TestCase):
         self.assertIn("single_secondary_news_source", result["score_limiters"])
         self.assertEqual(result["hard_cap"], HARD_CAPS["missing_source_locator"])
         self.assertLessEqual(result["final_score"], HARD_CAPS["missing_source_locator"])
+
+
+class SocialAccountTraceTest(unittest.TestCase):
+    """`anonymous_or_low_trace_social` 的引擎層契約。
+
+    這裡刻意不經過 collector：引擎只吃 ``content[SOCIAL_ACCOUNT_TRACE_KEY]`` 的統計欄位，
+    判斷必須完全來自那組數字。跨 collector 的端到端行為在 ``tests/test_social_account_trace.py``。
+    """
+
+    @staticmethod
+    def _social(**trace) -> Evidence:
+        stats = {"posts_considered": 25, "attributed_post_count": 25, "author_coverage": 1.0,
+                 "distinct_author_count": 25, "top_author_share": 0.04,
+                 "profile_locator_count": 25, "has_profile_locator": True}
+        stats.update(trace)
+        return make_evidence(
+            source_type="social_public", data_type="social", published_at=iso(0),
+            content={"platform": "reddit", "post_count": stats["posts_considered"],
+                     SOCIAL_ACCOUNT_TRACE_KEY: stats,
+                     "posts": [{"title": "ETH 討論", "url": "https://social.example.com/p/1"}]},
+        )
+
+    def test_traceable_and_diverse_discussion_is_not_capped(self):
+        result = score_evidence(self._social(), REGISTRY, now=NOW)
+        self.assertNotIn("anonymous_or_low_trace_social", result["score_limiters"])
+        self.assertEqual(result["components"]["independence"], 0.45)
+
+    def test_one_signed_post_out_of_twenty_five_is_capped(self):
+        """cap 依覆蓋率判斷，不是「有沒有任何一則帶 author」—— 這是修復前的漏洞。"""
+        result = score_evidence(
+            self._social(attributed_post_count=1, author_coverage=0.04,
+                         distinct_author_count=1, top_author_share=0.04,
+                         profile_locator_count=1),
+            REGISTRY, now=NOW)
+        self.assertIn("anonymous_or_low_trace_social", result["score_limiters"])
+        self.assertLessEqual(result["final_score"], HARD_CAPS["anonymous_or_low_trace_social"])
+
+    def test_one_account_posting_twenty_five_times_scores_lower_than_twenty_five_accounts(self):
+        """cap 只扣 0.0375，所以集中度必須同時稀釋 independence 才看得出差別。"""
+        concentrated = score_evidence(
+            self._social(distinct_author_count=1, top_author_share=1.0), REGISTRY, now=NOW)
+        diverse = score_evidence(self._social(), REGISTRY, now=NOW)
+
+        self.assertIn("anonymous_or_low_trace_social", concentrated["score_limiters"])
+        self.assertEqual(concentrated["components"]["independence"], INDEPENDENCE_FLOOR)
+        self.assertLess(concentrated["final_score"], diverse["final_score"])
+        self.assertGreaterEqual(diverse["final_score"] - concentrated["final_score"], 0.03)
+
+    def test_missing_profile_locator_is_enough_to_cap(self):
+        result = score_evidence(
+            self._social(profile_locator_count=0, has_profile_locator=False), REGISTRY, now=NOW)
+        self.assertIn("anonymous_or_low_trace_social", result["score_limiters"])
+
+    def test_the_cap_value_itself_is_unchanged(self):
+        self.assertEqual(HARD_CAPS["anonymous_or_low_trace_social"], 0.35)
 
 
 class FreshnessTest(unittest.TestCase):

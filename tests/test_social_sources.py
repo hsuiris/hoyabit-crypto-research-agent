@@ -25,6 +25,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 
 from src.claim_graph import DOMAIN_BY_DATA_TYPE
+from src.credibility import SOCIAL_ACCOUNT_TRACE_KEY
 from src.day2_sources import (
     COIN_SEARCH_NAMES,
     COIN_SUBREDDITS,
@@ -124,6 +125,48 @@ class IndependentCollectorTests(unittest.TestCase):
         """沒有 fallback 規格時失敗會落到 Day-1 mock，而那兩個平台沒有 mock。"""
         for label in ("social_bluesky", "social_hackernews"):
             self.assertIn(label, _FALLBACK_SPECS, label)
+
+
+class AccountTraceWiringTests(unittest.TestCase):
+    """帳號可追溯性統計的分母必須是**過濾後實際採用的貼文**。
+
+    統計本身與 credibility 的判斷在 `tests/test_social_account_trace.py`；這裡只釘住
+    collector 的接線：三個平台都要帶統計，且分母與 `post_count` 一致。
+    """
+
+    @patch("src.day2_sources._get_bytes", return_value=REDDIT_FEED)
+    def test_reddit_statistics_count_only_the_adopted_posts(self, mock_get):
+        content = fetch_social_reddit("ETH").content
+        trace = content[SOCIAL_ACCOUNT_TRACE_KEY]
+        self.assertEqual(content["post_count"], 1)
+        self.assertEqual(content["irrelevant_filtered_out"], 1)
+        self.assertEqual(trace["posts_considered"], 1)
+
+    @patch("src.day2_sources._get_json")
+    def test_bluesky_statistics_count_only_the_adopted_posts(self, mock_get):
+        mock_get.return_value = _bluesky([
+            "Ethereum adoption is bullish",
+            "Thunderbolt Ethernet on my Mac Studio",   # 被過濾，不進統計分母
+            "Ether price breaks out",
+        ])
+        content = fetch_social_bluesky("ETH").content
+        trace = content[SOCIAL_ACCOUNT_TRACE_KEY]
+        self.assertEqual(content["post_count"], 2)
+        self.assertEqual(trace["posts_considered"], 2)
+        # 同一個 handle 發兩則 = 一個聲音，不是兩個。
+        self.assertEqual(trace["distinct_author_count"], 1)
+        self.assertEqual(trace["top_author_share"], 1.0)
+
+    @patch("src.day2_sources._get_json")
+    def test_hackernews_statistics_count_only_the_adopted_posts(self, mock_get):
+        mock_get.return_value = _hackernews([
+            "Getting 25 Gbps Thunderbolt Ethernet on My Mac Studio",
+            "Sharden is live. An autonomous protocol on Ethereum",
+        ])
+        content = fetch_social_hackernews("ETH").content
+        trace = content[SOCIAL_ACCOUNT_TRACE_KEY]
+        self.assertEqual(content["post_count"], 1)
+        self.assertEqual(trace["posts_considered"], 1)
 
 
 class RedditFeedTests(unittest.TestCase):

@@ -4,6 +4,7 @@
   "notes": [
     "source_quality / traceability / method_transparency / independence_base 皆為 0-1 的基準值，實際分數由 src/credibility.py 依單筆 Evidence 的 metadata 調整。",
     "fetched_at_is_observation=true 表示這類來源的 fetched_at 就是觀測時間（例如 API 快照），可直接用於 freshness；false 表示必須有 event_time 或 published_at 才能主張新鮮度。",
+    "account_trace_thresholds 只用於 is_social=true 的來源，對應 src/day2_sources.py 的 content.account_trace 統計：覆蓋率過低、單一帳號佔比過高、可辨識帳號過少或完全沒有 profile locator 時，套用 anonymous_or_low_trace_social 上限。這是可追溯性與集中度門檻，不是帳號真偽判斷。",
     "freshness_policy.fresh_within_days 以內視為完全新鮮，stale_after_days 以外落到下限，中間線性遞減。",
     "hard cap 定義在 src/schemas.py 的 HARD_CAPS，不在本檔重複，避免兩份字面值漂移。"
   ],
@@ -19,8 +20,13 @@
     "is_social": false,
     "is_fallback": false,
     "fetched_at_is_observation": false,
-    "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 7},
-    "known_limitations": ["來源類別未登錄，一律以保守基準計分"]
+    "freshness_policy": {
+      "fresh_within_days": 1,
+      "stale_after_days": 7
+    },
+    "known_limitations": [
+      "來源類別未登錄，一律以保守基準計分"
+    ]
   },
   "source_types": {
     "market_api": {
@@ -35,7 +41,10 @@
       "is_social": false,
       "is_fallback": false,
       "fetched_at_is_observation": true,
-      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 14},
+      "freshness_policy": {
+        "fresh_within_days": 1,
+        "stale_after_days": 14
+      },
       "known_limitations": [
         "不同交易所報價可能不一致",
         "指標可重現不代表預測正確"
@@ -53,7 +62,10 @@
       "is_social": false,
       "is_fallback": false,
       "fetched_at_is_observation": true,
-      "freshness_policy": {"fresh_within_days": 0.5, "stale_after_days": 7},
+      "freshness_policy": {
+        "fresh_within_days": 0.5,
+        "stale_after_days": 7
+      },
       "known_limitations": [
         "只涵蓋單一交易所的部位分布",
         "倉位分布不等於後續價格方向"
@@ -71,7 +83,10 @@
       "is_social": false,
       "is_fallback": false,
       "fetched_at_is_observation": true,
-      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 30},
+      "freshness_policy": {
+        "fresh_within_days": 1,
+        "stale_after_days": 30
+      },
       "known_limitations": [
         "可高可信證明轉帳發生，不能證明地址實際擁有者",
         "不能證明交易意圖或後續買賣行為"
@@ -89,7 +104,10 @@
       "is_social": false,
       "is_fallback": false,
       "fetched_at_is_observation": false,
-      "freshness_policy": {"fresh_within_days": 3, "stale_after_days": 60},
+      "freshness_policy": {
+        "fresh_within_days": 3,
+        "stale_after_days": 60
+      },
       "known_limitations": [
         "高可信證明「已發布」，不證明商業成果",
         "第一方陳述不構成獨立確認"
@@ -107,8 +125,13 @@
       "is_social": false,
       "is_fallback": false,
       "fetched_at_is_observation": false,
-      "freshness_policy": {"fresh_within_days": 2, "stale_after_days": 21},
-      "known_limitations": ["報導本身仍是二手陳述，需回溯原始出處"]
+      "freshness_policy": {
+        "fresh_within_days": 2,
+        "stale_after_days": 21
+      },
+      "known_limitations": [
+        "報導本身仍是二手陳述，需回溯原始出處"
+      ]
     },
     "secondary_media": {
       "label": "轉載或次級媒體",
@@ -122,7 +145,10 @@
       "is_social": false,
       "is_fallback": false,
       "fetched_at_is_observation": false,
-      "freshness_policy": {"fresh_within_days": 2, "stale_after_days": 14},
+      "freshness_policy": {
+        "fresh_within_days": 2,
+        "stale_after_days": 14
+      },
       "known_limitations": [
         "單一次級來源不足以確認事件",
         "多篇同源轉載不構成多個獨立確認"
@@ -140,10 +166,21 @@
       "is_social": true,
       "is_fallback": false,
       "fetched_at_is_observation": false,
-      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 7},
+      "freshness_policy": {
+        "fresh_within_days": 1,
+        "stale_after_days": 7
+      },
+      "account_trace_thresholds": {
+        "min_author_coverage": 0.8,
+        "max_top_author_share": 0.5,
+        "min_distinct_author_count": 3,
+        "require_profile_locator": true
+      },
       "known_limitations": [
         "可描述討論度與情緒，不能單獨確認外部事件",
-        "匿名或低可追溯帳號的可信度另有上限"
+        "帳號可追溯性不足或聲量集中於少數帳號時，可信度另有上限",
+        "只量測帳號可追溯性與聲量集中度，不判斷帳號真偽：公開 feed 取不到帳號年齡與發文歷史，因此不能識別機器人或協同帳號",
+        "同一帳號多次發文只算一個聲音，independence 會依集中度稀釋"
       ]
     },
     "macro_api": {
@@ -158,8 +195,13 @@
       "is_social": false,
       "is_fallback": false,
       "fetched_at_is_observation": true,
-      "freshness_policy": {"fresh_within_days": 2, "stale_after_days": 30},
-      "known_limitations": ["多為全市場範圍，不是單一幣種的證據"]
+      "freshness_policy": {
+        "fresh_within_days": 2,
+        "stale_after_days": 30
+      },
+      "known_limitations": [
+        "多為全市場範圍，不是單一幣種的證據"
+      ]
     },
     "local_csv": {
       "label": "本地歷史日線 CSV",
@@ -173,7 +215,10 @@
       "is_social": false,
       "is_fallback": false,
       "fetched_at_is_observation": true,
-      "freshness_policy": {"fresh_within_days": 2, "stale_after_days": 45},
+      "freshness_policy": {
+        "fresh_within_days": 2,
+        "stale_after_days": 45
+      },
       "known_limitations": [
         "檔案為快照，需以 metadata 確認下載時間",
         "樣本數有限，不足以證明策略有效"
@@ -191,7 +236,10 @@
       "is_social": false,
       "is_fallback": true,
       "fetched_at_is_observation": true,
-      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 1},
+      "freshness_policy": {
+        "fresh_within_days": 1,
+        "stale_after_days": 1
+      },
       "known_limitations": [
         "只用於維持流程，不得作為主要 Claim 的唯一支持"
       ]
@@ -208,8 +256,13 @@
       "is_social": false,
       "is_fallback": false,
       "fetched_at_is_observation": false,
-      "freshness_policy": {"fresh_within_days": 1, "stale_after_days": 7},
-      "known_limitations": ["來源類別未標註，一律以保守基準計分"]
+      "freshness_policy": {
+        "fresh_within_days": 1,
+        "stale_after_days": 7
+      },
+      "known_limitations": [
+        "來源類別未標註，一律以保守基準計分"
+      ]
     }
   }
 }
