@@ -15,6 +15,7 @@ from pathlib import Path
 
 TEMPLATE = Path(__file__).resolve().parent.parent / "aws" / "template.yaml"
 DEPLOY_SH = Path(__file__).resolve().parent.parent / "aws" / "deploy.sh"
+VERIFY_SH = Path(__file__).resolve().parent.parent / "aws" / "verify-deployment.sh"
 
 
 class TemplateGuardrailTests(unittest.TestCase):
@@ -89,6 +90,31 @@ class DeployScriptGuardrailTests(unittest.TestCase):
     def test_teardown_instruction_is_present(self):
         # 拆除是公開端點最有效的收斂手段，腳本輸出必須帶上它。
         self.assertIn("delete-stack", self.text)
+
+    def test_no_variable_is_followed_directly_by_a_non_ascii_character(self):
+        """`$VAR（…` 在 `set -u` 下會中止腳本，而既有的驗證方式都抓不到。
+
+        bash 會把緊接在 `$VAR` 後的非 ASCII 位元組算進變數名，於是 `$MODEL_ID（` 展開成一個
+        不存在的變數；腳本開頭是 `set -uo pipefail`，因此直接中止。
+
+        這個缺陷曾實際發生在 line 334，而且**兩道既有防線都攔不住**：
+        `bash -n` 只檢查語法，未綁定變數是執行期錯誤；`--dry-run` 在步驟 1 就 exit，
+        永遠走不到步驟 5 的那行 log。結果是部署在上傳 ZIP 之後、`cloudformation deploy`
+        之前中止 —— 看起來像「跑了但沒生效」。
+
+        正解是一律寫 `${VAR}`（腳本裡既有的 `${LOG_RETENTION} 天` 就是這樣寫的）。
+        這條規則對本專案特別重要：所有面向使用者的輸出都是繁體中文，全形標點緊接變數
+        是很自然的寫法。
+        """
+        pattern = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)(?=[^\x00-\x7f])")
+        for path in (DEPLOY_SH, VERIFY_SH):
+            offenders = [
+                "%s:%d: $%s 後面緊接非 ASCII 字元，請改用 ${%s}"
+                % (path.name, number, match.group(1), match.group(1))
+                for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+                for match in pattern.finditer(line)
+            ]
+            self.assertEqual(offenders, [], "\n".join(offenders))
 
 
 if __name__ == "__main__":

@@ -331,7 +331,10 @@ log "  s3://$BUCKET/$CODE_KEY"
 step 5/6 "部署 CloudFormation stack"
 log "  stack：   $STACK_NAME"
 log "  provider：$PROVIDER"
-[ "$PROVIDER" = "bedrock" ] && log "  model：   $MODEL_ID（輸出上限 $MAX_TOKENS tokens）"
+# 變數一律用大括號：全形括號等非 ASCII 字元緊接在 `$VAR` 後面時，bash 會把它算進變數名，
+# 於是在 `set -u` 下變成未綁定變數並中止腳本。`bash -n` 抓不到（這是執行期錯誤），
+# `--dry-run` 也抓不到（它在步驟 1 就結束，走不到這裡）。
+[ "$PROVIDER" = "bedrock" ] && log "  model：   ${MODEL_ID}（輸出上限 ${MAX_TOKENS} tokens）"
 log "  護欄：    auth=$AUTH_TYPE  concurrency=$CONCURRENCY  log 保留=${LOG_RETENTION} 天"
 log "  commit：  $CODE_COMMIT"
 
