@@ -1,11 +1,14 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: release/final-4h   # T8.6 之後的四小時交付分支（E 系列）
-current_task: DONE   # E0-E4 全部 PASS；剩餘決策見 E4 的 outstanding_decisions
-last_updated_at: 2026-08-02T11:35:00+08:00
+current_task: E5   # E0-E4 PASS；E5（來源 IP 白名單）程式與測試完成但未部署，故為 PARTIAL
+last_updated_at: 2026-08-02T12:05:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 928 tests, 928 passed, 0 failed, 0 errors   # E2 後 777 → E2.5 791 → E2.6 816 → E3 847 → E3.1/E3.2 927 → E3.3 928
+full_suite_latest: 988 tests, 988 passed, 0 failed, 0 errors   # E2 後 777 → E2.5 791 → E2.6 816 → E3 847 → E3.1/E3.2 927 → E3.3 928 → 23d4525 首頁 933 → E5 988
+full_suite_note: >-
+  E3.3 記錄的 928 之後，23d4525（首頁樣式）新增了 5 個測試但未更新本欄，因此 E5 之前的實測
+  基線是 933 而非 928。E5 新增 55 個，合計 988。
 
 allowed_statuses:
   - TODO
@@ -1663,3 +1666,119 @@ tasks:
         是否修 E2 的全批作廢問題（讓驗證把超出的 source_item_ids 截斷成 3 個並記錄，
         而非整批作廢）。這會改動 E2 明文的設計決定，且需要再部署一輪。
       - 是否建立 competition-demo-ready tag（T8 起即懸而未決）。
+
+  E5:
+    title: Restrict the public Function URL to an allowlist of source IPs
+    status: PARTIAL
+    depends_on: [E4]
+    branch: release/final-4h
+    target_minutes: 45
+    started_at: 2026-08-02T11:40:00+08:00
+    completed_at: 2026-08-02T12:05:00+08:00
+    note: >-
+      原始 E0-E4 計畫沒有這個 Task，由使用者指派：只允許 8 個指定的來源 IP 連進部署好的網站。
+      不改任何研究邏輯、不改計分、不動 collector、不新增基礎設施。
+    partial_reason: >-
+      程式、測試與文件全部完成，但**未部署**：本機 AWS credentials 為 NoCredentials
+      （Workshop Studio 臨時憑證已再次失效，`aws sts get-caller-identity` 實測失敗）。
+      因此「線上真的只有白名單能連入」目前只有本機的守衛測試證據，沒有 us-west-2 的實測。
+    requested_allowlist:
+      - 60.250.15.18
+      - 60.250.15.19
+      - 60.250.15.34
+      - 60.250.15.35
+      - 60.250.15.36
+      - 60.250.15.50
+      - 60.250.15.51
+      - 60.250.15.52
+    why_application_layer: >-
+      Lambda Function URL 沒有 IP 層過濾能力，這是實際查證後的結論而不是取巧：
+      (1) Function URL 不能掛 AWS WAF（AWS 官方回覆：需要 WAF 就改用 API Gateway 或前置
+          CloudFront）；
+      (2) Function URL 的 resource-based policy 只支援 lambda:FunctionUrlAuthType 與
+          lambda:InvokedViaFunctionUrl 兩個條件鍵，而 AuthType NONE 時 Lambda 根本不做 IAM
+          認證，因此把 aws:SourceIp 寫進 policy 只會產生「看起來有防護」的假象——比沒有防護
+          更危險，所以刻意不做。
+      真正的網路層阻擋要在前面加 CloudFront + WAF IPSet：新的基礎設施、新的網址、新的成本，
+      在剩餘時間內不做。因此改在應用層攔，並把這個界線寫進 src/ip_allowlist.py 的模組說明、
+      aws/template.yaml 的參數註解與 aws/README.md，避免日後被誤讀成網路層防護。
+    implementation: >-
+      1. 新增 src/ip_allowlist.py：純函式白名單引擎（只用標準庫 ipaddress）。接受單一 IP、
+         CIDR，以及逗號／分號／空白／換行任一分隔符；IPv4 與 IPv6 不互相命中；`60.250.15.5/24`
+         這種手寫法收斂成網段而不是整筆作廢。**未設定＝完全不限制**（本機執行與既有測試不受
+         影響）；**有設定但全部無效＝一律拒絕**（打錯的白名單絕不能安靜地變成對全世界開放）。
+      2. lambda_handler.handler() 的**第一行**掛守衛，排在路由之前——放在路由之後就等於每條
+         路由都得自己記得呼叫，漏一條就是一個沒有保護的入口。只讀
+         requestContext.http.sourceIp，**刻意不讀 X-Forwarded-For**：Function URL 前面沒有
+         反向代理，那個標頭可任意偽造成白名單內的位址。
+      3. aws/template.yaml 新增 AllowedSourceIps 參數（預設為上述 8 個位址）與
+         ALLOWED_SOURCE_IPS 環境變數。少了後者，參數會存在但完全沒有效果。
+      4. aws/deploy.sh 新增 --allowed-ips 與 --allow-my-ip，讀 DEPLOY_ALLOWED_SOURCE_IPS，
+         並在打包階段就以 src/ip_allowlist.validate_entries() 擋下無法解析的項目（退出碼 2）。
+         白名單刻意在 load_env_file 之後才解析，`.env` 因此真的有效果。
+      5. 自我鎖定防護：deploy.sh 查詢部署者當下的公開 IP（best-effort，5 秒逾時，失敗只警告）
+         並在不在清單內時明確警告與給出兩條自救指令；aws/verify-deployment.sh 把
+         `403 + 來源位址未經授權` 判成「你的 IP 不在白名單」而不是「部署失敗」——沒有這個分支，
+         demo 前檢查只會顯示 HTTP 403 並建議重新部署，而重新部署不會改變任何事。
+      6. 冷啟動輸出一行 `[allowlist] {...}`（只有數量與無效項目，不含清單內容），因此「限制
+         是否真的生效」不需要從非白名單網路發請求試探。
+    deliberate_choices: >-
+      403 頁面**顯示呼叫端自己的來源位址**（現場唯一需要知道的事就是「該加哪個 IP」），但
+      **不列出白名單內容**（那是給維運者的資訊）。位址經 html.escape，且回應不含 stack trace、
+      AWS 帳號、Function URL 或憑證。CloudWatch 只記錄被拒絕請求的位址與白名單規模，不記錄
+      請求內容——沿用 log_run_summary 既有的「不記錄題目原文」原則。
+    verified_before_implementing: >-
+      以 `aws cloudformation deploy --parameter-overrides "AllowedSourceIps=a,b"` 實測確認
+      AWS CLI 會保留值裡的逗號（該命令走到憑證階段才失敗，而刻意打錯的 token 在參數解析階段
+      就被拒絕）。因此 Type: String 加逗號分隔可行，不需要改用 CommaDelimitedList。
+    artifacts:
+      - src/ip_allowlist.py
+      - lambda_handler.py
+      - aws/template.yaml
+      - aws/deploy.sh
+      - aws/verify-deployment.sh
+      - aws/README.md
+      - .env.example
+      - tests/test_source_ip_allowlist.py
+    test_summary: >-
+      targeted：python3 -m unittest tests.test_source_ip_allowlist → 55 tests OK
+      （8 個位址逐一放行、同網段鄰居仍被擋、CIDR、IPv6、混合分隔符、部分無效仍可用、
+      全部無效則 fail closed、來源位址無法解析時拒絕、五條路由全部涵蓋、守衛排在 E1 的
+      mode 守衛之前、X-Forwarded-For 偽造無效、403 內容 escape 且不洩漏白名單、
+      未設定白名單時既有行為逐字不變、template 與 deploy.sh 的預設清單一致、
+      verify-deployment.sh 有 403 解釋分支）。
+      完整套件：python3 -m unittest discover -s tests → 988 tests, 988 passed, 0 failed,
+      0 errors。本 Task 之前的 HEAD 實測為 933（本文件原記錄的 928 未含 23d4525 新增的
+      5 個測試），988 - 933 = 55 即本 Task 新增數。
+      反向驗證：把 `_source_ip_guard` 換成 no-op（舊行為）後，同一組測試 9 failed + 2 errors，
+      訊息為 `AssertionError: 200 != 403` 與 `'來源位址未經授權' not found in ...`。
+      語法：python3 -m py_compile lambda_handler.py src/ip_allowlist.py OK；
+      bash -n aws/deploy.sh 與 aws/verify-deployment.sh OK。
+      部署包：bash aws/deploy.sh --dry-run → 31 檔（src/ip_allowlist.py 確認在內）。
+      腳本行為實測：`--allowed-ips '60.250.15.18, oops'` 以退出碼 2 擋下並指名 oops；
+      `--allowed-ips ''`、`--allowed-ips '60.250.15.0/24'` 與預設清單皆正常完成 dry-run。
+    blockers:
+      - >-
+        未部署。取得憑證後執行 `bash aws/deploy.sh`（或 `--allow-my-ip`），再從白名單內的
+        網路確認 GET / 回 200、從白名單外確認回 403，並檢查 CloudWatch 的 `[allowlist]` 行。
+    known_limitations:
+      - >-
+        **應用層過濾，不是網路層阻擋。** 非白名單來源仍會叫用一次 Lambda（極短、幾乎沒有
+        成本），只是在觸發研究執行與 Bedrock 呼叫之前就拿到 403。要讓封包連 AWS 都進不來
+        必須前置 CloudFront + WAF IPSet
+      - >-
+        白名單只涵蓋 IPv4。若現場瀏覽器走 IPv6 出口，sourceIp 會是 IPv6 位址而不在清單內
+        並被擋下。引擎本身支援 IPv6，但那些位址無法事先得知；403 頁面會顯示實際位址，
+        因此可以現場加入後重新部署
+      - >-
+        預設清單會擋掉部署者自己（本機當下的出口 IP 實測為 36.225.121.244，不在清單內）。
+        deploy.sh 會警告並提供 --allow-my-ip，但這仍是一個需要人判斷的取捨，不是自動處理
+      - >-
+        白名單只加在 lambda_handler.py（雲端入口）。`src/app.py` 的 stdlib server 不讀
+        ALLOWED_SOURCE_IPS——本機服務綁在 127.0.0.1，且 formal 執行必須留在不受限制的受控管道。
+        這延續了 T8.5 記錄的結構性風險：兩個入口各自分派，任何只加在一側的行為都不會出現在另一側
+      - >-
+        Workshop Studio 的憑證會反覆失效。重新部署時若沿用 `deploy.sh` 但 `.env` 沒有
+        DEPLOY_ALLOWED_SOURCE_IPS，會採用腳本內建的預設清單（與 template 一致），
+        不會意外變成全開放
+      - 未執行真實 Bedrock 呼叫（延續既有慣例，模型端一律 mock）

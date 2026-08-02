@@ -66,6 +66,20 @@ ELAPSED=$(curl -sS -o /dev/null -w '%{time_total}' --max-time 20 "$URL" 2>/dev/n
 
 if [ "$HTTP_CODE" = "200" ]; then
   pass "GET / → HTTP 200（${ELAPSED}s）"
+elif [ "$HTTP_CODE" = "403" ] && grep -q '來源位址未經授權' "$BODY" 2>/dev/null; then
+  # 這個 403 不是部署失敗，是來源 IP 白名單正在生效。沒有這個分支的話，畫面上只會看到
+  # 「GET / → HTTP 403」並建議重新部署 —— 而重新部署不會改變任何事情，白名單本來就在擋。
+  fail "GET / → HTTP 403：這台機器的來源 IP 不在白名單內"
+  info "服務本身是活著的（403 由應用層的白名單守衛回應，不是 AWS 認證）"
+  printf '\n偵測到的來源位址（由服務回報）：\n'
+  sed -n 's/.*<code>\(.*\)<\/code>.*/  \1/p' "$BODY" | head -1
+  printf '\n處理方式（任一）：\n'
+  printf '  1. 在白名單內的網路上執行本腳本\n'
+  printf '  2. 把這台機器的 IP 加進白名單並重新部署：\n'
+  printf '       bash aws/deploy.sh --allow-my-ip\n'
+  printf '  3. 暫時解除來源限制：\n'
+  printf "       bash aws/deploy.sh --allowed-ips ''\n\n"
+  exit 1
 else
   fail "GET / → HTTP ${HTTP_CODE:-無回應}"
   printf '\nstack 可能已被拆除或帳號已過期。重新部署：\n  ./aws/deploy.sh\n\n'

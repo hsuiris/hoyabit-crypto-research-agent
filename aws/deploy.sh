@@ -39,6 +39,15 @@ AUTH_TYPE="${DEPLOY_AUTH_TYPE:-NONE}"
 CONCURRENCY="${DEPLOY_CONCURRENCY:-5}"
 LOG_RETENTION="${DEPLOY_LOG_RETENTION:-7}"
 
+# 可連入 Function URL 的來源 IP 白名單（逗號分隔，接受單一 IP 與 CIDR）。空字串＝不限制。
+#
+# 這個預設值必須與 aws/template.yaml 的 AllowedSourceIps 預設值逐字相同，否則「用本腳本部署」
+# 與「直接用 CloudFormation 部署」會得到不同的白名單。
+# tests/test_source_ip_allowlist.py 有一條靜態測試擋住這兩處分岔。
+DEFAULT_ALLOWED_IPS="60.250.15.18,60.250.15.19,60.250.15.34,60.250.15.35,60.250.15.36,60.250.15.50,60.250.15.51,60.250.15.52"
+ALLOW_MY_IP=0
+# ALLOWED_IPS 的實際值在 load_env_file 之後才決定（見該處說明），因此這裡不設。
+
 # Converse 的輸出上限。刻意用 DEPLOY_ 前綴而不是直接讀 BEDROCK_MAX_TOKENS：後者是 Lambda 的
 # 執行期變數，本機 .env 裡的值不該決定雲端要部署什麼。預設 5000 對齊 amazon.nova-lite-v1:0
 # 的文件輸出上限；換模型時要一併確認該模型的上限（見 template.yaml 的 BedrockMaxTokens）。
@@ -92,6 +101,15 @@ load_env_file() {
 }
 
 load_env_file
+
+# 白名單刻意在 load_env_file **之後**才解析，這樣 .env 的 DEPLOY_ALLOWED_SOURCE_IPS 才真的
+#有效果（上方那些預設值在 .env 載入之前就已定案，是既有行為，本次不改動）。
+#
+# 用 ${VAR-default} 而不是 ${VAR:-default}：前者只在變數「未設定」時取預設，因此
+# DEPLOY_ALLOWED_SOURCE_IPS=（明確設成空字串）代表「不限制任何來源」，而不是退回預設清單。
+# 這個區別很重要——現場要臨時解除限制時，必須有一個明確、不會被預設值蓋掉的方式。
+ALLOWED_IPS="${DEPLOY_ALLOWED_SOURCE_IPS-$DEFAULT_ALLOWED_IPS}"
+
 BUILD_ROOT="$SCRIPT_DIR/.build"
 STAGE_ROOT="$BUILD_ROOT/package"
 ZIP_PATH="$BUILD_ROOT/agent.zip"
@@ -113,6 +131,10 @@ usage() {
                          不支援 bedrock-runtime Converse 時才需要，見 D4）
   --auth-type TYPE       Function URL 認證：NONE | AWS_IAM（預設 NONE）
                          NONE 讓評審不需憑證即可開啟，但任何取得 URL 的人都能觸發執行
+  --allowed-ips LIST     可連入的來源 IP 白名單，逗號分隔，接受單一 IP 與 CIDR
+                         （預設為競賽現場的 8 個位址；傳空字串 '' 代表不限制任何來源）
+                         非白名單來源會拿到 403，不會觸發研究執行也不消耗 Bedrock 配額
+  --allow-my-ip          把「本機當下的公開 IP」追加到白名單（現場最快的自救方式）
   --concurrency N        Lambda reserved concurrency 上限（預設 5，最大 10）
                          本帳號 unreserved 只有 110，AWS 要求保留至少 100，故上限為 10
   --log-retention DAYS   CloudWatch log 保留天數（預設 7）
@@ -123,10 +145,18 @@ usage() {
   bash aws/deploy.sh --dry-run
   AWS_PROFILE=hoyabit bash aws/deploy.sh
   bash aws/deploy.sh --profile hoyabit --region us-west-2 --model-id amazon.nova-lite-v1:0
+  bash aws/deploy.sh --allow-my-ip                       # 現場白名單 + 自己這條網路
+  bash aws/deploy.sh --allowed-ips '60.250.15.0/24'       # 用整個網段
+  bash aws/deploy.sh --allowed-ips ''                     # 解除來源限制（回到全開放）
 
 注意：
-  部署會建立公開的 Lambda Function URL（AuthType: NONE）。任何取得該 URL 的人
-  都能觸發完整研究執行並消耗 Bedrock 配額。Demo 結束請執行：
+  Function URL 的 AuthType 是 NONE，AWS 這一層沒有任何認證。來源限制由
+  lambda_handler.py 在應用層比對 requestContext.http.sourceIp 完成（Function URL
+  不能掛 WAF，resource policy 也沒有 IP 條件鍵）。因此非白名單來源仍會叫用一次
+  Lambda，但在觸發研究執行之前就會拿到 403。
+
+  白名單預設會擋掉清單外的所有位址，**包含部署者自己**。本腳本會比對你當下的公開 IP
+  並在不在清單內時警告。Demo 結束請執行：
     aws cloudformation delete-stack --region <REGION> --stack-name <STACK_NAME>
 USAGE
 }
@@ -146,6 +176,9 @@ while [ $# -gt 0 ]; do
     --profile)     export AWS_PROFILE="${2:?--profile 需要值}"; shift 2 ;;
     --bundle-sdk)  BUNDLE_SDK=1; shift ;;
     --auth-type)   AUTH_TYPE="${2:?--auth-type 需要值}"; shift 2 ;;
+    # 刻意用 ${2?...} 而不是 ${2:?...}：白名單允許明確傳入空字串代表「不限制」。
+    --allowed-ips) ALLOWED_IPS="${2?--allowed-ips 需要值（傳 '' 代表不限制）}"; shift 2 ;;
+    --allow-my-ip) ALLOW_MY_IP=1; shift ;;
     --concurrency) CONCURRENCY="${2:?--concurrency 需要值}"; shift 2 ;;
     --log-retention) LOG_RETENTION="${2:?--log-retention 需要值}"; shift 2 ;;
     --dry-run)     DRY_RUN=1; shift ;;
@@ -176,6 +209,32 @@ esac
 if [ "$PROVIDER" = "bedrock" ] && [ -n "$SECRET_ARN" ]; then
   printf '警告：provider=bedrock 不使用 Secrets Manager，--secret-arn 將被忽略\n' >&2
   SECRET_ARN=""
+fi
+
+# 白名單格式在部署前就驗證，不要等到部署完才從 403 發現打錯字。這一步不呼叫網路，
+# 因此 --dry-run 也會執行。空字串代表不限制，直接跳過。
+#
+# 為什麼要「先驗證再送出」：src/ip_allowlist.py 對「有設定但全部無效」是一律拒絕
+# （fail closed）。那是誠實的執行期行為，但如果讓打錯的清單真的部署上去，結果會是
+# 一個對所有人回 403 的網站。在這裡攔下來，就不會走到那條路。
+if [ -n "$ALLOWED_IPS" ]; then
+  if ! command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' "錯誤：驗證 --allowed-ips 需要 python3" >&2; exit 2
+  fi
+  ALLOWED_IPS="$(PYTHONPATH="$PROJECT_ROOT" python3 - "$ALLOWED_IPS" <<'PY'
+import sys
+
+from src.ip_allowlist import format_entries, validate_entries
+
+raw = sys.argv[1]
+invalid = validate_entries([raw])
+if invalid:
+    sys.stderr.write("錯誤：--allowed-ips 有無法解析的項目：%s\n" % ", ".join(invalid))
+    sys.stderr.write("      每一項必須是單一 IP（60.250.15.18）或 CIDR 網段（60.250.15.0/24）。\n")
+    raise SystemExit(2)
+print(format_entries([raw]))
+PY
+  )" || exit 2
 fi
 
 log()  { printf '%s\n' "$*"; }
@@ -325,6 +384,78 @@ aws s3 cp "$ZIP_PATH" "s3://$BUCKET/$CODE_KEY" --region "$REGION" >/dev/null \
 log "  s3://$BUCKET/$CODE_KEY"
 
 # ----------------------------------------------------------------------------------
+# 4b. 來源 IP 白名單與部署者自己的位址
+# ----------------------------------------------------------------------------------
+#
+# 這一段的存在理由只有一個：**避免把自己鎖在外面**。白名單預設是競賽現場的位址，若部署者
+# 當下不在那條網路上，部署完成後連自己都打不開 Function URL —— 而那個 403 看起來與
+# 「部署失敗」一模一樣。與其事後除錯，不如部署前就講清楚。
+#
+# 位址查詢是 best-effort：失敗只警告不中止（沒有網路資訊時，唯一誠實的說法是「無法確認」）。
+# 刻意放在憑證確認之後，因此 --dry-run 不會走到這裡，那個模式的「不呼叫任何外部服務」維持成立。
+
+MY_IP=""
+if command -v curl >/dev/null 2>&1; then
+  MY_IP="$(curl -sS --max-time 5 https://checkip.amazonaws.com 2>/dev/null | tr -d '[:space:]')"
+fi
+
+if [ "$ALLOW_MY_IP" -eq 1 ]; then
+  if [ -n "$MY_IP" ]; then
+    if [ -n "$ALLOWED_IPS" ]; then
+      ALLOWED_IPS="$ALLOWED_IPS,$MY_IP"
+    else
+      # 原本不限制，卻要求「只加自己」——那會把限制從無變成有，是使用者不會預期的收緊。
+      printf '警告：--allowed-ips 為空（不限制），--allow-my-ip 因此不套用\n' >&2
+    fi
+  else
+    printf '警告：查不到本機公開 IP，--allow-my-ip 未套用\n' >&2
+  fi
+fi
+
+if [ -n "$ALLOWED_IPS" ]; then
+  ALLOWED_IPS="$(PYTHONPATH="$PROJECT_ROOT" python3 - "$ALLOWED_IPS" <<'PY'
+import sys
+
+from src.ip_allowlist import format_entries
+
+print(format_entries([sys.argv[1]]))
+PY
+  )"
+  COVERAGE="$(PYTHONPATH="$PROJECT_ROOT" python3 - "$ALLOWED_IPS" "$MY_IP" <<'PY'
+import sys
+
+from src.ip_allowlist import parse_allowlist
+
+allowlist = parse_allowlist(sys.argv[1])
+source_ip = sys.argv[2] if len(sys.argv) > 2 else ""
+if not source_ip:
+    print("unknown")
+else:
+    print("covered" if allowlist.allows(source_ip) else "uncovered")
+PY
+  )"
+  step 4b/6 "來源 IP 白名單"
+  log "  白名單： $ALLOWED_IPS"
+  case "$COVERAGE" in
+    covered)
+      log "  本機 IP：${MY_IP}（在白名單內）" ;;
+    uncovered)
+      log "  本機 IP：${MY_IP}"
+      printf '\n警告：你當下的公開 IP 不在白名單內。\n' >&2
+      printf '      部署後你自己也會拿到 HTTP 403，./aws/verify-deployment.sh 會失敗。\n' >&2
+      printf '      要保留自己的存取權，改用：\n' >&2
+      printf '        bash aws/deploy.sh --allow-my-ip\n' >&2
+      printf '      或完全解除限制：\n' >&2
+      printf "        bash aws/deploy.sh --allowed-ips ''\n\n" >&2 ;;
+    *)
+      printf '警告：查不到本機公開 IP，無法確認你是否在白名單內\n' >&2 ;;
+  esac
+else
+  step 4b/6 "來源 IP 白名單"
+  log "  未設定：任何取得 Function URL 的來源都能連入"
+fi
+
+# ----------------------------------------------------------------------------------
 # 5. 部署 stack
 # ----------------------------------------------------------------------------------
 
@@ -336,6 +467,11 @@ log "  provider：$PROVIDER"
 # `--dry-run` 也抓不到（它在步驟 1 就結束，走不到這裡）。
 [ "$PROVIDER" = "bedrock" ] && log "  model：   ${MODEL_ID}（輸出上限 ${MAX_TOKENS} tokens）"
 log "  護欄：    auth=$AUTH_TYPE  concurrency=$CONCURRENCY  log 保留=${LOG_RETENTION} 天"
+if [ -n "$ALLOWED_IPS" ]; then
+  log "  來源限制：${ALLOWED_IPS}"
+else
+  log "  來源限制：無（任何取得網址的來源都能連入）"
+fi
 log "  commit：  $CODE_COMMIT"
 
 DEPLOY_OUTPUT=$(aws cloudformation deploy \
@@ -352,6 +488,7 @@ DEPLOY_OUTPUT=$(aws cloudformation deploy \
     "BedrockModelId=$MODEL_ID" \
     "BedrockMaxTokens=$MAX_TOKENS" \
     "FunctionUrlAuthType=$AUTH_TYPE" \
+    "AllowedSourceIps=$ALLOWED_IPS" \
     "ReservedConcurrency=$CONCURRENCY" \
     "LogRetentionDays=$LOG_RETENTION" \
     "CodeCommit=$CODE_COMMIT" 2>&1)
@@ -388,6 +525,14 @@ log ""
 log "驗收（見 .kiro/specs/hoyabit-aws-deployment/tasks.md 的 D5）："
 log "  curl -sS -o /dev/null -w 'GET %{http_code}\\n' '$PUBLIC_URL'"
 log ""
-log "這個 URL 沒有認證，任何人取得即可觸發執行並消耗 Bedrock 配額。"
+if [ -n "$ALLOWED_IPS" ]; then
+  log "來源限制已生效：只有白名單內的位址會拿到 200，其餘一律 403。"
+  log "  白名單：${ALLOWED_IPS}"
+  log "  白名單外的來源仍會叫用一次 Lambda，但在觸發研究執行之前就被擋下（不消耗 Bedrock 配額）。"
+  log "  要加位址就重跑本腳本並帶 --allowed-ips 或 --allow-my-ip；不需要改任何程式碼。"
+else
+  log "這個 URL 沒有認證也沒有來源限制，任何人取得即可觸發執行並消耗 Bedrock 配額。"
+fi
+log ""
 log "Demo 結束請拆除："
 log "  aws cloudformation delete-stack --region $REGION --stack-name $STACK_NAME"

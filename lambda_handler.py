@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 from src.errors import AgentInputError
+from src.ip_allowlist import allowlist_from_env
 from src.llm import configured_provider, llm_is_configured
 from src.orchestrator import run
 from src.run_manager import (RUN_MODE_FORMAL, RUN_MODE_TEST, VALID_RUN_MODES,
@@ -164,6 +165,76 @@ def _public_mode_guard(values: dict) -> dict | None:
         f"不支援的 mode：{escape(str(raw_mode)[:100])}（只接受 test）。")
 
 
+# --------------------------------------------------------------------------------------
+# 來源 IP 白名單守衛
+# --------------------------------------------------------------------------------------
+#
+# E1 的 test-only 守衛限制「可以做什麼」，這一層限制「誰可以連進來」。兩者互補，不能互相
+# 取代：test-only 仍然允許全世界觸發 test 執行並消耗 Bedrock 配額。
+#
+# 白名單由 `ALLOWED_SOURCE_IPS` 環境變數提供（`aws/template.yaml` 的 AllowedSourceIps 參數
+# 注入）。**未設定時完全不限制**，因此不會影響本機執行與既有測試。
+#
+# 界線說明在 `src/ip_allowlist.py`：這是應用層過濾，請求仍會叫用 Lambda 一次，但會在路由、
+# RunManager、collector 與任何模型呼叫之前回 403。Function URL 沒有 IP 層過濾能力（不支援
+# WAF，resource policy 也只有兩個 Lambda 專屬條件鍵），要在網路層阻擋必須改掛 CloudFront。
+
+
+def _allowlist():
+    """每次請求重新讀環境變數，避免出現「模組常數」與「實際環境」兩份真相。
+
+    解析 8 個項目是微秒級成本，對照單次研究執行的數十秒完全可以忽略。
+    """
+    return allowlist_from_env()
+
+
+def _source_ip(event: dict) -> str:
+    """取出 Lambda 服務填入的來源位址。
+
+    **刻意只讀 `requestContext.http.sourceIp`，不讀 `X-Forwarded-For`。** Function URL 前面
+    沒有反向代理，該標頭完全由呼叫端自行填寫，讀它等於讓任何人自稱是白名單裡的位址。
+    """
+    context = (event or {}).get("requestContext") or {}
+    http = context.get("http") or {}
+    return str(http.get("sourceIp") or "").strip()
+
+
+def _source_ip_guard(event: dict):
+    """非白名單來源一律回 403；回傳非 None 時，呼叫端必須立即回傳該回應。
+
+    必須是 `handler()` 的第一道檢查——排在路由之後就等於首頁、`/report`、`/download`
+    各自需要記得呼叫，漏一個就是一個沒有保護的入口。
+    """
+    allowlist = _allowlist()
+    if not allowlist.enforced:
+        return None
+    source_ip = _source_ip(event)
+    if allowlist.allows(source_ip):
+        return None
+    # 記錄實際位址：現場要判斷「白名單漏了誰」只能靠這一行，而被拒絕的請求本身不會留下
+    # 任何其他痕跡。刻意不記錄請求內容。
+    log_run_summary("run-rejected", {
+        "reason": "source_ip_not_allowed",
+        "source_ip": source_ip or "unknown",
+        "allowlist_entries": allowlist.entry_count,
+        "allowlist_invalid_entries": list(allowlist.invalid_entries),
+    })
+    # 回應把觀察到的位址顯示出來（那是呼叫端自己的位址，不是額外資訊揭露），否則現場只會
+    # 看到一個沒有線索的 403，而「該加哪個 IP」正是唯一需要知道的事。
+    observed = escape(source_ip[:60]) if source_ip else "無法判定"
+    return _html(403,
+                 "<meta charset='utf-8'><h1>來源位址未經授權</h1>"
+                 "<p>本服務只接受白名單內的來源 IP 連線。</p>"
+                 f"<p>偵測到的來源位址：<code>{observed}</code></p>"
+                 "<p>若這是預期可用的網路，請聯絡本服務的維運者把該位址加入白名單。</p>")
+
+
+# 冷啟動時把白名單狀態寫進 CloudWatch，理由與 `[sdk]` 那一行相同：部署後要確認「限制真的
+# 生效」不該需要先從非白名單網路發一個請求試試看。只輸出數量與無效項目，不輸出網段內容。
+if os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+    print(f"[allowlist] {json.dumps(allowlist_from_env().describe(), ensure_ascii=False)}")
+
+
 def _load_llm_credentials() -> bool:
     # Bedrock authenticates with the Lambda execution role / ambient AWS credential chain, never
     # with a provider API key stored in Secrets Manager.  Do not attempt a secret lookup here.
@@ -218,7 +289,66 @@ def _sdk_note() -> str:
             f"　·　Bedrock Converse {state}</p>")
 
 
+# 首頁專屬樣式。沿用 `cloud_report_view.CSS` 的變數與 `.card`／`.tag`／`.notice`，只補這一頁
+# 需要的版面：深色 hero band、能力卡片列、表單雙欄。
+#
+# 為什麼是深色 hero：上一版整頁都是白卡片配灰底，資訊層級全部一樣重，第一眼沒有落點。
+# 評審點開網址後看到的第一個畫面決定他對「這是不是一個做完的產品」的判斷，所以標題區需要
+# 明確的視覺重量。深色帶同時讓下方的白色表單卡片自然成為第二個焦點。
+#
+# 仍然只用 inline CSS：不引入外部字型、CDN 或 JS，否則 Lambda 這一頁就有了對外部資源的依賴，
+# 而評審的網路環境不可控。
+_HOME_CSS = """
+.hero{background:linear-gradient(135deg,#10243a 0%,#173c5c 55%,#1b4f76 100%);
+color:#f2f6fa;border:0;border-radius:14px;padding:34px 30px;margin:0 0 20px;
+box-shadow:0 10px 28px rgba(16,36,58,.18)}
+.hero .eyebrow{font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;
+color:#9dc3e0;margin:0 0 10px;font-weight:600}
+.hero h1{font-size:2rem;line-height:1.25;margin:0 0 12px;color:#fff;letter-spacing:-.01em}
+.hero .lead{color:#cfe0ee;margin:0;max-width:64ch;font-size:1.02rem}
+.hero .facts{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 0;padding:0;list-style:none}
+.hero .facts li{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
+border-radius:999px;padding:6px 14px;font-size:.85rem;color:#e6eef6}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;
+padding:26px 24px;margin:0 0 20px;box-shadow:0 2px 8px rgba(27,31,36,.04)}
+.panel h2{font-size:1.12rem;margin:0 0 4px}
+.panel .sub{color:var(--muted);font-size:.9rem;margin:0 0 18px}
+form.run{display:grid;grid-template-columns:180px 1fr;gap:16px;align-items:end}
+form.run .field{display:flex;flex-direction:column;gap:7px;min-width:0}
+form.run label{font-weight:600;font-size:.88rem}
+form.run select,form.run input[type=text]{width:100%;padding:11px 13px;font:inherit;
+color:inherit;background:#fff;border:1px solid #c9d2db;border-radius:9px}
+form.run select:hover,form.run input[type=text]:hover{border-color:#9fb0c0}
+form.run select:focus,form.run input[type=text]:focus,form.run button:focus-visible{
+outline:3px solid #7aa8cc;outline-offset:2px;border-color:#12507f}
+form.run .actions{grid-column:1/-1}
+form.run button{padding:12px 30px;font:inherit;font-size:1.02rem;font-weight:700;color:#fff;
+background:#12507f;border:0;border-radius:9px;cursor:pointer;
+box-shadow:0 2px 6px rgba(18,80,127,.28)}
+form.run button:hover{background:#0e3f66}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:0}
+.steps div{border:1px solid var(--line);border-radius:11px;padding:14px 16px;background:#fbfcfd}
+.steps b{display:block;font-size:.92rem;margin:0 0 4px}
+.steps span{color:var(--muted);font-size:.85rem;line-height:1.5}
+.foot{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;
+color:var(--muted);font-size:.85rem;margin:0}
+@media (max-width:760px){
+  .hero{padding:26px 20px}
+  .hero h1{font-size:1.6rem}
+  form.run{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr}
+}
+"""
+
+
 def _home_page() -> str:
+    """公開端點首頁。只呈現輸入面與環境狀態，不執行任何分析。
+
+    測試釘住的字串（`tests/test_cloud_report_traceability.py::HomePagePresentationTests`
+    與 `tests/test_final_release_guardrails.py::HomePageTestOnlyTests`）必須逐字保留：
+    `test mode`、`test-only`、`name='mode' value='test'`、`name='coin'`、`name='question'`、
+    「開始分析」、「執行紀錄」、`Evidence`；且不得出現 formal 選項或 `<select name='mode'>`。
+    """
     from src.cloud_report_view import CSS
 
     coins = "".join(
@@ -226,49 +356,68 @@ def _home_page() -> str:
         for coin in ("BTC", "ETH", "SOL", "BNB", "XRP"))
     return f"""<!doctype html><html lang='zh-Hant-TW'><head><meta charset='utf-8'>
 <meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>HOYA BIT｜加密市場分析 AI Agent</title><style>{CSS}
-.hero h1{{margin:0 0 4px}}
-.eyebrow{{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}}
-form.run label{{display:block;margin:0 0 14px;font-weight:600}}
-form.run select,form.run input[type=text]{{display:block;width:100%;margin-top:6px;padding:10px 12px;
-font:inherit;color:inherit;background:#fff;border:1px solid var(--line);border-radius:8px}}
-form.run button{{padding:11px 22px;font:inherit;font-weight:600;color:#fff;background:#12507f;
-border:0;border-radius:8px;cursor:pointer}}
-form.run button:hover{{background:#0e3f66}}
-form.run button:focus{{outline:3px solid #7aa8cc;outline-offset:2px}}
-</style></head><body>
+<title>HOYA BIT｜加密市場分析 AI Agent</title>
+<style>{CSS}{_HOME_CSS}</style></head><body>
 <main class='wrap'>
-  <section class='card hero'>
-    <div class='eyebrow'>HOYA BIT · Evidence-first AI</div>
+  <header class='hero'>
+    <p class='eyebrow'>HOYA BIT · Evidence-first Research Agent</p>
     <h1>加密市場分析 AI Agent</h1>
-    <p class='muted'>輸入幣種與研究問題，系統會平行採集市場、新聞、鏈上、衍生品、社群與總體經濟資料，
-    對每筆證據做可信度評分與問題相關性評估，再由規則引擎決定立場與信心，最後產出可逐項回溯的研究報告。</p>
-    <ul class='meta'>
+    <p class='lead'>輸入幣種與研究問題，系統平行採集市場、新聞、鏈上、衍生品、社群與總體經濟六個領域的
+    公開資料，對每筆證據計算可信度與問題相關性，再由規則引擎決定立場與信心，產出可逐項回溯的研究報告。</p>
+    <ul class='facts'>
       <li>每個結論都能點回 Evidence ID 與原始網址</li>
-      <li>立場與信心由 deterministic Python 計算，不由模型自行給分</li>
-      <li>產出分析報告、證據清單、執行紀錄三份提交物</li>
+      <li>立場與信心由 deterministic Python 計算</li>
+      <li>單一來源失敗不中斷流程</li>
+      <li>三份提交物可直接下載</li>
     </ul>
-  </section>
+  </header>
 
-  <section class='card'>
-    <div class='notice small'><strong>公開雲端展示僅提供 test mode（test-only demo）</strong>，
-    不提供 formal（正式）執行選項；正式執行僅透過受控管道進行。</div>
+  <section class='panel'>
+    <h2>開始一次研究</h2>
+    <p class='sub'>選擇標的與題目後送出，系統會在時間預算內完成採集、評分、推論與稽核。</p>
+    <div class='notice small' style='margin:0 0 18px'>
+      <strong>公開雲端展示僅提供 test mode（test-only demo）</strong>，
+      不提供 formal（正式）執行選項；正式執行僅透過受控管道進行。
+    </div>
     <form method='post' class='run'>
-      <label>幣種
-        <select name='coin'>{coins}</select>
-      </label>
-      <label>研究問題
-        <input type='text' name='question' value='分析近期市場狀況、主要驅動因素與風險'>
-      </label>
+      <div class='field'>
+        <label for='coin'>幣種</label>
+        <select id='coin' name='coin'>{coins}</select>
+      </div>
+      <div class='field'>
+        <label for='question'>研究問題</label>
+        <input id='question' type='text' name='question'
+               value='分析近期市場狀況、主要驅動因素與風險'>
+      </div>
       <input type='hidden' name='mode' value='test'>
-      <button>開始分析</button>
+      <div class='actions'><button>開始分析</button></div>
     </form>
-    <p class='small muted'>單次分析需要數十秒：六個領域的採集是平行的，但仍要等最慢的來源回應。
-    完成後會顯示分析報告、證據清單與執行紀錄，並提供提交物下載。</p>
-    {_sdk_note()}
+    <p class='small muted' style='margin:16px 0 0'>單次分析需要數十秒：六個領域的採集是平行的，
+    但仍要等最慢的來源回應。請勿重複送出。</p>
   </section>
 
-  <p class='small muted'>本服務僅供研究與展示用途，不構成投資建議。</p>
+  <section class='panel'>
+    <h2>你會拿到什麼</h2>
+    <p class='sub'>三份提交物，同一份資料的三種檢視方式。</p>
+    <div class='steps'>
+      <div><b>① 分析報告</b><span>立場、事實、推論、結論、反方證據、限制與推翻條件，
+      每個主張都標示 verdict 與信心分量。</span></div>
+      <div><b>② 證據清單</b><span>每筆 Evidence 的原始網址、擷取與發布時間、可信度五分量、
+      生效上限與問題相關性。</span></div>
+      <div><b>③ 執行紀錄</b><span>各階段狀態與耗時、採集結果、時間預算使用、降級原因與
+      引用檢核（Citation Gate）。</span></div>
+    </div>
+  </section>
+
+  <section class='panel'>
+    <h2>本次執行環境</h2>
+    {_sdk_note()}
+    <p class='small muted' style='margin:10px 0 0'>提交物寫在處理該次執行的容器暫存目錄，
+    冷啟動或被路由到其他容器後下載連結會失效。這是 Lambda 的固有限制，不是執行失敗；
+    分析完成後請立即下載。</p>
+  </section>
+
+  <p class='foot'><span>本服務僅供研究與展示用途，不構成投資建議。</span></p>
 </main></body></html>"""
 
 
@@ -458,6 +607,11 @@ def _run_summary(record, manifest: dict, log: dict) -> dict:
 
 def handler(event, context):
     global _LATEST_RUN_DIR
+    # 來源 IP 白名單必須是第一道檢查：放在路由之後，每條路由都得自己記得呼叫，漏一條就是
+    # 一個沒有保護的入口（首頁、/report、/download、/artifact 全部涵蓋在內）。
+    blocked = _source_ip_guard(event)
+    if blocked is not None:
+        return blocked
     method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
     path = (event.get("rawPath")
             or event.get("requestContext", {}).get("http", {}).get("path", "/") or "/")

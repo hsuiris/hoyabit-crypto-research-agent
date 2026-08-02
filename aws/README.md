@@ -107,14 +107,63 @@ offline fallback，執行仍然成功、報告仍然產出，只是模型路徑�
 
 `template.yaml` 的 Function URL 使用 `AuthType: NONE`，`Principal: '*'`。
 
-**任何取得該 URL 的人都能觸發完整研究執行並消耗 Bedrock 配額。** 這是 Demo 情境下的
-刻意取捨（評審不需要憑證），但代表：
+**AWS 這一層沒有任何認證。** 這是 Demo 情境下的刻意取捨（評審不需要憑證），因此：
 
 - URL 不要公開張貼。
 - Demo 結束就刪 stack（`aws cloudformation delete-stack`）。
 - 收斂手段見 `.kiro/specs/hoyabit-aws-deployment/tasks.md` 的 D7：
   reserved concurrency 上限、CloudWatch log 保留期、AWS Budgets 告警，
   以及可選的 `AuthType: AWS_IAM`。
+
+### 來源 IP 白名單
+
+可連入的來源位址由 `AllowedSourceIps` 參數決定（預設是競賽現場的 8 個位址）。空字串代表
+不限制。
+
+```bash
+bash aws/deploy.sh                                  # 使用預設清單
+bash aws/deploy.sh --allow-my-ip                    # 預設清單 + 你當下的公開 IP
+bash aws/deploy.sh --allowed-ips '60.250.15.0/24'    # 用整個網段
+bash aws/deploy.sh --allowed-ips ''                  # 解除限制
+```
+
+也可以寫進 `.env` 的 `DEPLOY_ALLOWED_SOURCE_IPS`（見 `.env.example`）。
+
+**這是應用層過濾，不是網路層阻擋。** Lambda Function URL 沒有 IP 過濾能力：
+
+- 它不能掛 AWS WAF（[官方回覆](https://repost.aws/questions/QUK_HhY5KRQtWWoYMI6DpY7g/aws-waf-with-aws-lambda-function-urls)：
+  需要 WAF 就得改用 API Gateway 或在前面放 CloudFront）。
+- Function URL 的 resource-based policy 只支援 `lambda:FunctionUrlAuthType` 與
+  `lambda:InvokedViaFunctionUrl` 兩個條件鍵（見
+  [Control access to Lambda function URLs](https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html)），
+  且 `AuthType: NONE` 時 Lambda 根本不做 IAM 認證。把 `aws:SourceIp` 寫進 policy 只會產生
+  「看起來有防護」的假象，那比沒有防護更危險，因此本專案刻意不做。
+
+實際做法是 `lambda_handler.handler()` 的第一行守衛（規則在 `src/ip_allowlist.py`）：
+
+| 項目 | 行為 |
+|---|---|
+| 判斷依據 | `requestContext.http.sourceIp`（由 Lambda 服務填入） |
+| 刻意不讀 | `X-Forwarded-For` —— Function URL 前面沒有代理，該標頭可任意偽造 |
+| 攔下的時機 | 路由、`RunManager`、collector 與任何模型呼叫**之前** |
+| 非白名單來源 | HTTP 403，不觸發研究執行、不消耗 Bedrock 配額 |
+| 涵蓋範圍 | 所有路由（首頁、`/report`、`/download`、`/artifact`） |
+| 未設定白名單 | 完全不限制（維持本功能加入之前的行為） |
+| 設定了但全部無效 | 一律拒絕（fail closed）。`deploy.sh` 會在部署前就以退出碼 2 擋下打錯的清單 |
+
+代價要講清楚：非白名單來源**仍會叫用一次 Lambda**（極短、幾乎沒有成本），只是拿不到服務。
+要讓封包連 AWS 都進不來，必須在前面加 CloudFront + WAF IPSet —— 那是新的基礎設施、新的
+網址與新的成本，本次刻意不做。
+
+冷啟動時 CloudWatch 會出現一行 `[allowlist] {...}`（只有數量與無效項目，不含清單內容），
+因此「限制是否真的生效」不需要從非白名單網路發請求試探就能確認。
+
+#### 不要把自己鎖在外面
+
+預設清單會擋掉清單外的**所有**位址，包含部署者自己。`deploy.sh` 會查詢你當下的公開 IP
+並在不在清單內時警告，`verify-deployment.sh` 也會把這種 403 明確講成「來源 IP 不在白名單」
+而不是「部署失敗」。真的被擋住時，重跑 `bash aws/deploy.sh --allow-my-ip` 即可，不需要
+改任何程式碼。
 
 ### 公開端點是 test-only demo
 

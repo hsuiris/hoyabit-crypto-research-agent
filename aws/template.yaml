@@ -25,6 +25,25 @@ Parameters:
     AllowedValues: [NONE, AWS_IAM]
     # NONE 讓評審不需要憑證就能開啟 Demo，這是刻意的取捨；代價是任何取得 URL 的人都能
     # 觸發完整執行並消耗 Bedrock 配額。要收斂暴露面時改成 AWS_IAM，公開叫用權限會一併移除。
+  AllowedSourceIps:
+    Type: String
+    Default: 60.250.15.18,60.250.15.19,60.250.15.34,60.250.15.35,60.250.15.36,60.250.15.50,60.250.15.51,60.250.15.52
+    # 可連入 Function URL 的來源位址白名單，逗號分隔，接受單一 IP 與 CIDR 網段。
+    # 空字串代表不限制（維持本參數加入之前的行為）。
+    #
+    # 為什麼白名單在應用層而不是網路層：Lambda Function URL 沒有 IP 過濾能力。它不能掛
+    # AWS WAF，resource-based policy 也只支援 lambda:FunctionUrlAuthType 與
+    # lambda:InvokedViaFunctionUrl 兩個條件鍵；AuthType NONE 時 Lambda 根本不做 IAM 認證，
+    # 因此把 aws:SourceIp 寫進 policy 只會產生「看起來有防護」的假象。真正的網路層阻擋要在
+    # 前面加 CloudFront + WAF IPSet，那是新的基礎設施、新的網址與新的成本。
+    #
+    # 因此 `lambda_handler.handler()` 在路由、RunManager、collector 與任何模型呼叫之前比對
+    # `requestContext.http.sourceIp`（不讀 X-Forwarded-For —— Function URL 前面沒有代理，
+    # 那個標頭可以任意偽造）。非白名單來源會叫用一次 Lambda 但立刻拿到 403，不會觸發研究
+    # 執行、不消耗 Bedrock 配額。
+    #
+    # **預設值會把清單外的所有位址擋掉，包含部署者自己。** deploy.sh 會比對部署者當下的
+    # 公開 IP 並在不在清單內時警告；也可用 --allow-my-ip 追加，或 --allowed-ips '' 解除限制。
   ReservedConcurrency:
     Type: Number
     Default: 5
@@ -159,6 +178,9 @@ Resources:
           # `run_context._code_commit()` 讀這個變數；空字串時它會退回讀 .git（本機）或
           # 回報 unknown（Lambda）。
           CODE_COMMIT: !Ref CodeCommit
+          # `src/ip_allowlist.py` 讀這個變數。空字串＝不限制來源；有值時只有清單內的位址
+          # 能連入（見 AllowedSourceIps 參數的說明）。
+          ALLOWED_SOURCE_IPS: !Ref AllowedSourceIps
 
   AgentFunctionUrl:
     Type: AWS::Lambda::Url
