@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -811,6 +812,31 @@ class DeterministicReportTests(unittest.TestCase):
                          "## 風險與限制", "## 可能推翻結論的條件", "## 後續觀察重點",
                          "非投資建議"):
             self.assertIn(required, report, required)
+
+    def test_claim_section_citations_are_clickable(self):
+        """`report.md` 是獨立提交物：Claim 段的引用要能直接點開，不能只給 ID 讓讀者自己找。"""
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            run("ETH", "T5 Claim 引用可點擊", output, live=False, use_llm=False)
+            report = (output / "report.md").read_text(encoding="utf-8")
+            evidence = json.loads((output / "evidence.json").read_text(encoding="utf-8"))
+
+        known = {item["evidence_id"] for item in evidence}
+        known.update(sub["source_item_id"] for item in evidence
+                     for sub in (item.get("source_items") or []))
+        section = report.split("## 主張（Claim）", 1)[1].split("\n## ", 1)[0]
+        links = re.findall(r"\[([^\]\s]+)\]\((https?://[^\s)]+)\)", section)
+
+        self.assertTrue(links, "Claim 段沒有任何可點擊的 Evidence 連結")
+        # 三處引用（事實／支持／反方）都必須帶連結，而不是只有其中一處。
+        for prefix in ("- 事實：", "- 支持證據：", "- 反方證據："):
+            cited = [line for line in section.splitlines()
+                     if line.startswith(prefix) and not line.startswith(prefix + "無")]
+            self.assertTrue(cited, prefix)
+            self.assertTrue(any(re.search(r"\[[^\]\s]+\]\(https?://", line) for line in cited),
+                            "%s 的引用沒有變成連結：%r" % (prefix, cited))
+        # 連結文字必須是本次真實存在的 Evidence 或子項 ID，不能是隨手編的錨點。
+        self.assertEqual([label for label, _ in links if label not in known], [])
 
     def test_rejected_evidence_is_excluded_from_the_numbered_citations(self):
         payload = self.payload()

@@ -20,6 +20,7 @@ import json
 import tempfile
 import time
 import unittest
+from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
@@ -30,6 +31,7 @@ from src.day1_mvp import Evidence
 from src.llm import (ANALYSIS_SCHEMA, CLAIM_PROPOSAL_FIELD, CLAIM_PROPOSAL_RESULT_FIELD,
                      analyze_with_llm, build_prompt, normalise_analysis_claims)
 from src.orchestrator import _build_claims, _claim_client, _claims_markdown, run, run_comparison
+from src.report_renderer import render_claims_section
 from src.schemas import (CONFIDENCE_COMPONENT_KEYS, CONFIDENCE_TYPE_HEURISTIC, CONFIDENCE_WEIGHTS,
                          VERDICT_INSUFFICIENT_EVIDENCE, VERDICTS)
 from src.validation import validate_claims
@@ -582,16 +584,31 @@ class ClaimValidatorTests(unittest.TestCase):
 
 
 class MarkdownRenderingTests(unittest.TestCase):
+    def graph_with(self, evidence):
+        return _build_claims(fake_result(evidence), evidence, {},
+                             signals_for(bull=["EV-M"], bear=["EV-N"]), None,
+                             client=None, deadline=time.monotonic() + 60)
+
     def test_claims_markdown_lists_both_sides_and_the_scoring_note(self):
+        """`_claims_markdown()` 不帶 evidence，因此引用維持純文字（向後相容契約）。"""
         evidence = [make_evidence("EV-M", "market", 0.92, source_type="market_api"),
                     make_evidence("EV-N", "news", 0.80)]
-        graph = _build_claims(fake_result(evidence), evidence, {},
-                              signals_for(bull=["EV-M"], bear=["EV-N"]), None,
-                              client=None, deadline=time.monotonic() + 60)
-        markdown = _claims_markdown(graph)
+        markdown = _claims_markdown(self.graph_with(evidence))
 
         self.assertIn("- 支持證據：EV-M", markdown)
         self.assertIn("- 反方證據：EV-N", markdown)
+        self.assertIn("deterministic Python 計算", markdown)
+        self.assertIn("- 信心分量：", markdown)
+
+    def test_passing_evidence_turns_both_sides_into_clickable_citations(self):
+        """帶 evidence 時同樣兩側都要出現，但改成可點擊連結 —— 前綴與 ID 都不得消失。"""
+        evidence = [make_evidence("EV-M", "market", 0.92, source_type="market_api"),
+                    make_evidence("EV-N", "news", 0.80)]
+        markdown = render_claims_section(self.graph_with(evidence), CONFIDENCE_WEIGHTS,
+                                        [asdict(item) for item in evidence])
+
+        self.assertIn("- 支持證據：[EV-M](https://example.com/EV-M)", markdown)
+        self.assertIn("- 反方證據：[EV-N](https://example.com/EV-N)", markdown)
         self.assertIn("deterministic Python 計算", markdown)
         self.assertIn("- 信心分量：", markdown)
 

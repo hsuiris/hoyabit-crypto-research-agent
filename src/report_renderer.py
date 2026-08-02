@@ -588,12 +588,128 @@ def evidence_source_line(record: dict, number: int | None = None) -> str:
     ) + "｜".join(parts))
 
 
-def render_claims_section(graph: dict, confidence_weights) -> str:
+# --------------------------------------------------------------------------------------
+# Claim 段的可點擊引用
+# --------------------------------------------------------------------------------------
+#
+# `report.md` 是獨立提交物：讀者拿到的可能只是這一個檔案，沒有網頁 UI 可點。若 Claim 段只寫
+# `EV-002`，讀者必須自己往下捲到「## 證據來源」段才找得到 URL —— 引用可追溯，但追溯成本很高。
+# 因此 Claim 段的每個引用都直接帶上原始位址。
+#
+# 「不產生錯的連結」比「多一個連結」重要，所以這裡只做三件事，全部是查表與字串安全處理：
+#
+# 1. 只有 `http://`／`https://` 開頭、且不含會破壞 markdown 語法字元的位址才會變成連結；
+#    其餘（缺 URL、`javascript:`、`data:`、含空白或括號）一律輸出純 ID，不造假連結。
+# 2. `verification_status == "rejected"` 的證據不得成為可點擊連結 —— 被排除的來源不應該
+#    讀起來像可用的依據（沿用 `_build_footnotes()`／`_cite()` 對 rejected 的同一個判斷）。
+# 3. 聚合來源（news／announcement／social）額外列出 `semantic_assessment.source_item_ids`
+#    指到的子項，讓讀者知道這個判斷實際依據的是哪幾則，而不是整包來源。
+
+_LINKABLE_URL_PREFIXES = ("http://", "https://")
+
+# markdown 連結的位址不能含空白，也不能含 `<>()"` —— 那會讓連結在渲染時斷掉或被誤解析成標題。
+_UNSAFE_URL_CHARS = "<>()\""
+
+# 連結文字裡的這些字元會提早關掉 `[...]` 或 `(...)`，一律以反斜線跳脫。
+_ESCAPED_LABEL_CHARS = ("\\", "[", "]", "(", ")")
+
+
+def _markdown_url(value) -> str:
+    """回傳可安全放進 markdown 連結的位址；不合格一律回空字串（改輸出純文字）。"""
+    url = _text(value, "")
+    if not url or not url.lower().startswith(_LINKABLE_URL_PREFIXES):
+        return ""
+    if any(char.isspace() or char in _UNSAFE_URL_CHARS for char in url):
+        return ""
+    return url
+
+
+def _markdown_label(value) -> str:
+    """跳脫連結文字裡會破壞 markdown 結構的字元。反斜線必須先跳脫，否則會重複處理。"""
+    label = _text(value, "")
+    for char in _ESCAPED_LABEL_CHARS:
+        label = label.replace(char, "\\" + char)
+    return label
+
+
+def _markdown_ref(label, url: str) -> str:
+    """有可用位址就輸出連結，否則輸出純文字；絕不產生指向空字串或 `#` 的假連結。"""
+    rendered = _markdown_label(label)
+    return "[%s](%s)" % (rendered, url) if url else rendered
+
+
+def _claim_link_index(evidence) -> dict:
+    """把 Evidence 清單整理成 Claim 引用需要的查表。
+
+    純查表：不算分、不判斷可信度，順序完全沿用輸入清單，確保相同輸入逐字相同輸出。
+    回傳 ``{"urls": {id: url}, "rejected": {id}, "items": {id: [(item_id, url)]}}``。
+    """
+    records = evidence if isinstance(evidence, (list, tuple)) else ()
+    urls: dict = {}
+    rejected = set()
+    items_by_evidence: dict = {}
+    for record in records:
+        record = _dict(record)
+        evidence_id = _text(record.get("evidence_id"), "")
+        if not evidence_id or evidence_id in urls:
+            continue
+        urls[evidence_id] = _markdown_url(record.get("source_url"))
+        if record.get("verification_status") == _REJECTED_STATUS:
+            rejected.add(evidence_id)
+
+        known_items: dict = {}
+        for sub in _list(record.get("source_items")):
+            sub = _dict(sub)
+            item_id = _text(sub.get("source_item_id"), "")
+            if item_id and item_id not in known_items:
+                known_items[item_id] = _markdown_url(sub.get("url"))
+        cited: list = []
+        seen = set()
+        for raw_id in _list(_dict(record.get("semantic_assessment")).get("source_item_ids")):
+            item_id = _text(raw_id, "")
+            # 只認這筆 Evidence 真實存在的子項：提案端若填了不存在的 ID，寧可不渲染，
+            # 也不要讓報告出現指不到任何來源的引用。
+            if item_id and item_id in known_items and item_id not in seen:
+                seen.add(item_id)
+                cited.append((item_id, known_items[item_id]))
+        items_by_evidence[evidence_id] = cited
+    return {"urls": urls, "rejected": rejected, "items": items_by_evidence}
+
+
+def _claim_evidence_ref(raw_id, index: dict) -> str:
+    """一筆 Claim 引用：Evidence ID 加上原始位址，聚合來源再附上實際依據的子項。"""
+    evidence_id = _text(raw_id, "")
+    if not evidence_id:
+        return ""
+    if evidence_id in index["rejected"]:
+        # rejected 既不連結，也不展開子項。
+        return _markdown_label(evidence_id)
+    rendered = _markdown_ref(evidence_id, index["urls"].get(evidence_id, ""))
+    items = index["items"].get(evidence_id) or ()
+    if not items:
+        return rendered
+    return rendered + "（子項：%s）" % "、".join(
+        _markdown_ref(item_id, item_url) for item_id, item_url in items)
+
+
+def _claim_citations(evidence_ids, index: dict) -> str:
+    """把一組 evidence_id 轉成引用字串；空 ID 略過，全空時回空字串交由呼叫端決定文案。"""
+    parts = [_claim_evidence_ref(raw_id, index) for raw_id in _list(evidence_ids)]
+    return ", ".join(part for part in parts if part)
+
+
+def render_claims_section(graph: dict, confidence_weights, evidence=()) -> str:
     """`## Claims`：每個 Claim 印出三層、正反證據，以及把分數壓住的上限。
 
     信心分數若沒有可見的理由，讀者就無法稽核它，所以 limiters 一定跟著分數一起出現。
+
+    ``evidence`` 是選擇性參數（Evidence dict 清單），只用來把引用的 Evidence ID 與子項 ID
+    渲染成可點擊連結。**不傳就維持原本的純文字引用**，因此既有呼叫端（例如
+    `src/orchestrator.py` 的 `_claims_markdown()`）不需要任何修改；
+    `render_competition_report()` 會把它手上已有的 evidence 傳進來。
     """
     graph = _dict(graph)
+    index = _claim_link_index(evidence)
     blocks = []
     for claim in _list(graph.get("claims")):
         claim = _dict(claim)
@@ -609,13 +725,13 @@ def render_claims_section(graph: dict, confidence_weights) -> str:
             fact = _dict(fact)
             lines.append("- 事實：%s（%s）" % (
                 _text(fact.get("statement")),
-                ", ".join(str(item) for item in _list(fact.get("evidence_ids")))))
+                _claim_citations(fact.get("evidence_ids"), index)))
         lines.append("- 推論：%s" % _text(claim.get("inference"), _NO_DATA))
         lines.append("- 結論：%s" % _text(claim.get("conclusion"), _NO_DATA))
-        lines.append("- 支持證據：" + (", ".join(
-            str(item) for item in _list(claim.get("supporting_evidence_ids"))) or "無"))
-        lines.append("- 反方證據：" + (", ".join(
-            str(item) for item in _list(claim.get("contradicting_evidence_ids"))) or "無"))
+        lines.append("- 支持證據：" + (
+            _claim_citations(claim.get("supporting_evidence_ids"), index) or "無"))
+        lines.append("- 反方證據：" + (
+            _claim_citations(claim.get("contradicting_evidence_ids"), index) or "無"))
         components = _dict(confidence.get("components"))
         lines.append("- 信心分量：" + "／".join(
             "%s=%s" % (key, _text(components.get(key))) for key in confidence_weights))
@@ -863,7 +979,9 @@ def render_competition_report(data: dict) -> str:
         "## 事實（Fact）\n%s" % _bullets(reasoning.get("facts")),
         "## 推論（Inference）\n%s" % _bullets(reasoning.get("inferences")),
         "## 結論（Conclusion）\n%s" % _text(reasoning.get("conclusion"), _NO_DATA),
-        render_claims_section(graph, confidence_weights).strip("\n"),
+        # 把 evidence 傳進去，Claim 段的引用才能直接連到原始位址；report.md 是獨立提交物，
+        # 讀者不一定有網頁 UI 可點。
+        render_claims_section(graph, confidence_weights, evidence).strip("\n"),
         _render_consistency(data.get("consistency")),
         _render_competition_critique(data.get("critique"), data.get("critic_status"),
                                      gate.get("semantic_findings")),
