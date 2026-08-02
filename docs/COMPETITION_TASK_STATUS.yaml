@@ -1,11 +1,11 @@
 project: hoyabit-competition-ready
 spec_path: .kiro/specs/hoyabit-competition-ready
 branch: release/final-4h   # T8.6 之後的四小時交付分支（E 系列）
-current_task: E4
-last_updated_at: 2026-08-02T07:10:00+08:00
+current_task: DONE   # E0-E4 全部 PASS；剩餘決策見 E4 的 outstanding_decisions
+last_updated_at: 2026-08-02T11:35:00+08:00
 python_command: python3   # 本機無 python 指令；版本 3.9.6，低於專案要求的 3.10+
 full_suite_command: python3 -m unittest discover -s tests
-full_suite_latest: 927 tests, 927 passed, 0 failed, 0 errors   # E2 後 777 → E2.5 791 → E2.6 816 → E3 847 → E3.1／E3.2 927
+full_suite_latest: 928 tests, 928 passed, 0 failed, 0 errors   # E2 後 777 → E2.5 791 → E2.6 816 → E3 847 → E3.1/E3.2 927 → E3.3 928
 
 allowed_statuses:
   - TODO
@@ -1508,35 +1508,149 @@ tasks:
         `effective_weight = reliability × relevance × independence_factor` 會反映集中度。
         非社群來源已逐項確認未變
 
+  E3.3:
+    title: Stop a full-width bracket from aborting deploy.sh at step 5
+    status: PASS
+    depends_on: [E3.2]
+    branch: release/final-4h
+    completed_at: 2026-08-02T11:12:00+08:00
+    commit: 9926aab
+    note: >-
+      E4 部署過程中暴露的缺陷，由 E2.6 引入。屬部署腳本修復，未動任何產品程式碼。
+    root_cause: >-
+      E2.6 把步驟 5 的 log 行改成 `$MODEL_ID（輸出上限 $MAX_TOKENS tokens）`。bash 會把緊接在
+      `$VAR` 後的非 ASCII 位元組算進變數名，於是展開成一個不存在的變數；腳本開頭是
+      `set -uo pipefail`，因此直接中止：`aws/deploy.sh: line 334: MODEL_ID?: unbound variable`。
+      實際後果是部署在**上傳 ZIP 之後、`cloudformation deploy` 之前**中止 —— 看起來像
+      「跑了但沒生效」，而 stack 完全沒被動到。
+    why_existing_checks_missed_it: >-
+      兩道既有防線在結構上都不可能抓到：`bash -n` 只檢查語法，未綁定變數是執行期錯誤
+      （已實測：壞寫法下 bash -n 仍通過）；`--dry-run` 在步驟 1 就 exit，永遠走不到步驟 5
+      的那行 log。
+    fix: >-
+      改用 `${MODEL_ID}`／`${MAX_TOKENS}`。腳本裡既有的 `${LOG_RETENTION} 天` 本來就是這樣寫的。
+      新增 `test_no_variable_is_followed_directly_by_a_non_ascii_character`：靜態掃描
+      aws/deploy.sh 與 aws/verify-deployment.sh，任何 `$VAR` 緊接非 ASCII 字元即失敗。
+      這條規則對本專案特別重要 —— 所有面向使用者的輸出都是繁體中文，全形標點緊接變數是
+      很自然的寫法。全檔稽核只有這 1 處。
+    reverse_verified: >-
+      把壞寫法放回去後該測試 FAIL 並指出
+      `deploy.sh:337: $MODEL_ID 後面緊接非 ASCII 字元，請改用 ${MODEL_ID}`；
+      同一狀態下 `bash -n` 仍通過。
+    artifacts:
+      - aws/deploy.sh
+      - tests/test_d7_deployment_guardrails.py
+    test_summary: >-
+      python3 -m unittest discover -s tests → 928 passed, 0 failed, 0 errors（新增 1）。
+      bash -n OK；--dry-run 30 檔。
+    blockers: []
+    known_limitations:
+      - 靜態掃描只涵蓋 aws/*.sh；其他 shell 腳本未納入
+
   E4:
     title: Deploy to AWS and run exactly one live smoke
-    status: TODO
-    depends_on: [E3.1, E3.2]
+    status: PASS
+    depends_on: [E3.1, E3.2, E3.3]
     branch: release/final-4h
     target_minutes: 70
+    started_at: 2026-08-02T10:40:00+08:00
+    completed_at: 2026-08-02T11:30:00+08:00
     task_document: docs/KIRO_4H_AWS_DELIVERY_PROMPTS.md（E4 段）
-    blockers:
+    evidence_document: docs/AWS_FINAL_SMOKE.md
+    candidate_sha: 9926aab7ff84d44067925b7736ca587f8342fbcc
+    human_gates: >-
+      Gate A 由使用者明確批准（candidate 1c58b71 版本）。修掉 E3.3 後 candidate 變為
+      9926aab（差異僅部署腳本與一個測試，產品程式碼未變），使用者同時授權直接操作與
+      承擔成本（AWS 全額補助本次黑客松），因此 Gate B 未另行等待。
+    credential_incident: >-
+      使用者依 Gate A 前的指示把 Workshop Studio 憑證寫入 `~/.aws/credentials`，但貼的是
+      **shell export 片段**而非 INI 格式（4 行 `export KEY=value`、無 `[profile]` 區段標頭），
+      導致 AWS CLI 回 `Unable to parse config file` —— 每一個 AWS 呼叫都失敗，舊的 `[hoyabit]`
+      profile 也被覆蓋。這同時解釋了為什麼使用者自行執行的部署沒有生效。
+      已在不列印任何值的前提下轉成 INI（`[hoyabit]` 與 `[default]`，mode 600），
+      原檔備份於 `~/.aws/credentials.bak-20260802110438`。
+    deployed:
+      stack_status: UPDATE_COMPLETE
+      deployed_at_utc: 2026-08-02T03:17:07
+      region: us-west-2
+      stack_name: hoyabit-agent-mvp
+      package: 30 檔／444 KB
+      runtime: python3.12／1024 MB／timeout 900 s
+      code_commit: 9926aab7ff84d44067925b7736ca587f8342fbcc（線上實測相符，不含 -dirty）
+      bedrock_max_tokens: 5000   # E2.6 的新參數，本次是它第一次生效
+      guardrails: AuthType=NONE、reserved concurrency 5、log 保留 7 天（線上實測皆相符）
+    live_smoke:
+      executed_once: true
+      run_id: RUN-20260802T032130Z-ETH-5d5716b3
+      mode: test
+      coin: ETH
+      question_type: 多源整合（價格、鏈上、新聞、社群 + 一致程度）
+      started_at_utc: 2026-08-02T03:21:30
+      completed_at_utc: 2026-08-02T03:22:24
+      http_status: 200
+      duration_seconds: 55.18   # 命題上限 900
+      response_bytes: 201138    # Function URL buffered 上限 6 MB
+      run_status: COMPLETED_DEGRADED
+      execution_flags: live=True、use_llm=True
+      stage_providers: planner／analyst／critic／claims 全部 bedrock；analyst 與 critic status=success
+      stage_durations_ms: >-
+        plan_research 2969、collect_evidence 1350、llm_reasoning 29123、
+        critic_review 15763、build_claims 4713、其餘合計約 30。
+        模型呼叫佔 52.6 秒（97%），確定性運算約 1.4 秒。
+      citation_gate: PASS_WITH_WARNINGS（0 error、1 warning cited_item_locator、6 個語意 finding）
+      manifest_hashes: 5/5 相符；經 /download?scope=all 取回 ZIP 後重算仍全部相符
+      collectors: 11/13 success（僅 vegas_channel 與 long_short_ratio 因 Binance 地理封鎖降級）
+      claims: CL-001 current_state／supported／信心 0.7911 high／domain_coverage 1.0
+    verified_in_cloud:
       - >-
-        **AWS 憑證不可用。** `~/.aws/credentials` 的 `[hoyabit]` profile 回 `ExpiredToken`
-        （Workshop Studio 臨時憑證），環境變數只有 `AWS_PAGER`。需回活動頁重新取
-        「Get AWS CLI credentials」（含 `AWS_SESSION_TOKEN`）並寫入 profile，或由使用者
-        在自己的終端執行部署。
-    preflight_state_verified_at: 2026-08-02T07:10:00+08:00
-    preflight_state: >-
-      既有 stack 仍存活：對 Function URL 發首頁 GET 回 HTTP 200、801 bytes，頁面顯示
-      `botocore 1.42.97／Converse 可用`。因此 CloudFormation 走 UPDATE 而非 CREATE，
-      部署 bucket、IAM role、log group 都已存在。
-      但線上程式是 f94acfb（T8.4），落後 HEAD 五個 commit：首頁仍同時顯示 test 與 formal
-      選項，證明 E1 的 test-only 護欄尚未上線；E2／E2.5／E2.6／E3／E3.1／E3.2 也都未部署。
-      本機工作樹乾淨，`CODE_COMMIT` 為 5dcf2c8（不是 `-dirty`），因此 E4 要求的
-      「線上 code_commit 等於 candidate SHA」條件成立。
-    estimated_duration_note: >-
-      runbook 的 70–90 分鐘是含緩衝的上限。因既有 stack 存活、模型存取權已驗證、
-      Lambda 內建 botocore 已支援 Converse（不需 --bundle-sdk）、Binance 地理封鎖已由 T8.4 的
-      Kraken 備援解決、nova-lite 的 markdown fence 已由 D5 修復，實際預估 30–45 分鐘。
+        T8.1：required_domains 為 canonical [market, onchain, news, social]，
+        domain_coverage=1.0，verdict supported 而非 insufficient_evidence。
+      - T8.4：Kraken Futures 備援鏈從 us-west-2 連通，derivatives 可靠度 0.8375。
+      - T8.6：13 筆證據，三個社群 collector 各自獨立成功。
+      - >-
+        E1：首頁無 formal 可選值，僅 `<input type='hidden' name='mode' value='test'>`
+        並明示公開雲端展示僅提供 test mode。
+      - >-
+        E2.6：BEDROCK_MAX_TOKENS=5000 生效，執行紀錄零截斷跡象，analyst 完整回傳
+        （輸出變長使該階段由 T8.6 時期的 20.3 秒增為 29.1 秒）。
+      - >-
+        E3：GET /report?run= 回 200／144 KB，lang="zh-Hant-TW"、三報告區塊、
+        站內 anchor 零斷鏈、每個被引用 Evidence 都有 anchor、66 個外部超連結、
+        無可執行 <script>；該端點只讀既有產物。
+      - E3.1：report.md 的 Claim 段有 28 個可點擊連結（部署前為 0），其中 18 個為 source-item。
+      - >-
+        E3.2：三個社群來源 author_coverage 皆 1.0、不同作者數 4／8／16、
+        最大單一帳號佔比 ≤ 0.27、皆有 profile locator → cap 不生效，
+        可靠度 0.4589–0.4875（修復前一律被壓在 0.35）。
+      - T8.5：/download?scope=all 回 application/zip、6 檔、CRC 全對、manifest hash 重算相符。
+    blockers: []
+    known_limitations:
+      - >-
+        **E2 的模型評估被自身驗證擋掉。** 13 筆 semantic_assessment 全部是
+        deterministic_fallback（llm=0），原因是
+        `model assessment rejected: EV-NEWS-001: source_item_ids may name at most 3 items; …`。
+        這**不是** token 上限問題（E2.6 已生效、零截斷、模型完整回傳）；問題是 E2 的驗證是
+        全批作廢制（設計上刻意「不可部分接受」），而模型對三筆聚合證據（news 5 則、
+        social 17–22 則貼文）各列了超過 MAX_ASSESSMENT_SOURCE_ITEM_IDS=3 個子項。
+        後果是「模型判定問題相關性」在雲端未實際啟用；報告品質未受影響，但不得宣稱
+        相關性評估來自模型。
+      - >-
+        vegas_channel 與 long_short_ratio 仍是 Binance 單一來源，us-west-2 為美國 region
+        因此持續降級，run_status 一律 COMPLETED_DEGRADED。region 固有限制，改程式碼無法修復。
+      - 產物只存在容器 /tmp；冷啟動或跨容器時 /report 與 /download 回 404 並說明此限制。
+      - >-
+        首頁沒有 <html> 元素（最小化片段），因此沒有 lang 屬性；結果頁與 /report 都有
+        lang="zh-Hant-TW"。
+      - 公開端點 AuthType=NONE；收斂手段為 E1 的 test-only、concurrency 5、log 保留 7 天。
+      - 測試環境 Python 3.9.6 低於 runbook 要求的 3.10+（自 T0 記錄的既有偏離）。
+      - 未測試雲端雙幣比較；未執行 formal 模式（公開端點已由 E1 禁止）。
+    account_lifecycle: 由主辦方直接取消帳號權限；本專案不規劃也不執行 teardown。
     outstanding_decisions:
       - >-
         `demo-fixtures/` 尚未重新產生，仍是 T8.6 時期的舊語意版本（早於 E2.5 的 stance 修正、
-        E3.1 的連結與 E3.2 的社群分數）。`live-success/` **不該**重生 —— 那是 f94acfb 的真實
-        雲端執行紀錄。要重生的是 `offline-backup/`、`comparison-backup/` 與頂層 `demo-fixtures/`。
+        E3.1 的連結與 E3.2 的社群分數）。`live-success/` 是 f94acfb 的歷史雲端執行紀錄，
+        **不該**重生；本次的 RUN-20260802T032130Z-ETH-5d5716b3 可作為新的 live-success 候選。
+      - >-
+        是否修 E2 的全批作廢問題（讓驗證把超出的 source_item_ids 截斷成 3 個並記錄，
+        而非整批作廢）。這會改動 E2 明文的設計決定，且需要再部署一輪。
       - 是否建立 competition-demo-ready tag（T8 起即懸而未決）。
