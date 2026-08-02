@@ -94,20 +94,42 @@ def _resolve_run_dir(run_id: str = "") -> Path | None:
     return None
 
 
+def _leg_directories(run_dir: Path) -> list[Path]:
+    """比較執行的每一腳子目錄（`<run>/BTC/`、`<run>/ETH/`）。
+
+    只掃一層、不遞迴，並且固定排序 —— 同一個 run 每次打包必須得到同一份清單，否則兩次下載
+    的 ZIP 目錄順序會漂移，評審無法核對。
+    """
+    if not run_dir.is_dir():
+        return []
+    return sorted(path for path in run_dir.iterdir() if path.is_dir())
+
+
 def _collect_downloadables(run_dir: Path, scope: str) -> list[tuple[str, Path]]:
     """收集要打包的檔案，回傳 `(zip 內路徑, 實際路徑)`。
 
     `required` 只收命題要求的三份；`all` 連比較執行的每一腳子目錄一起收。
     只走白名單檔名，因此 `_checkpoint.json` 這類內部狀態檔不會被打包出去。
     """
-    names = REQUIRED_ARTIFACTS if scope == "required" else sorted(DOWNLOADABLE_NAMES)
-    entries = [(name, run_dir / name) for name in names if (run_dir / name).is_file()]
     if scope == "all":
+        names = sorted(DOWNLOADABLE_NAMES)
+        entries = [(name, run_dir / name) for name in names if (run_dir / name).is_file()]
         # 比較執行把每個幣種放在自己的子目錄；少了它們，打包出來的報告會缺兩腳的內容。
-        for leg in sorted(path for path in run_dir.iterdir() if path.is_dir()):
+        for leg in _leg_directories(run_dir):
             entries += [(f"{leg.name}/{name}", leg / name)
-                        for name in sorted(DOWNLOADABLE_NAMES) if (leg / name).is_file()]
-    return entries
+                        for name in names if (leg / name).is_file()]
+        return entries
+
+    entries = [(name, run_dir / name) for name in REQUIRED_ARTIFACTS if (run_dir / name).is_file()]
+    if entries:
+        return entries
+    # 比較執行的根目錄沒有那三份 —— 它們寫在每一腳的子目錄裡。原本這裡會回空清單，於是
+    # `/download?scope=required` 對比較 run 一律 404，而那是評審最可能先按的一顆按鈕。
+    # 只在根目錄「完全沒有」時才退到子目錄：半根目錄半子目錄的混合包會讓讀者分不出
+    # 哪一份對應哪個幣種。
+    return [(f"{leg.name}/{name}", leg / name)
+            for leg in _leg_directories(run_dir)
+            for name in REQUIRED_ARTIFACTS if (leg / name).is_file()]
 
 
 def build_artifact_zip(run_dir: Path, scope: str = "required") -> tuple[bytes, list[str]]:

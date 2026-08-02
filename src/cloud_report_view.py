@@ -881,7 +881,8 @@ def _comparison_downloads(run_id, coin_a, coin_b, artifact_filenames) -> str:
     <p class='small'>{links}</p>
     <p class='small muted'>比較執行的 report.md／evidence.json／execution_log.json 分別寫在
     <code>{_text(coin_a)}/</code> 與 <code>{_text(coin_b)}/</code> 子目錄，
-    因此「三份提交物」ZIP 只在單幣執行才有內容；比較執行請用「全部產出」。</p>
+    因此「三份提交物」ZIP 會依幣種分資料夾收錄，兩腳各三份共六個項目；
+    比較檔（comparison.md／comparison.json）與 manifest 請用「全部產出」。</p>
     <p class='small muted'>提交物寫在處理該次執行的容器暫存目錄。冷啟動或被路由到其他容器時
     連結會回 404，這是 Lambda 的固有限制，不是執行失敗。</p>
     </section>"""
