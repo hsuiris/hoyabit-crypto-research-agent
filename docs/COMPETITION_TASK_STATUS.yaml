@@ -1645,7 +1645,16 @@ tasks:
       - 測試環境 Python 3.9.6 低於 runbook 要求的 3.10+（自 T0 記錄的既有偏離）。
       - 未測試雲端雙幣比較；未執行 formal 模式（公開端點已由 E1 禁止）。
     account_lifecycle: 由主辦方直接取消帳號權限；本專案不規劃也不執行 teardown。
+    deployed_vs_repo_drift: >-
+      本次部署自 9926aab（2026-08-02T11:16:57+08:00 打包，工作目錄乾淨）。之後 repo 又前進了：
+      `23d4525 feat(E3): give the cloud landing page the report stylesheet`（11:28:48）讓首頁
+      重用 src/cloud_report_view.CSS 並補上 `<html lang='zh-Hant-TW'>` 與 width=device-width
+      （本機實測 4,582 bytes，線上仍是 709 bytes 的無樣式片段）。因此線上首頁落後 repo 一個
+      commit，差異僅呈現層，不影響模型路徑、提交物或 Citation Gate。
     outstanding_decisions:
+      - >-
+        是否為 23d4525 的首頁樣式再部署一次。只動呈現層，不需要再跑 live smoke，
+        也不會產生 Bedrock 費用；首頁是評審點開網址後的第一個畫面。
       - >-
         `demo-fixtures/` 尚未重新產生，仍是 T8.6 時期的舊語意版本（早於 E2.5 的 stance 修正、
         E3.1 的連結與 E3.2 的社群分數）。`live-success/` 是 f94acfb 的歷史雲端執行紀錄，

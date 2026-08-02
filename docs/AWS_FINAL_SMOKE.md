@@ -126,8 +126,16 @@
 3. **產物只存在容器 `/tmp`。** `/report` 與 `/download` 只有處理過該次執行的容器讀得到；
    冷啟動或被路由到其他容器時回 404 並說明此限制。未實作 S3 產物持久化。
 
-4. **首頁沒有 `<html>` 元素**（是最小化片段 `<!doctype html><meta charset='utf-8'><title>…`），
-   因此沒有 `lang` 屬性。結果頁與 `/report` 都有 `lang="zh-Hant-TW"`。
+4. **線上首頁落後 repo 一個 commit（僅呈現層）。** 部署當下的首頁是最小化片段
+   （`<!doctype html><meta charset='utf-8'><title>…`，709 bytes），沒有 `<html>` 元素因此
+   沒有 `lang` 屬性、沒有 viewport、沒有樣式。結果頁與 `/report` 不受影響，兩者都有
+   `lang="zh-Hant-TW"` 與完整樣式。
+
+   這一點**已在 repo 修復但尚未部署**：`23d4525 feat(E3): give the cloud landing page the
+   report stylesheet` 於 2026-08-02T11:28:48+08:00 提交，比本次部署晚 12 分鐘，讓首頁重用
+   `src/cloud_report_view.CSS` 並補上 `<html lang='zh-Hant-TW'>` 與 `width=device-width`
+   （本機實測 4,582 bytes）。要讓它上線需要再部署一次；因為只動呈現層、不觸及模型路徑，
+   重新部署不需要再跑一次 live smoke，也不會產生 Bedrock 費用。
 
 5. **公開端點 `AuthType=NONE`。** 任何取得該 URL 的人都能觸發完整 test 執行並消耗 Bedrock
    配額。收斂手段：E1 的 test-only 護欄（formal 與授權重跑一律拒絕）、reserved concurrency 5、
