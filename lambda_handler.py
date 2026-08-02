@@ -194,6 +194,85 @@ def _html(status: int, body: str) -> dict:
 
 
 # --------------------------------------------------------------------------------------
+# 首頁
+# --------------------------------------------------------------------------------------
+#
+# 樣式沿用 `src/cloud_report_view.CSS`，不另寫一份：首頁與結果頁本來就該是同一個介面，
+# 各自維護一套樣式最後一定會分岔。該模組已經在部署套件裡，因此重用它不增加封裝大小。
+#
+# 這裡刻意不引入 `src/app.py` 的首頁 HTML。那一份是為 stdlib server 寫的完整介面（含比較、
+# 回測等雲端沒有的路由），整段搬過來會帶進一堆連不到的連結。
+
+
+def _sdk_note() -> str:
+    """執行環境摘要。只顯示版本與布林值，不顯示例外訊息，且仍經 escape。
+
+    放在首頁的理由：部署驗收不必先跑一次完整分析，就能看出模型路徑是否可用 ——
+    而「成功但已降級」的報告與正常報告在外觀上一模一樣。
+    """
+    available = SDK_CAPABILITY["converse_available"]
+    state = ("<span class='tag pos'>可用</span>" if available else
+             "<span class='tag neg'>不可用（模型路徑會降級為離線推理）</span>")
+    return (f"<p class='small muted'>執行環境：botocore "
+            f"{escape(str(SDK_CAPABILITY['botocore_version'] or '未知'))}"
+            f"　·　Bedrock Converse {state}</p>")
+
+
+def _home_page() -> str:
+    from src.cloud_report_view import CSS
+
+    coins = "".join(
+        f"<option{' selected' if coin == 'ETH' else ''}>{coin}</option>"
+        for coin in ("BTC", "ETH", "SOL", "BNB", "XRP"))
+    return f"""<!doctype html><html lang='zh-Hant-TW'><head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>HOYA BIT｜加密市場分析 AI Agent</title><style>{CSS}
+.hero h1{{margin:0 0 4px}}
+.eyebrow{{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}}
+form.run label{{display:block;margin:0 0 14px;font-weight:600}}
+form.run select,form.run input[type=text]{{display:block;width:100%;margin-top:6px;padding:10px 12px;
+font:inherit;color:inherit;background:#fff;border:1px solid var(--line);border-radius:8px}}
+form.run button{{padding:11px 22px;font:inherit;font-weight:600;color:#fff;background:#12507f;
+border:0;border-radius:8px;cursor:pointer}}
+form.run button:hover{{background:#0e3f66}}
+form.run button:focus{{outline:3px solid #7aa8cc;outline-offset:2px}}
+</style></head><body>
+<main class='wrap'>
+  <section class='card hero'>
+    <div class='eyebrow'>HOYA BIT · Evidence-first AI</div>
+    <h1>加密市場分析 AI Agent</h1>
+    <p class='muted'>輸入幣種與研究問題，系統會平行採集市場、新聞、鏈上、衍生品、社群與總體經濟資料，
+    對每筆證據做可信度評分與問題相關性評估，再由規則引擎決定立場與信心，最後產出可逐項回溯的研究報告。</p>
+    <ul class='meta'>
+      <li>每個結論都能點回 Evidence ID 與原始網址</li>
+      <li>立場與信心由 deterministic Python 計算，不由模型自行給分</li>
+      <li>產出分析報告、證據清單、執行紀錄三份提交物</li>
+    </ul>
+  </section>
+
+  <section class='card'>
+    <div class='notice small'><strong>公開雲端展示僅提供 test mode（test-only demo）</strong>，
+    不提供 formal（正式）執行選項；正式執行僅透過受控管道進行。</div>
+    <form method='post' class='run'>
+      <label>幣種
+        <select name='coin'>{coins}</select>
+      </label>
+      <label>研究問題
+        <input type='text' name='question' value='分析近期市場狀況、主要驅動因素與風險'>
+      </label>
+      <input type='hidden' name='mode' value='test'>
+      <button>開始分析</button>
+    </form>
+    <p class='small muted'>單次分析需要數十秒：六個領域的採集是平行的，但仍要等最慢的來源回應。
+    完成後會顯示分析報告、證據清單與執行紀錄，並提供提交物下載。</p>
+    {_sdk_note()}
+  </section>
+
+  <p class='small muted'>本服務僅供研究與展示用途，不構成投資建議。</p>
+</main></body></html>"""
+
+
+# --------------------------------------------------------------------------------------
 # 提交物下載
 # --------------------------------------------------------------------------------------
 
@@ -389,24 +468,7 @@ def handler(event, context):
     if method == "GET" and path.rstrip("/").endswith("/report"):
         return _render_existing_run(event)
     if method == "GET":
-        # 把 SDK 能力放在首頁，讓部署驗收不必先跑一次完整分析就能看出模型路徑是否可用。
-        # 只顯示版本與布林值，不顯示 detail（例外訊息），並仍經 escape 處理。
-        sdk_note = (
-            "<hr><p style='color:#666;font-size:0.85em'>執行環境："
-            f"botocore {escape(str(SDK_CAPABILITY['botocore_version'] or '未知'))}"
-            "／Bedrock Converse "
-            f"{'可用' if SDK_CAPABILITY['converse_available'] else '<strong>不可用（模型路徑會降級為離線推理）</strong>'}"
-            "</p>"
-        )
-        return _html(200, """<!doctype html><meta charset='utf-8'><title>HOYA BIT Research Agent</title>
-        <h1>加密市場分析 AI Agent</h1>
-        <p style='color:#a33'><strong>公開雲端展示僅提供 test mode（test-only demo）</strong>，
-        不提供 formal（正式）執行選項；正式執行僅透過受控管道進行。</p>
-        <form method='post'>
-        <label>幣種 <select name='coin'><option>BTC</option><option selected>ETH</option><option>SOL</option><option>BNB</option><option>XRP</option></select></label><br>
-        <label>研究問題 <input name='question' size='70' value='分析近期市場狀況、主要驅動因素與風險'></label><br>
-        <input type='hidden' name='mode' value='test'>
-        <button>開始分析</button></form>""" + sdk_note)
+        return _html(200, _home_page())
     raw_body = event.get("body", "")
     if event.get("isBase64Encoded"):
         raw_body = base64.b64decode(raw_body).decode("utf-8")

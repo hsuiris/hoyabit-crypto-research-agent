@@ -312,6 +312,49 @@ class ReportRouteTests(_RealRunFixture):
         self.assertEqual(response["statusCode"], 404)
 
 
+class HomePagePresentationTests(unittest.TestCase):
+    """首頁與結果頁必須是同一個介面。
+
+    背景（實測缺陷）：E3 把結果頁做成三段式排版，但首頁還是完全沒有樣式的裸 HTML ——
+    瀏覽器預設字體、滿版寬度、沒有 viewport。而首頁是評審看到的第一個畫面。
+    """
+
+    def _body(self) -> str:
+        return lambda_module.handler(_get("/"), None)["body"]
+
+    def test_home_page_reuses_the_report_stylesheet(self):
+        """不得各自維護一套樣式：兩邊分岔之後就再也不會一致。"""
+        from src.cloud_report_view import CSS
+
+        body = self._body()
+        self.assertIn("<style>", body)
+        # 取 CSS 裡一段有代表性的宣告，確認是同一份而不是另寫的。
+        self.assertIn(".card{", CSS)
+        self.assertIn(".card{", body)
+
+    def test_home_page_is_declared_traditional_chinese_and_responsive(self):
+        body = self._body()
+        self.assertIn("lang='zh-Hant-TW'", body)
+        self.assertIn("width=device-width", body)
+
+    def test_home_page_explains_what_the_system_produces(self):
+        """25% 商業應用性看可讀性：首頁要說得出這個系統產出什麼。"""
+        body = self._body()
+        self.assertIn("Evidence", body)
+        self.assertIn("執行紀錄", body)
+
+    def test_home_page_still_reports_sdk_capability(self):
+        """降級的報告與正常報告外觀相同，所以模型路徑狀態必須在首頁就看得到。"""
+        self.assertIn("Bedrock Converse", self._body())
+
+    def test_home_page_keeps_the_form_contract(self):
+        """樣式改動不得動到表單契約（E1 的守衛測試依賴這些字串）。"""
+        body = self._body()
+        for required in ("name='coin'", "name='question'",
+                         "name='mode' value='test'", "開始分析"):
+            self.assertIn(required, body, required)
+
+
 class PublicGuardRegressionTests(unittest.TestCase):
     """E1 的 test-only 守衛不得因為 E3 的新路由而失效。"""
 
