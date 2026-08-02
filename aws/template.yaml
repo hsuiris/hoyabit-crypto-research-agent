@@ -55,6 +55,24 @@ Parameters:
     # assumed: amazon.nova-micro-v1:0 accepts the bare ID in us-east-1 but rejects it in
     # us-west-2.  Re-run aws/verify-permissions.sh before changing Region.
     Default: amazon.nova-lite-v1:0
+  BedrockMaxTokens:
+    Type: Number
+    Default: 5000
+    MinValue: 512
+    MaxValue: 5000
+    # Converse 的輸出上限，對應 Lambda 的 BEDROCK_MAX_TOKENS 環境變數。
+    #
+    # 這個參數必須存在，不是調校用的旋鈕：沒有它，Lambda 的環境變數就不含
+    # BEDROCK_MAX_TOKENS，src/llm.py 只能吃程式內建預設值，而 .env 不會進部署包 ——
+    # 因此雲端完全沒有辦法調整輸出上限。
+    #
+    # 撞到上限時 Converse 不會報錯，而是回 stopReason=max_tokens 並把 JSON 截在一半，
+    # 於是整份分析靜靜降級成離線推理，報告照樣產出。E2 之後每筆 Evidence 的語意評估併進
+    # 同一次分析回應，輸出長度因此逼近上限，這條路變成實際風險而非理論風險。
+    #
+    # MaxValue 5000 對齊上方 BedrockModelId 預設模型的文件輸出上限
+    # （amazon.nova-lite-v1:0：context window 300K、max output tokens 5K）。
+    # 換成輸出上限更大的模型要一併調高；更小的則必須調低，否則 Converse 會拒絕請求。
 
 Conditions:
   # AuthType NONE 才需要建立公開叫用權限；切成 AWS_IAM 時這兩個 Permission 一併消失。
@@ -133,6 +151,8 @@ Resources:
           GEMINI_MODEL: !Ref GeminiModel
           OPENAI_MODEL: !Ref OpenAIModel
           BEDROCK_MODEL_ID: !Ref BedrockModelId
+          # 沒有這一行，雲端的輸出上限就無法調整（見 BedrockMaxTokens 參數的說明）。
+          BEDROCK_MAX_TOKENS: !Ref BedrockMaxTokens
           # AWS_REGION is Lambda-reserved; pass the deployed region through a provider-specific
           # variable while llm.py also supports AWS_REGION and AWS_DEFAULT_REGION locally.
           BEDROCK_REGION: !Ref AWS::Region

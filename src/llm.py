@@ -468,12 +468,52 @@ def _generate_openai(prompt: str, schema: dict, schema_name: str, timeout_second
         return _openai_output_text(json.loads(response.read().decode()))
 
 
+# Converse 的輸出上限。原本寫死 2048，而那個值對現在的分析回應已經不夠：
+# E2 把每筆 Evidence 的語意評估併進**同一次**分析回應，實測雲端 analyst 輸出本來就約
+# 1,000 字中文（約 1,100–1,500 tokens），再加 13 筆評估（每筆含一句最多 120 字的 rationale）
+# 很容易超過 2048。超過時 Converse 不會報錯，而是回 `stopReason=max_tokens` 並把 JSON
+# 截在一半，於是 `json.loads()` 拋出的錯誤看起來跟已經修好的 markdown fence bug 一模一樣，
+# 整份分析靜靜降級成離線推理。
+#
+# 4096 是「任何 Nova 模型都吃得下」的保守預設（Nova Lite 與 Micro 的文件輸出上限為 5,000
+# tokens）。部署時可用 `aws/template.yaml` 的 `BedrockMaxTokens` 參數調到該模型的實際上限。
+DEFAULT_BEDROCK_MAX_TOKENS = 4096
+
+# Converse 在輸出被 maxTokens 截斷時回傳的 stopReason。
+BEDROCK_STOP_REASON_MAX_TOKENS = "max_tokens"
+
+
+def _bedrock_stop_reason(raw: dict) -> str:
+    """Converse 的停止原因；缺欄位時回空字串，因此舊的假回應與舊行為完全不受影響。"""
+    return str(raw.get("stopReason") or "").strip().lower()
+
+
 def _bedrock_retry_prompt(prompt: str, schema: dict) -> str:
     return (
         f"{prompt}\n\nYour previous response was invalid. Return only one valid JSON object that "
         f"includes every required field and conforms to this JSON Schema. Output raw JSON only: "
         f"do not wrap it in markdown code fences and do not add any text before or after it.\n"
         f"{json.dumps(schema, ensure_ascii=False)}"
+    )
+
+
+def _bedrock_brevity_retry_prompt(prompt: str) -> str:
+    """輸出被截斷時的重試提示：要求**縮短**，而不是附上 schema。
+
+    這兩種失敗需要相反的處置。`_bedrock_retry_prompt()` 會把整份 JSON Schema 附在後面，
+    那對「格式寫錯」有幫助；但對「太長被截斷」是反效果——模型會照著更完整的 schema 寫出
+    更長的回應，第二次一樣被截，等於白花一次呼叫。
+
+    因此截斷走這一條，並明確允許捨棄選填欄位：`evidence_assessments` 與 `claims` 都不在
+    `ANALYSIS_SCHEMA["required"]` 裡，漏掉它們只會讓那兩層走 deterministic fallback，
+    但整段敘事仍然是模型寫的——比整份分析降級成離線推理好得多。
+    """
+    return (
+        f"{prompt}\n\nYour previous response was cut off because it exceeded the output token "
+        f"limit. Return the same JSON object but much shorter: keep every required field, keep "
+        f"each string brief, and if necessary omit the optional fields "
+        f"'{EVIDENCE_ASSESSMENT_FIELD}' and '{CLAIM_PROPOSAL_FIELD}' entirely. Output raw JSON "
+        f"only: do not wrap it in markdown code fences and do not add any text before or after it."
     )
 
 
@@ -491,6 +531,7 @@ def _generate_bedrock(prompt: str, schema: dict, schema_name: str, timeout_secon
             retries={"max_attempts": 0},
         )
     client = boto3.client("bedrock-runtime", **client_kwargs)
+    max_tokens = _environment_int("BEDROCK_MAX_TOKENS", DEFAULT_BEDROCK_MAX_TOKENS)
     request_prompt = prompt + (
         "\n\nReturn only one valid JSON object. Output raw JSON only: do not wrap it in markdown "
         "code fences and do not add any text before or after it. It must conform to this JSON Schema:\n"
@@ -501,11 +542,21 @@ def _generate_bedrock(prompt: str, schema: dict, schema_name: str, timeout_secon
             modelId=model_id,
             messages=[{"role": "user", "content": [{"text": request_prompt}]}],
             inferenceConfig={
-                "maxTokens": _environment_int("BEDROCK_MAX_TOKENS", 2048),
+                "maxTokens": max_tokens,
                 "temperature": _environment_temperature("BEDROCK_TEMPERATURE", 0.2),
             },
         )
+        truncated = _bedrock_stop_reason(response) == BEDROCK_STOP_REASON_MAX_TOKENS
         try:
+            if truncated:
+                # 截斷的 JSON 一定解不開，但 `json.loads()` 的訊息看不出原因——它與已經修好的
+                # markdown fence bug 長得一模一樣。若不在這裡講明白，雲端只會留下一個
+                # `fallback:ValueError`，而只有一次付費 smoke 的情況下無從判斷該不該調上限。
+                raise ValueError(
+                    f"Bedrock {schema_name} response hit the {max_tokens}-token output cap "
+                    f"(stopReason={BEDROCK_STOP_REASON_MAX_TOKENS}), so the JSON is truncated; "
+                    f"raise BEDROCK_MAX_TOKENS for this deployment"
+                )
             # Converse 沒有強制 JSON 模式，因此必須容忍模型自行加上的 markdown fence，
             # 否則會拿到 Expecting value: line 1 column 1 而且重試無效（見 strip_json_fence）。
             return _parse_json_object(
@@ -514,7 +565,9 @@ def _generate_bedrock(prompt: str, schema: dict, schema_name: str, timeout_secon
         except (json.JSONDecodeError, ValueError) as error:
             if attempt:
                 raise ValueError(f"Bedrock {schema_name} response was invalid after one retry: {error}") from error
-            request_prompt = _bedrock_retry_prompt(prompt, schema)
+            # 太長與寫錯要用相反的重試策略：前者必須更短，後者必須更嚴格。
+            request_prompt = (_bedrock_brevity_retry_prompt(prompt) if truncated
+                              else _bedrock_retry_prompt(prompt, schema))
     raise AssertionError("Bedrock JSON retry loop exited unexpectedly")
 
 

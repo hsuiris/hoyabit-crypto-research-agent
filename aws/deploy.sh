@@ -39,6 +39,11 @@ AUTH_TYPE="${DEPLOY_AUTH_TYPE:-NONE}"
 CONCURRENCY="${DEPLOY_CONCURRENCY:-5}"
 LOG_RETENTION="${DEPLOY_LOG_RETENTION:-7}"
 
+# Converse 的輸出上限。刻意用 DEPLOY_ 前綴而不是直接讀 BEDROCK_MAX_TOKENS：後者是 Lambda 的
+# 執行期變數，本機 .env 裡的值不該決定雲端要部署什麼。預設 5000 對齊 amazon.nova-lite-v1:0
+# 的文件輸出上限；換模型時要一併確認該模型的上限（見 template.yaml 的 BedrockMaxTokens）。
+MAX_TOKENS="${DEPLOY_BEDROCK_MAX_TOKENS:-5000}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -100,6 +105,8 @@ usage() {
   --stack-name NAME      CloudFormation stack 名稱（預設 hoyabit-agent-mvp）
   --provider PROVIDER    LLM provider：bedrock | gemini | openai | none（預設 bedrock）
   --model-id ID          Bedrock model ID（預設 amazon.nova-lite-v1:0）
+  --max-tokens N         Converse 輸出上限（預設 5000，即 nova-lite 的文件上限）
+                         撞到上限時 JSON 會被截斷，整份分析降級成離線推理
   --secret-arn ARN       Secrets Manager ARN，僅 gemini／openai 需要；bedrock 不使用
   --profile PROFILE      AWS CLI profile（等同 export AWS_PROFILE）
   --bundle-sdk           把 boto3／botocore 打包進部署包（僅在 Lambda 內建版本
@@ -134,6 +141,7 @@ while [ $# -gt 0 ]; do
     --stack-name)  STACK_NAME="${2:?--stack-name 需要值}"; shift 2 ;;
     --provider)    PROVIDER="${2:?--provider 需要值}"; shift 2 ;;
     --model-id)    MODEL_ID="${2:?--model-id 需要值}"; shift 2 ;;
+    --max-tokens)  MAX_TOKENS="${2:?--max-tokens 需要值}"; shift 2 ;;
     --secret-arn)  SECRET_ARN="${2:?--secret-arn 需要值}"; shift 2 ;;
     --profile)     export AWS_PROFILE="${2:?--profile 需要值}"; shift 2 ;;
     --bundle-sdk)  BUNDLE_SDK=1; shift ;;
@@ -149,6 +157,11 @@ done
 case "$AUTH_TYPE" in
   NONE|AWS_IAM) ;;
   *) printf '%s\n' "錯誤：--auth-type 必須是 NONE 或 AWS_IAM，收到：$AUTH_TYPE" >&2; exit 2 ;;
+esac
+
+# 在打包前就攔下非數字，而不是讓 CloudFormation 在部署到一半才拒絕。
+case "$MAX_TOKENS" in
+  ''|*[!0-9]*) printf '%s\n' "錯誤：--max-tokens 必須是正整數，收到：$MAX_TOKENS" >&2; exit 2 ;;
 esac
 
 case "$PROVIDER" in
@@ -318,7 +331,7 @@ log "  s3://$BUCKET/$CODE_KEY"
 step 5/6 "部署 CloudFormation stack"
 log "  stack：   $STACK_NAME"
 log "  provider：$PROVIDER"
-[ "$PROVIDER" = "bedrock" ] && log "  model：   $MODEL_ID"
+[ "$PROVIDER" = "bedrock" ] && log "  model：   $MODEL_ID（輸出上限 $MAX_TOKENS tokens）"
 log "  護欄：    auth=$AUTH_TYPE  concurrency=$CONCURRENCY  log 保留=${LOG_RETENTION} 天"
 log "  commit：  $CODE_COMMIT"
 
@@ -334,6 +347,7 @@ DEPLOY_OUTPUT=$(aws cloudformation deploy \
     "LLMSecretArn=$SECRET_ARN" \
     "LLMProvider=$PROVIDER" \
     "BedrockModelId=$MODEL_ID" \
+    "BedrockMaxTokens=$MAX_TOKENS" \
     "FunctionUrlAuthType=$AUTH_TYPE" \
     "ReservedConcurrency=$CONCURRENCY" \
     "LogRetentionDays=$LOG_RETENTION" \
