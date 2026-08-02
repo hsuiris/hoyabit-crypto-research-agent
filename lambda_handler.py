@@ -12,10 +12,14 @@ from urllib.parse import parse_qs
 from src.errors import AgentInputError
 from src.ip_allowlist import allowlist_from_env
 from src.llm import configured_provider, llm_is_configured
-from src.orchestrator import run
+from src.orchestrator import run, run_comparison
 from src.run_manager import (RUN_MODE_FORMAL, RUN_MODE_TEST, VALID_RUN_MODES,
                             FormalRunAlreadyExistsError, RunManager, artifact_root)
 from src.schemas import ARTIFACT_FILENAMES
+
+# 首頁兩個下拉共用同一份清單（`src/errors.py` 的 `validate_request` 是實際的守門人；
+# 這裡只負責不要在畫面上提供一個一定會被拒絕的選項）。
+SUPPORTED_COINS = ("BTC", "ETH", "SOL", "BNB", "XRP")
 
 # Lambda 的容器檔案系統只有暫存目錄可寫。輸出仍然一個 run 一個目錄
 # （`<root>/runs/{run_id}/`），因此同一個容器連續處理兩個請求時，第二次不會覆寫第一次的產物。
@@ -83,6 +87,18 @@ def _prepare_run(question: str, coins, mode: str):
 def _run_mode(raw) -> str:
     mode = str(raw or RUN_MODE_TEST).strip().lower()
     return mode if mode in VALID_RUN_MODES else RUN_MODE_TEST
+
+
+def _compare_target(raw, coin: str) -> str:
+    """把 `compare_with` 收斂成「要比較的第二個幣種」或空字串（代表單幣分析）。
+
+    空值、只有空白、以及與主要幣種相同時一律回空字串：`run_comparison()` 對相同幣種會直接
+    拋 `AgentInputError`，而使用者選到同一個幣種的意思顯然是「不要比較」，不是「拿自己比自己」。
+    非法幣種不在這裡擋，交給既有的 `validate_request()` → `AgentInputError` → 400 路徑，
+    否則就會有兩個地方各自定義合法幣種。
+    """
+    value = str(_first_value(raw) or "").strip().upper()
+    return "" if not value or value == coin else value
 
 
 # --------------------------------------------------------------------------------------
@@ -403,7 +419,10 @@ def _home_page() -> str:
 
     coins = "".join(
         f"<option{' selected' if coin == 'ETH' else ''}>{coin}</option>"
-        for coin in ("BTC", "ETH", "SOL", "BNB", "XRP"))
+        for coin in SUPPORTED_COINS)
+    # 第一個選項必須是空值：預設就是單幣分析，比較是使用者主動選擇的加值路徑。
+    compare_options = "<option value=''>不比較（單幣分析）</option>" + "".join(
+        f"<option>{coin}</option>" for coin in SUPPORTED_COINS)
     return f"""<!doctype html><html lang='zh-Hant-TW'><head><meta charset='utf-8'>
 <meta name='viewport' content='width=device-width,initial-scale=1'>
 <title>HOYA BIT｜加密市場分析 AI Agent</title>
@@ -438,6 +457,15 @@ def _home_page() -> str:
         <label for='question'>研究問題</label>
         <input id='question' type='text' name='question'
                value='分析近期市場狀況、主要驅動因素與風險'>
+      </div>
+      <div class='field'>
+        <label for='compare_with'>比較標的（選填）</label>
+        <select id='compare_with' name='compare_with'>{compare_options}</select>
+      </div>
+      <div class='field'>
+        <p class='small muted' style='margin:0'>選了第二個幣種就會走雙幣比較：系統分別完成兩份
+        完整分析，再產出流動性／風險敞口／市場關注度的並列比較。比較會採集兩個幣種，
+        時間大約是單幣的兩倍；留空或選到同一個幣種時一律當成單幣分析。</p>
       </div>
       <input type='hidden' name='mode' value='test'>
       <div class='actions'>
@@ -547,6 +575,44 @@ def _report_page(run_id: str, artifacts: dict, *, mode: str = "", status: str = 
         execution_log=log,
         manifest=artifacts.get("manifest") or {},
         artifact_filenames=tuple(ARTIFACT_FILENAMES.values()),
+        footer_note=footer_note,
+    )
+
+
+def _leg_evidence(run_dir: Path, coins) -> dict:
+    """讀出比較執行兩腳各自的 `evidence.json`。
+
+    渲染層是純函式，所以檔案 I/O 留在這裡。缺檔時回空清單而不是中斷：那一腳的引用會因此
+    顯示成「未知引用」，那是誠實的呈現，比整頁 500 好。
+    """
+    loaded = {}
+    for coin in coins:
+        target = run_dir / coin / ARTIFACT_FILENAMES["evidence"]
+        try:
+            loaded[coin] = json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            loaded[coin] = []
+    return loaded
+
+
+def _pair_artifact_names(run_dir: Path) -> tuple:
+    """比較執行在 run 根目錄實際產出的可下載檔名（兩腳的六份提交物在各自子目錄）。"""
+    from src.app import DOWNLOADABLE_NAMES
+
+    return tuple(name for name in sorted(DOWNLOADABLE_NAMES) if (run_dir / name).is_file())
+
+
+def _comparison_page(record, payload: dict, run_dir: Path, *, footer_note: str = "") -> str:
+    """把比較結果交給純渲染層。此處只負責取值與讀檔，不做任何判斷或計算。"""
+    from src.cloud_report_view import render_comparison_page
+
+    return render_comparison_page(
+        run_id=record.run_id,
+        mode=record.mode,
+        status=record.status,
+        payload=payload,
+        evidence_by_coin=_leg_evidence(run_dir, payload.get("coins") or []),
+        artifact_filenames=_pair_artifact_names(run_dir),
         footer_note=footer_note,
     )
 
@@ -666,6 +732,58 @@ def _run_summary(record, manifest: dict, log: dict) -> dict:
     }
 
 
+def _comparison_summary(record, payload: dict, coins: list) -> dict:
+    """比較執行的一行摘要。沿用單幣的欄位，再補上「這是比較執行」與兩腳的引用檢核結果。"""
+    manifest = payload.get("manifest") or {}
+    summary = _run_summary(record, manifest,
+                           {"degradation_reasons": manifest.get("degradation_reasons") or []})
+    validation = manifest.get("validation") or {}
+    return {**summary, "kind": "comparison", "coins": coins,
+            "citation_gate_by_coin": validation.get("citation_gate_status_by_coin") or {},
+            "run_status_by_coin": validation.get("run_status_by_coin") or {}}
+
+
+def _comparison_response(record, output_dir: Path, coin: str, compare_with: str,
+                         question: str, content_type: str) -> dict:
+    """雙幣比較路徑。兩腳共用同一個 run 目錄與同一組時間預算。
+
+    引擎完全沿用本機既有的 `src.orchestrator.run_comparison()`，這裡只負責接線、設定
+    `_LATEST_RUN_DIR` 讓 `/download` 與 `/artifact` 找得到產物，以及渲染結果。
+    """
+    global _LATEST_RUN_DIR
+
+    try:
+        payload = run_comparison(coin, compare_with, question, output_dir,
+                                 live=True, use_llm=_load_llm_credentials(), run_record=record)
+    except AgentInputError as error:
+        # 非法幣種在 `run_comparison()` 的第一行就被 `validate_request()` 擋下，因此走到這裡
+        # 代表兩腳都還沒開始採集。
+        return _html(400, f"<meta charset='utf-8'><h1>輸入錯誤</h1><p>{escape(str(error))}</p>")
+    _LATEST_RUN_DIR = output_dir
+    coins = payload.get("coins") or [coin, compare_with]
+    log_run_summary("run", _comparison_summary(record, payload, list(coins)))
+    if "application/json" in content_type:
+        # 欄位風格與單幣 JSON 一致：result ＋ run 中介資料 ＋ 這次 run 根目錄實際產出的提交物。
+        # 兩腳各自的 report／evidence／execution_log 在子目錄，因此另外用 evidence_by_coin
+        # 把兩份證據清單帶出來，呼叫端不必回頭讀容器裡的檔案。
+        artifacts = {
+            key: json.loads((output_dir / name).read_text(encoding="utf-8"))
+            for key, name in ARTIFACT_FILENAMES.items() if (output_dir / name).is_file()
+        }
+        return {"statusCode": 200, "headers": {"content-type": "application/json"},
+                "body": json.dumps({"result": payload, "run_id": record.run_id,
+                                    "run_mode": record.mode, "run_status": record.status,
+                                    "artifact_directory": str(output_dir),
+                                    "sdk_capability": SDK_CAPABILITY,
+                                    "mode": "comparison", "coins": list(coins),
+                                    "comparison": payload.get("comparison"),
+                                    "evidence_by_coin": _leg_evidence(output_dir, coins),
+                                    **artifacts}, ensure_ascii=False)}
+    return _html(200, _comparison_page(
+        record, payload, output_dir,
+        footer_note=f"可用 /download?scope=all&run={record.run_id} 取得兩腳的完整提交物。"))
+
+
 def handler(event, context):
     global _LATEST_RUN_DIR
     # 來源 IP 白名單必須是第一道檢查：放在路由之後，每條路由都得自己記得呼叫，漏一條就是
@@ -700,13 +818,20 @@ def handler(event, context):
     if rejection is not None:
         return rejection
     mode = _run_mode(_first_value(values.get("mode")))
+    coin = str(coin or "").strip().upper()
+    # 選填的第二個幣種。空值／空白／與主要幣種相同都會收斂成空字串，也就是既有的單幣路徑。
+    compare_with = _compare_target(values.get("compare_with"), coin)
     try:
-        record, output_dir = _prepare_run(question, [coin], mode)
+        record, output_dir = _prepare_run(question, [coin, compare_with] if compare_with
+                                          else [coin], mode)
     except FormalRunAlreadyExistsError as error:
         # 正式執行被 lock 擋下是預期行為，但仍要留痕：否則現場只會看到 409 而無從得知
         # 是哪一題被擋、以及原本那次正式執行是哪一個 run。
         log_run_summary("run-rejected", {"reason": "formal_run_already_exists", "detail": str(error)})
         return _html(409, f"<meta charset='utf-8'><h1>正式執行已存在</h1><p>{error}</p>")
+    if compare_with:
+        return _comparison_response(record, output_dir, coin, compare_with, question,
+                                    content_type)
     csv_path = Path(__file__).parent / "data" / f"{coin.upper()}.csv"
     try:
         result = run(coin, question, output_dir, live=True, use_llm=_load_llm_credentials(), ohlcv_path=csv_path if csv_path.exists() else None, run_record=record)

@@ -676,3 +676,339 @@ def render_report_page(*, run_id, mode, status, result, report, evidence, claims
 {_execution_log(log)}
 {f"<p class='small muted'>{_text(footer_note)}</p>" if footer_note else ''}
 </main></body></html>"""
+
+
+# --------------------------------------------------------------------------------------
+# E7 — 雙幣比較頁（cloud dual-coin comparison）
+# --------------------------------------------------------------------------------------
+#
+# 為什麼不直接重用 `render_report_page`：一次比較執行有**兩份**完整的 Evidence 清單，而兩腳
+# 都從 `EV-001` 開始編號。把兩份清單套進單幣頁會在同一份 HTML 產生兩個 `id='evidence-EV-001'`，
+# 瀏覽器只會跳到第一個 —— 引用看起來可追溯，實際上有一半指錯了那一腳。因此比較頁的錨點一律
+# 帶幣種前綴（`evidence-ETH-EV-001`），而且連結與錨點由同一組函式產生，不會各寫一套而分岔。
+#
+# 這裡同樣是純函式：不讀檔、不連網、不重新計算任何分數。畫面上的每個數字都必須能在
+# `comparison.json` 或某一腳的 `evidence.json` 找到同一個值。
+
+# 只補比較頁需要的版面（數值靠右、標題列並排），其餘一律沿用上面那份 `CSS`。
+_COMPARISON_CSS = """
+td.num,th.num{text-align:right;white-space:nowrap}
+.pairgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:720px){.pairgrid{grid-template-columns:1fr}}
+"""
+
+_RISK_COMPONENT_ZH = {
+    "funding_stress": "資金費率擁擠度",
+    "positioning_crowding": "大戶持倉偏斜",
+    "rsi_extremity": "RSI 極端度",
+    "timeframe_conflict": "時區訊號衝突",
+    "realised_volatility": "已實現波動度",
+}
+
+
+def _amount(value) -> str:
+    """並列表格的數值。None 一律顯示「來源未提供」而不是 0：一個採集失敗的來源不該看起來
+    像量到了 0。"""
+    if value is None or isinstance(value, bool):
+        return _text(value if isinstance(value, bool) else None)
+    if isinstance(value, float):
+        return escape(f"{value:,.2f}")
+    if isinstance(value, int):
+        return escape(f"{value:,}")
+    return _text(value)
+
+
+def pair_evidence_anchor(coin, evidence_id) -> str:
+    """比較頁的 Evidence 錨點。帶幣種前綴，因為兩腳的 ID 會重號。"""
+    return _evidence_anchor_id(f"{coin}-{evidence_id}")
+
+
+def pair_evidence_ref(coin, evidence_id, known_ids) -> str:
+    """某一腳引用的 Evidence ID → 站內連結。
+
+    ID 不在那一腳的有效 Evidence 裡時**不產生連結**，理由與單幣頁相同：一個可點但指向不存在
+    錨點的連結，看起來與可追溯的引用一模一樣。
+    """
+    raw = str(evidence_id or "").strip()
+    if not raw:
+        return ""
+    if raw in (known_ids or set()):
+        return (f"<a href='#{escape(pair_evidence_anchor(coin, raw))}'>"
+                f"{escape(str(coin))}／{escape(raw)}</a>")
+    return f"<span class='tag neg'>{escape(raw)}{escape(UNKNOWN_EVIDENCE_MARK)}</span>"
+
+
+def _pair_refs(coin, ids, known_ids) -> str:
+    refs = [pair_evidence_ref(coin, i, known_ids) for i in (ids or []) if str(i).strip()]
+    return "、".join(refs) if refs else "<span class='muted'>無</span>"
+
+
+def _dimension_block(*, anchor, title, tag, verdict, note, basis, rows,
+                     coin_a, coin_b, cited_a, cited_b, known_a, known_b) -> str:
+    body = "".join(
+        f"<tr><td>{_text(label)}</td><td class='num'>{_amount(value_a)}</td>"
+        f"<td class='num'>{_amount(value_b)}</td></tr>"
+        for label, value_a, value_b in rows
+    ) or "<tr><td colspan='3' class='muted'>沒有可列示的指標。</td></tr>"
+    note_html = f"<p class='small notice'>{_text(note)}</p>" if str(note or "").strip() else ""
+    return f"""<article class='card' id='{escape(str(anchor))}'>
+    <h3>{_text(title)}　<span class='tag'>{_text(tag)}</span></h3>
+    <p><b>判讀：</b>{_text(verdict)}</p>
+    {note_html}
+    <div class='tablewrap'><table><thead><tr><th>指標</th>
+      <th class='num'>{_text(coin_a)}</th><th class='num'>{_text(coin_b)}</th>
+    </tr></thead><tbody>{body}</tbody></table></div>
+    <div class='pairgrid'>
+      <p class='small kv'><b>{_text(coin_a)} 引用的 Evidence：</b>
+      {_pair_refs(coin_a, cited_a, known_a)}</p>
+      <p class='small kv'><b>{_text(coin_b)} 引用的 Evidence：</b>
+      {_pair_refs(coin_b, cited_b, known_b)}</p>
+    </div>
+    <p class='small muted'>判讀依據：{_text(basis)}</p>
+    </article>"""
+
+
+def _pair_evidence_rows(coin, evidence) -> str:
+    rows = []
+    for item in evidence or []:
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            f"<tr id='{escape(pair_evidence_anchor(coin, item.get('evidence_id')))}'>"
+            f"<td class='small'>{_text(item.get('evidence_id'))}</td>"
+            f"<td>{_text(item.get('source'))}</td>"
+            f"<td class='small'>{_text(item.get('data_type'))}</td>"
+            f"<td class='small'>{_text(item.get('fetched_at'))}</td>"
+            f"<td class='num'>{_num(item.get('reliability_score'), 4)}</td>"
+            f"<td class='wrap-any small'>{link(item.get('source_url'))}</td></tr>")
+    return "".join(rows) or "<tr><td colspan='6' class='muted'>這一腳沒有有效證據。</td></tr>"
+
+
+def _pair_source_item_rows(coin, evidence) -> str:
+    """子項 locator。title／author／url 全部來自外部來源，一律走 `_text`／`link`。"""
+    rows = []
+    for item in evidence or []:
+        if not isinstance(item, dict):
+            continue
+        for sub in item.get("source_items") or []:
+            if not isinstance(sub, dict):
+                continue
+            anchor = _item_anchor_id(f"{coin}-{sub.get('source_item_id') or ''}")
+            rows.append(
+                f"<tr id='{escape(anchor)}'>"
+                f"<td class='wrap-any small'>{_text(sub.get('source_item_id'))}</td>"
+                f"<td>{_text(sub.get('title') or sub.get('text'))}</td>"
+                f"<td class='small'>{_text(sub.get('author') or sub.get('author_handle'))}</td>"
+                f"<td class='small'>{_text(sub.get('publisher') or sub.get('platform'))}</td>"
+                f"<td class='wrap-any small'>{link(sub.get('url'))}</td></tr>")
+    return "".join(rows)
+
+
+def _leg_section(coin, leg_result, evidence, gate_status) -> str:
+    result = leg_result if isinstance(leg_result, dict) else {}
+    reasoning = result.get("reasoning") or {}
+    item_rows = _pair_source_item_rows(coin, evidence)
+    items_html = (f"""<details><summary>{_text(coin)} 的來源子項（標題／作者／原始連結）</summary>
+    <div class='tablewrap'><table><thead><tr><th>子項 ID</th><th>標題／內容</th><th>作者</th>
+    <th>出版商／平台</th><th>原始連結</th></tr></thead><tbody>{item_rows}</tbody></table></div>
+    </details>""" if item_rows else "")
+    return f"""<section class='card'>
+    <h3>{_text(coin)} 這一腳的證據與結論</h3>
+    <p class='small'><b>Run ID：</b>{_text(result.get('run_id'))}
+    　<b>狀態：</b>{_text(result.get('run_status'))}
+    　{_gate_tag(gate_status)}
+    　<b>信心：</b>{_num(reasoning.get('confidence'), 3)}</p>
+    <p>{_text(reasoning.get('market_judgment'))}</p>
+    <div class='tablewrap'><table><thead><tr><th>Evidence ID</th><th>資料來源</th><th>資料類型</th>
+      <th>系統擷取時間</th><th class='num'>可信度</th><th>原始連結</th>
+    </tr></thead><tbody>{_pair_evidence_rows(coin, evidence)}</tbody></table></div>
+    {items_html}
+    <p class='small muted'>這一腳的完整報告在 <code>{_text(coin)}/report.md</code>，
+    證據清單在 <code>{_text(coin)}/evidence.json</code>（含於「全部產出」ZIP）。</p>
+    </section>"""
+
+
+def _comparison_header(run_id, mode, status, question, coin_a, coin_b, manifest,
+                       gate_by_coin) -> str:
+    data = manifest if isinstance(manifest, dict) else {}
+    lifecycle = data.get("run_lifecycle") or {}
+    degradations = [d for d in (data.get("degradation_reasons") or []) if str(d).strip()]
+    degrade_html = (
+        "<div class='notice small'><b>本次降級項目（兩腳合併）：</b>"
+        + "、".join(_text(d) for d in degradations) + "</div>"
+        if degradations else "<p class='small muted'>本次沒有降級項目。</p>"
+    )
+    gates = "　".join(
+        f"{_text(coin)}：{_gate_tag((gate_by_coin or {}).get(coin))}"
+        for coin in (coin_a, coin_b)
+    )
+    window = data.get("shared_time_window") or {}
+    return f"""<section class='card'>
+    <h1>{_text(coin_a)} vs {_text(coin_b)} 比較分析完成｜雙幣並列研究報告</h1>
+    <p class='small muted'>公開雲端展示僅提供 test mode；正式（formal）執行只透過受控管道進行。</p>
+    <p class='kv'><b>研究問題：</b>{_text(question)}</p>
+    <ul class='meta'>
+      <li>Run ID：{_text(run_id)}</li>
+      <li>執行性質：{_text(mode)}</li>
+      <li>狀態：{_text(status)}</li>
+      <li>比較標的：{_text(coin_a)}　vs　{_text(coin_b)}</li>
+      <li>共用時間窗：{_text(window.get('days'))} 天（{_text(window.get('source'))}）</li>
+      <li>資料截止（as-of）：{_text(data.get('as_of') or lifecycle.get('started_at'))}</li>
+    </ul>
+    <p class='small kv'><b>各腳引用檢核：</b>{gates}</p>
+    {degrade_html}
+    </section>"""
+
+
+def _comparison_nav() -> str:
+    return """<nav class='tabs' aria-label='比較報告區段'>
+    <a href='#comparison-summary'>① 比較結論（Comparison）</a>
+    <a href='#comparison-dimensions'>② 三維度並列（Dimensions）</a>
+    <a href='#comparison-evidence'>③ 兩腳證據（Evidence）</a>
+    </nav>"""
+
+
+def _comparison_downloads(run_id, coin_a, coin_b, artifact_filenames) -> str:
+    run = escape(str(run_id or ""))
+    links = "　".join(
+        f"<a href='/artifact?path={escape(str(name))}&run={run}&download=1'>{escape(str(name))}</a>"
+        for name in (artifact_filenames or ())
+    ) or "<span class='muted'>無</span>"
+    return f"""<section class='card' id='comparison-downloads'>
+    <h2>下載提交物</h2>
+    <p><a href='/download?scope=all&run={run}'>下載全部產出（ZIP，含兩腳各自的六份提交物）</a>
+    　｜　<a href='/download?scope=required&run={run}'>下載三份提交物（ZIP）</a></p>
+    <p class='small'>{links}</p>
+    <p class='small muted'>比較執行的 report.md／evidence.json／execution_log.json 分別寫在
+    <code>{_text(coin_a)}/</code> 與 <code>{_text(coin_b)}/</code> 子目錄，
+    因此「三份提交物」ZIP 只在單幣執行才有內容；比較執行請用「全部產出」。</p>
+    <p class='small muted'>提交物寫在處理該次執行的容器暫存目錄。冷啟動或被路由到其他容器時
+    連結會回 404，這是 Lambda 的固有限制，不是執行失敗。</p>
+    </section>"""
+
+
+def render_comparison_page(*, run_id, mode, status, payload, evidence_by_coin,
+                           artifact_filenames=(), footer_note="") -> str:
+    """把一次比較執行渲染成一頁並列報告。純函式，無 I/O。
+
+    `payload` 是 `src.orchestrator.run_comparison()` 的回傳值；`evidence_by_coin` 是
+    `{coin: evidence list}`，由呼叫端從各腳的 `evidence.json` 載入。
+    """
+    data = payload if isinstance(payload, dict) else {}
+    coins = [str(c) for c in (data.get("coins") or [])]
+    coin_a = coins[0] if coins else ""
+    coin_b = coins[1] if len(coins) > 1 else ""
+    profiles = data.get("profiles") or {}
+    profile_a = profiles.get(coin_a) or {}
+    profile_b = profiles.get(coin_b) or {}
+    comparison = data.get("comparison") or {}
+    manifest = data.get("manifest") or {}
+    results = data.get("results") or {}
+    evidence_map = evidence_by_coin if isinstance(evidence_by_coin, dict) else {}
+    evidence_a = evidence_map.get(coin_a) or []
+    evidence_b = evidence_map.get(coin_b) or []
+    known_a, _ = collect_known_ids(evidence_a)
+    known_b, _ = collect_known_ids(evidence_b)
+    gate_by_coin = (manifest.get("validation") or {}).get("citation_gate_status_by_coin") or {}
+
+    liquidity_a = profile_a.get("liquidity") or {}
+    liquidity_b = profile_b.get("liquidity") or {}
+    risk_a = profile_a.get("risk_exposure") or {}
+    risk_b = profile_b.get("risk_exposure") or {}
+    attention_a = profile_a.get("attention") or {}
+    attention_b = profile_b.get("attention") or {}
+
+    risk_rows = [
+        ("綜合暴險分數（0-100）", risk_a.get("composite_score"), risk_b.get("composite_score")),
+        ("可用組成項目數", risk_a.get("components_available"), risk_b.get("components_available")),
+    ]
+    for key, label in _RISK_COMPONENT_ZH.items():
+        risk_rows.append((label, (risk_a.get("components") or {}).get(key),
+                          (risk_b.get("components") or {}).get(key)))
+
+    dimensions = "".join([
+        _dimension_block(
+            anchor="dimension-liquidity", title="流動性", tag="Liquidity",
+            verdict=(comparison.get("liquidity") or {}).get("verdict"), note="",
+            basis=liquidity_a.get("basis") or liquidity_b.get("basis"),
+            rows=[("平均日成交額（USD）", liquidity_a.get("avg_daily_volume_usd"),
+                   liquidity_b.get("avg_daily_volume_usd")),
+                  ("最新成交額（USD）", liquidity_a.get("latest_volume_usd"),
+                   liquidity_b.get("latest_volume_usd")),
+                  ("成交量變化（%）", liquidity_a.get("volume_trend_pct"),
+                   liquidity_b.get("volume_trend_pct"))],
+            coin_a=coin_a, coin_b=coin_b,
+            cited_a=[liquidity_a.get("evidence_id")], cited_b=[liquidity_b.get("evidence_id")],
+            known_a=known_a, known_b=known_b),
+        _dimension_block(
+            anchor="dimension-risk", title="風險敞口", tag="Risk exposure",
+            verdict=(comparison.get("risk_exposure") or {}).get("verdict"), note="",
+            basis=risk_a.get("basis") or risk_b.get("basis"), rows=risk_rows,
+            coin_a=coin_a, coin_b=coin_b,
+            cited_a=risk_a.get("cited_evidence_ids"), cited_b=risk_b.get("cited_evidence_ids"),
+            known_a=known_a, known_b=known_b),
+        _dimension_block(
+            anchor="dimension-attention", title="市場關注度", tag="Market attention",
+            verdict=(comparison.get("attention") or {}).get("verdict"),
+            note=(comparison.get("attention") or {}).get("note"),
+            basis=attention_a.get("basis") or attention_b.get("basis"),
+            rows=[("社群互動總量（無抓取上限）", attention_a.get("social_engagement_total"),
+                   attention_b.get("social_engagement_total")),
+                  ("新聞則數（抓取上限 5）", attention_a.get("news_article_count"),
+                   attention_b.get("news_article_count")),
+                  ("官方公告則數（抓取上限 5）", attention_a.get("official_announcement_count"),
+                   attention_b.get("official_announcement_count")),
+                  ("社群貼文數（抓取上限 25）", attention_a.get("social_post_count"),
+                   attention_b.get("social_post_count")),
+                  ("則數已達抓取上限", attention_a.get("counts_are_capped"),
+                   attention_b.get("counts_are_capped"))],
+            coin_a=coin_a, coin_b=coin_b,
+            cited_a=attention_a.get("cited_evidence_ids"),
+            cited_b=attention_b.get("cited_evidence_ids"),
+            known_a=known_a, known_b=known_b),
+    ])
+
+    plan = data.get("research_plan") if isinstance(data.get("research_plan"), dict) else {}
+    return f"""<!doctype html><html lang='zh-Hant-TW'><head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>{_text(coin_a)} vs {_text(coin_b)} 比較研究｜HOYA BIT</title>
+<style>{CSS}{_COMPARISON_CSS}</style></head><body>
+<main class='wrap'>
+{_comparison_header(run_id, mode, status, data.get('question'), coin_a, coin_b,
+                    manifest, gate_by_coin)}
+{_comparison_nav()}
+{_comparison_downloads(run_id, coin_a, coin_b, artifact_filenames)}
+<section class='card' id='comparison-summary'>
+  <h2>① 比較結論（Comparison）</h2>
+  <p>{_text(comparison.get('summary'))}</p>
+  <p class='small kv'><b>共用研究計畫：</b>比較維度
+  {_text('、'.join(str(d) for d in (plan.get('comparison_dimensions') or [])) or None)}
+  ／必要資料領域
+  {_text('、'.join(str(d) for d in (plan.get('required_domains') or [])) or None)}</p>
+  <div class='notice small'><b>比較限制：</b>{_text(comparison.get('caveat'))}</div>
+  <p class='small muted'>兩腳共用同一組時間窗與同一個時間預算，因此比較是同一個時間切面的相對
+  差異，不是預測。本頁僅供研究與展示用途，不構成投資建議。</p>
+</section>
+<section class='card' id='comparison-dimensions'>
+  <h2>② 三維度並列（Dimensions）</h2>
+  <p class='small muted'>每個維度的數值都來自各腳自己的 Evidence；右側列出那一腳實際引用的
+  Evidence ID，點擊可跳到下一段的該筆證據。來源不可用時顯示「{escape(NOT_PROVIDED)}」，
+  不以 0 代填。</p>
+  {dimensions}
+</section>
+<section class='card' id='comparison-evidence'>
+  <h2>③ 兩腳證據（Evidence）</h2>
+  <p class='small muted'>兩腳的 Evidence ID 各自從 EV-001 起編號，因此本頁的錨點帶幣種前綴
+  （例如 <code>evidence-{_text(coin_a)}-EV-001</code>）以避免兩腳互相指錯。</p>
+  {_leg_section(coin_a, results.get(coin_a), evidence_a, gate_by_coin.get(coin_a))}
+  {_leg_section(coin_b, results.get(coin_b), evidence_b, gate_by_coin.get(coin_b))}
+</section>
+<section class='card'>
+  <h2>原始比較檔</h2>
+  <details><summary>查看 comparison.md 原文</summary>
+  <pre>{escape(str(data.get('markdown') or ''))}</pre></details>
+  <p class='small muted'>本比較僅供研究與展示用途，不構成投資建議，也不產生任何可執行的
+  買賣訊號。</p>
+</section>
+{f"<p class='small muted'>{_text(footer_note)}</p>" if footer_note else ''}
+</main></body></html>"""
